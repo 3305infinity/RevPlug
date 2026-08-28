@@ -79,11 +79,14 @@ export interface SimulationResult {
   failure_category?: string;
   expected_recovery_value?: number;
   proposed_action?: string;
+  agent_confidence?: number;
   policy_allowed?: boolean;
+  policy_rule?: string;
   execution_status?: string;
   attempt_number?: number;
   retry_scheduled?: boolean;
   escalation_reason?: string;
+  recovery_status?: string;
 }
 
 export async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
@@ -98,6 +101,39 @@ export async function fetchAPI<T>(path: string, options?: RequestInit): Promise<
   return res.json();
 }
 
+export interface AuditEvent {
+  id: string;
+  recovery_item_id: string;
+  actor: string;
+  action: string;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface BatchSimulationResult {
+  results: Array<{
+    recovery_item_id: string | null;
+    status: string;
+    failure_category: string | null;
+    expected_recovery_value: number | null;
+    recovery_status: string | null;
+    proposed_action: string | null;
+    agent_confidence: number | null;
+    policy_allowed: boolean | null;
+    policy_rule: string | null;
+    execution_status: string | null;
+  }>;
+  summary: {
+    total_cases: number;
+    recovered_count: number;
+    recovered_amount_minor: number;
+    escalated_count: number;
+    stopped_count: number;
+    recovery_rate: number;
+  };
+}
+
 export const api = {
   health: () => fetchAPI<{ status: string }>("/health"),
   summary: () => fetchAPI<DashboardSummary>("/api/dashboard/summary"),
@@ -105,10 +141,29 @@ export const api = {
   itemDetail: (id: string) => fetchAPI<CaseDetail>(`/api/recovery-items/${id}`),
   evaluations: () => fetchAPI<EvaluationReport>("/api/evaluations"),
   pendingReviews: () => fetchAPI<RecoveryItem[]>("/api/reviews/pending"),
+  auditEvents: () => fetchAPI<AuditEvent[]>("/api/audit-events"),
+  customerDetail: (id: string) => fetchAPI<{
+    customer_id: string;
+    total_cases: number;
+    revenue_at_risk: number;
+    recovered: number;
+    cases: RecoveryItem[];
+  }>(`/api/customers/${id}`),
   triggerDemo: (data: Record<string, unknown>) =>
     fetchAPI<SimulationResult>("/api/demo/payment-failure", {
       method: "POST",
       body: JSON.stringify(data),
+    }),
+  batchDemo: (data: Record<string, unknown>) =>
+    fetchAPI<BatchSimulationResult>("/api/demo/batch-payment-failures", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getProgramsConfig: () => fetchAPI<Record<string, Record<string, unknown>>>("/api/programs/config"),
+  updateProgramsConfig: (updates: Record<string, Record<string, unknown>>) =>
+    fetchAPI<{ status: string; config: Record<string, Record<string, unknown>> }>("/api/programs/config", {
+      method: "PUT",
+      body: JSON.stringify(updates),
     }),
   approve: (id: string, action: string) =>
     fetchAPI<{ status: string; message: string }>(`/api/recovery-items/${id}/approve`, {

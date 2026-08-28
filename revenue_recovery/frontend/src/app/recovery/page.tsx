@@ -60,8 +60,8 @@ export default function RecoveryQueue() {
             {items.length} case{items.length !== 1 ? "s" : ""} · {fmt(items.reduce((a, i) => a + i.amount_minor, 0))} at risk
           </p>
         </div>
-        <Link href="/simulator" className="btn-primary" style={{ fontSize: "0.8125rem" }}>
-          New Simulation
+        <Link href="/run-recovery" className="btn-primary" style={{ fontSize: "0.8125rem" }}>
+          New Recovery
         </Link>
       </div>
 
@@ -83,7 +83,7 @@ export default function RecoveryQueue() {
         <div className="card" style={{ padding: "4rem", textAlign: "center", color: "var(--text-muted)" }}>
           <div style={{ fontSize: "2rem", marginBottom: "1rem", opacity: 0.6 }}>📭</div>
           <p style={{ fontSize: "0.9375rem", marginBottom: "0.5rem" }}>No cases match this filter</p>
-          <Link href="/simulator" style={{ fontSize: "0.8125rem" }}>Run a simulation →</Link>
+          <Link href="/run-recovery" style={{ fontSize: "0.8125rem" }}>Run a recovery →</Link>
         </div>
       ) : (
         <div style={{ display: "grid", gap: "0.75rem" }}>

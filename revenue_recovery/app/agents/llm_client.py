@@ -65,6 +65,22 @@ class DeterministicLLMClient:
 
     def _deterministic_response(self, prompt: str) -> str:
         prompt_lower = prompt.lower()
+        if "opted out: true" in prompt_lower:
+            return json.dumps({
+                "action": "stop_recovery",
+                "confidence": 0.95,
+                "reasoning": "Customer has opted out of automated recovery; must not retry",
+                "risk_level": "low",
+                "requires_human_approval": False,
+            })
+        if "attempt: 3/3" in prompt_lower or "attempt_count" in prompt_lower and "3/3" in prompt:
+            return json.dumps({
+                "action": "send_payment_link",
+                "confidence": 0.7,
+                "reasoning": "Retry limit reached; offer payment link as alternative",
+                "risk_level": "medium",
+                "requires_human_approval": False,
+            })
         if "fraud" in prompt_lower or "risk" in prompt_lower:
             return json.dumps({
                 "action": "escalate_human",

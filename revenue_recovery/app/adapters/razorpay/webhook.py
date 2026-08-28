@@ -15,6 +15,7 @@ from app.domain.context import RecoveryContext
 from app.domain.escalation import Escalation, EscalationReason
 from app.domain.failures import FailureCategory, NormalizedFailure
 from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+from app.domain.proposals import RecoveryAction
 from app.domain.transitions import DefaultStateMachine, RecoveryStateMachine
 from app.idempotency.store import IdempotencyStore
 from app.interventions.executor import ExecutionResult, RecoveryExecutor, SimulatedRecoveryExecutor
@@ -226,8 +227,12 @@ class RazorpayWebhookService:
             execution_result = self._execute(scored_item, result.proposal.action.value, events)
 
             if execution_result.success:
-                # Success → RECOVERED
-                scored_item = self._safe_transition(scored_item, RecoveryStatus.RECOVERED)
+                if result.proposal.action == RecoveryAction.STOP_RECOVERY:
+                    scored_item = self._safe_transition(scored_item, RecoveryStatus.STOPPED)
+                elif result.proposal.action == RecoveryAction.ESCALATE_HUMAN:
+                    scored_item = self._safe_transition(scored_item, RecoveryStatus.ESCALATED)
+                else:
+                    scored_item = self._safe_transition(scored_item, RecoveryStatus.RECOVERED)
             else:
                 # Failure → check retry
                 retry_decision = self._retry_policy.evaluate(

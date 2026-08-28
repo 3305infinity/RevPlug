@@ -77,6 +77,14 @@ class MockRecoveryDecisionAgent:
             )
 
         if context.failure_category == FailureCategory.SOFT:
+            if context.customer_opt_out:
+                return RecoveryProposal(
+                    action=RecoveryAction.STOP_RECOVERY,
+                    reason="Customer has opted out of automated recovery; must not retry",
+                    confidence=0.95,
+                    model_name=self._model_name,
+                    evidence={"category": context.failure_category.value, "customer_opt_out": True},
+                )
             if context.retryable and context.attempt_count < context.max_attempts:
                 return RecoveryProposal(
                     action=RecoveryAction.RETRY_PAYMENT,

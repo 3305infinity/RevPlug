@@ -6,7 +6,7 @@ import { api, DashboardSummary, RecoveryItem } from "@/lib/api";
 
 type Status = "loading" | "error" | "ready";
 
-export default function CommandCenter() {
+export default function RevenueRecovery() {
   const [status, setStatus] = useState<Status>("loading");
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [items, setItems] = useState<RecoveryItem[]>([]);
@@ -28,6 +28,9 @@ export default function CommandCenter() {
 
   useEffect(() => { load(); }, [load]);
 
+  const fmt = (n: number) =>
+    "Rs" + (n / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
   const needsAttention = useMemo(
     () => items.filter((i) => ["escalated", "failed", "intervention_pending"].includes(i.status)),
     [items]
@@ -40,9 +43,6 @@ export default function CommandCenter() {
     () => items.filter((i) => i.status === "recovered").sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 5),
     [items]
   );
-
-  const fmt = (n: number) =>
-    `₹${(n / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
   if (status === "error") {
     return (
@@ -59,212 +59,156 @@ export default function CommandCenter() {
 
   if (status === "loading" || !summary) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
-        {[...Array(8)].map((_, i) => <div key={i} className="skeleton" style={{ height: 100 }} />)}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", marginBottom: "2rem" }}>
+        {[...Array(3)].map((_, i) => <div key={i} className="skeleton" style={{ height: 100 }} />)}
       </div>
     );
   }
 
   return (
     <div>
-      {/* Header */}
-      <div style={{ marginBottom: "2rem" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+      {/* Hero */}
+      <div className="card" style={{ padding: "2rem", marginBottom: "1.5rem", background: "linear-gradient(135deg, var(--bg-card), var(--bg-elevated))", borderColor: "var(--border-focus)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
           <div>
-            <h1 style={{ fontSize: "1.875rem", fontWeight: 700, letterSpacing: "-0.03em" }}>
-              Command Center
+            <h1 style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.03em", marginBottom: "0.5rem" }}>
+              Revenue Recovery
             </h1>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: "0.25rem" }}>
-              Real-time revenue recovery intelligence
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", maxWidth: 520 }}>
+              Your AI recovery agent is continuously finding and recovering lost revenue.
             </p>
           </div>
           <div style={{ display: "flex", gap: "0.5rem" }}>
-            <Link href="/simulator" className="btn-primary" style={{ fontSize: "0.8125rem" }}>
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" style={{ marginRight: 6 }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              New Simulation
+            <Link href="/run-recovery" className="btn-primary" style={{ fontSize: "0.8125rem" }}>
+              New Recovery
             </Link>
-            <button onClick={load} className="btn-secondary" style={{ fontSize: "0.8125rem" }}>
-              Refresh
-            </button>
+            <Link href="/batch-recovery" className="btn-secondary" style={{ fontSize: "0.8125rem" }}>
+              Batch Recovery
+            </Link>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
+          <div className="metric-card" style={{ borderLeft: `3px solid var(--danger)` }}>
+            <div className="metric-label">Revenue at Risk</div>
+            <div className="metric-value" style={{ color: "var(--danger)", marginTop: 4 }}>{fmt(summary.total_amount_minor)}</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{summary.total_items} case{summary.total_items !== 1 ? "s" : ""}</div>
+          </div>
+          <div className="metric-card" style={{ borderLeft: `3px solid var(--success)` }}>
+            <div className="metric-label">Recovered</div>
+            <div className="metric-value" style={{ color: "var(--success)", marginTop: 4 }}>{fmt(summary.recovered_amount_minor)}</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{summary.recovered_count} case{summary.recovered_count !== 1 ? "s" : ""}</div>
+          </div>
+          <div className="metric-card" style={{ borderLeft: `3px solid var(--accent)` }}>
+            <div className="metric-label">Recovery Rate</div>
+            <div className="metric-value" style={{ color: "var(--accent)", marginTop: 4 }}>{(summary.recovery_rate * 100).toFixed(1)}%</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{summary.pending_count} pending</div>
           </div>
         </div>
       </div>
 
-      {/* Hero metrics */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "2rem" }}>
-        <MetricCard
-          label="Revenue at Risk"
-          value={fmt(summary.total_amount_minor)}
-          sub={`${summary.total_items} case${summary.total_items !== 1 ? "s" : ""}`}
-          accent="var(--danger)"
-        />
-        <MetricCard
-          label="Recovered"
-          value={fmt(summary.recovered_amount_minor)}
-          sub={`${summary.recovered_count} case${summary.recovered_count !== 1 ? "s" : ""}`}
-          accent="var(--success)"
-        />
-        <MetricCard
-          label="Recovery Rate"
-          value={`${(summary.recovery_rate * 100).toFixed(1)}%`}
-          sub={`${summary.pending_count} pending`}
-          accent="var(--accent)"
-        />
-        <MetricCard
-          label="Expected Recovery"
-          value={fmt(summary.expected_recovery_value)}
-          sub={`${summary.escalated_count} escalated`}
-          accent="var(--purple)"
-        />
-      </div>
-
-      {/* Two column layout */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "2rem" }}>
-        {/* Needs Attention */}
-        <Section title="Needs Attention" subtitle="Escalated and blocked cases">
-          {needsAttention.length === 0 ? (
-            <EmptyState message="No cases need attention right now." />
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {needsAttention.slice(0, 5).map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/recovery/${item.id}`}
-                  style={{ textDecoration: "none", display: "block" }}
-                >
-                  <div className="card" style={{ padding: "1rem 1.25rem", transition: "border-color 0.15s" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: "0.875rem", marginBottom: "0.25rem" }}>
-                          {item.id.replace(/^pay_/, "")}
-                        </div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                          {item.root_cause || "unknown"} · {fmt(item.amount_minor)}
-                        </div>
-                      </div>
-                      <StatusBadge status={item.status} />
-                    </div>
-                    {(item.metadata?.proposed_action as string) && (
-                      <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                        Proposed: <span style={{ color: "var(--purple)", fontWeight: 500 }}>{(item.metadata.proposed_action as string)}</span>
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </Section>
-
-        {/* Recovering Automatically */}
-        <Section title="Recovering Automatically" subtitle="Active recovery cases">
-          {recovering.length === 0 ? (
-            <EmptyState message="No active recoveries in progress." />
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {recovering.slice(0, 5).map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/recovery/${item.id}`}
-                  style={{ textDecoration: "none", display: "block" }}
-                >
-                  <div className="card" style={{ padding: "1rem 1.25rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: "0.875rem", marginBottom: "0.25rem" }}>
-                          {item.id.replace(/^pay_/, "")}
-                        </div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                          {item.root_cause || "unknown"} · {fmt(item.amount_minor)}
-                        </div>
-                      </div>
-                      <StatusBadge status={item.status} />
-                    </div>
-                    <div style={{ display: "flex", gap: "1rem", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                      <span>EV: {item.expected_recovery_value ? fmt(item.expected_recovery_value) : "—"}</span>
-                      <span>P: {item.recovery_probability !== null ? `${(item.recovery_probability * 100).toFixed(0)}%` : "—"}</span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </Section>
-      </div>
-
-      {/* Recent Recoveries */}
-      <Section title="Recent Recoveries" subtitle="Successfully resolved cases">
-        {recentRecoveries.length === 0 ? (
-          <EmptyState message="No recoveries yet. Run a simulation to see the engine in action." />
+      {/* Needs your attention */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <div style={{ marginBottom: "1rem" }}>
+          <h2 style={{ fontSize: "1.125rem", fontWeight: 600 }}>Needs your attention</h2>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>Escalated, failed, and intervention-pending cases</p>
+        </div>
+        {needsAttention.length === 0 ? (
+          <div className="card" style={{ padding: "2.5rem", textAlign: "center", color: "var(--text-muted)" }}>
+            <p style={{ fontSize: "0.8125rem" }}>All clear — no cases need human action.</p>
+          </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
-            {recentRecoveries.map((item) => (
-              <Link key={item.id} href={`/recovery/${item.id}`} style={{ textDecoration: "none", display: "block" }}>
-                <div className="card" style={{ padding: "1.25rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
-                    <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>
+            {needsAttention.slice(0, 5).map((item) => (
+              <div key={item.id} className="card" style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <Link href={`/recovery/${item.id}`} style={{ fontWeight: 600, fontSize: "0.875rem", textDecoration: "none" }}>
                       {item.id.replace(/^pay_/, "")}
-                    </div>
-                    <StatusBadge status={item.status} />
-                  </div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
-                    {new Date(item.created_at).toLocaleString()}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                    <div>
-                      <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Amount</div>
-                      <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>{fmt(item.amount_minor)}</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Recovered</div>
-                      <div style={{ fontWeight: 600, fontSize: "0.9375rem", color: "var(--success)" }}>
-                        {item.expected_recovery_value ? fmt(item.expected_recovery_value) : "—"}
-                      </div>
+                    </Link>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                      {item.root_cause || "unknown"} · {fmt(item.amount_minor)}
                     </div>
                   </div>
+                  <span className={`status-badge status-${item.status}`}>{item.status.replace(/_/g, " ")}</span>
                 </div>
-              </Link>
+                <Link href="/review" className="btn-secondary" style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem", alignSelf: "flex-start" }}>
+                  Review case
+                </Link>
+              </div>
             ))}
           </div>
         )}
-      </Section>
-    </div>
-  );
-}
-
-function MetricCard({ label, value, sub, accent }: { label: string; value: string; sub: string; accent: string }) {
-  return (
-    <div className="metric-card" style={{ borderLeft: `3px solid ${accent}` }}>
-      <div className="metric-label">{label}</div>
-      <div className="metric-value" style={{ color: accent, marginTop: 4 }}>{value}</div>
-      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{sub}</div>
-    </div>
-  );
-}
-
-function Section({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ marginBottom: "1rem" }}>
-        <h2 style={{ fontSize: "1.125rem", fontWeight: 600 }}>{title}</h2>
-        <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>{subtitle}</p>
       </div>
-      {children}
+
+      {/* Recovering automatically */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <div style={{ marginBottom: "1rem" }}>
+          <h2 style={{ fontSize: "1.125rem", fontWeight: 600 }}>Recovering automatically</h2>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>Queued, diagnosed, and intervention-executed cases</p>
+        </div>
+        {recovering.length === 0 ? (
+          <div className="card" style={{ padding: "2.5rem", textAlign: "center", color: "var(--text-muted)" }}>
+            <p style={{ fontSize: "0.8125rem" }}>No active recoveries in progress.</p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+            {recovering.slice(0, 5).map((item) => (
+              <div key={item.id} className="card" style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <Link href={`/recovery/${item.id}`} style={{ fontWeight: 600, fontSize: "0.875rem", textDecoration: "none" }}>
+                      {item.id.replace(/^pay_/, "")}
+                    </Link>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                      {item.root_cause || "unknown"} · {fmt(item.amount_minor)}
+                    </div>
+                  </div>
+                  <span className={`status-badge status-${item.status}`}>{item.status.replace(/_/g, " ")}</span>
+                </div>
+                <div style={{ display: "flex", gap: "1rem", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                  <span>EV: {item.expected_recovery_value ? fmt(item.expected_recovery_value) : "—"}</span>
+                  <span>P: {item.recovery_probability !== null ? `${(item.recovery_probability * 100).toFixed(0)}%` : "—"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent recoveries */}
+      <div>
+        <div style={{ marginBottom: "1rem" }}>
+          <h2 style={{ fontSize: "1.125rem", fontWeight: 600 }}>Recent recoveries</h2>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>Successfully resolved cases</p>
+        </div>
+        {recentRecoveries.length === 0 ? (
+          <div className="card" style={{ padding: "2.5rem", textAlign: "center", color: "var(--text-muted)" }}>
+            <p style={{ fontSize: "0.8125rem" }}>No recoveries yet. Run a recovery to see the engine in action.</p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+            {recentRecoveries.map((item) => (
+              <div key={item.id} className="card" style={{ padding: "1.25rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>
+                      {item.id.replace(/^pay_/, "")}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+                      {item.root_cause || "unknown"} · {new Date(item.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <span className={`status-badge status-${item.status}`}>{item.status.replace(/_/g, " ")}</span>
+                </div>
+                <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--success)" }}>
+                  {fmt(item.expected_recovery_value || item.amount_minor)} recovered
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="card" style={{ padding: "2.5rem", textAlign: "center", color: "var(--text-muted)" }}>
-      <p style={{ fontSize: "0.8125rem" }}>{message}</p>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const cls = `status-badge status-${status}`;
-  return <span className={cls}>{status.replace(/_/g, " ")}</span>;
 }

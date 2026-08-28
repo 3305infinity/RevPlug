@@ -236,11 +236,36 @@ def _register_routes(
         secret = _get_secret(target_app)
         sig = hmac_mod.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
         item, audit_events, status = service.process_webhook(raw_body, sig)
-        return JSONResponse(status_code=200, content={
+        response_body: dict[str, Any] = {
             "status": status,
             "recovery_item_id": item.id if item else None,
             "audit_event_count": len(audit_events),
-        })
+        }
+        if item is not None:
+            response_body["failure_category"] = item.root_cause
+            response_body["expected_recovery_value"] = item.expected_recovery_value
+            response_body["recovery_status"] = item.status.value
+            proposal = service.last_proposal
+            decision = service.last_decision
+            if proposal is not None:
+                response_body["proposed_action"] = proposal.action.value
+                response_body["agent_confidence"] = proposal.confidence
+                response_body["agent_model"] = proposal.model_name
+            if decision is not None:
+                response_body["policy_allowed"] = decision.allowed
+                response_body["policy_rule"] = decision.policy_rule
+            execution = service.last_execution
+            if execution is not None:
+                response_body["execution_status"] = "succeeded" if execution.success else "failed"
+                response_body["attempt_number"] = execution.attempt_number
+            retry = service.last_retry
+            if retry is not None:
+                response_body["retry_scheduled"] = retry.allowed
+                response_body["next_attempt_at"] = retry.next_attempt_at.isoformat() if retry.next_attempt_at else None
+            escalation = service.last_escalation
+            if escalation is not None:
+                response_body["escalation_reason"] = escalation.reason.value
+        return JSONResponse(status_code=200, content=response_body)
 
     # Human-in-the-loop review endpoints
 
@@ -251,6 +276,83 @@ def _register_routes(
         container = _get_container(target_app)
         all_items = build_recovery_items_list(container)
         return [i for i in all_items if i["status"] in ("escalated", "failed")]
+
+    @target_app.get("/api/customers/{customer_id}")
+    def api_customer_detail(customer_id: str) -> Response:
+        """Get all recovery cases for a specific customer."""
+        from app.dashboard_api import build_recovery_items_list
+        container = _get_container(target_app)
+        all_items = build_recovery_items_list(container)
+        customer_items = [i for i in all_items if i.get("customer_id") == customer_id]
+        if not customer_items:
+            return JSONResponse(status_code=404, content={"error": "Customer not found"})
+        total_at_risk = sum(i["amount_minor"] for i in customer_items if i["status"] not in ("recovered", "stopped"))
+        total_recovered = sum(i["amount_minor"] for i in customer_items if i["status"] == "recovered")
+        return JSONResponse(status_code=200, content={
+            "customer_id": customer_id,
+            "cases": customer_items,
+            "total_cases": len(customer_items),
+            "revenue_at_risk": total_at_risk,
+            "recovered": total_recovered,
+        })
+
+    @target_app.get("/api/programs/config")
+    def api_programs_config() -> dict[str, Any]:
+        """Get current program configuration."""
+        container = _get_container(target_app)
+        config = getattr(container, "_program_config", None)
+        if config is None:
+            config = {
+                "payment_failure": {
+                    "enabled": True,
+                    "max_retry_attempts": 3,
+                    "escalation_threshold": 0.5,
+                    "min_amount_minor": 100,
+                    "allowed_actions": ["retry_payment", "send_payment_link", "escalate_human", "stop_recovery"],
+                },
+                "checkout_abandonment": {"enabled": False},
+                "subscription_failure": {"enabled": False},
+                "overdue_invoice": {"enabled": False},
+            }
+            container._program_config = config
+        return config
+
+    @target_app.put("/api/programs/config")
+    async def api_update_program_config(request: Request) -> Response:
+        """Update program configuration. Changes are persisted in memory."""
+        import json
+        body = await request.body()
+        try:
+            updates = json.loads(body)
+        except json.JSONDecodeError:
+            return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+        container = _get_container(target_app)
+        config = getattr(container, "_program_config", None)
+        if config is None:
+            config = {
+                "payment_failure": {
+                    "enabled": True,
+                    "max_retry_attempts": 3,
+                    "escalation_threshold": 0.5,
+                    "min_amount_minor": 100,
+                    "allowed_actions": ["retry_payment", "send_payment_link", "escalate_human", "stop_recovery"],
+                },
+                "checkout_abandonment": {"enabled": False},
+                "subscription_failure": {"enabled": False},
+                "overdue_invoice": {"enabled": False},
+            }
+        for key, value in updates.items():
+            if key in config:
+                config[key].update(value)
+        container._program_config = config
+        container.audit_log.log(
+            recovery_item_id="program_config",
+            actor="human",
+            action="program_config_updated",
+            reason="Program configuration updated",
+            metadata={"updates": updates},
+        )
+        return JSONResponse(status_code=200, content={"status": "updated", "config": config})
 
     @target_app.post("/api/recovery-items/{item_id}/approve")
     async def api_approve_item(item_id: str, request: Request) -> Response:
@@ -339,6 +441,103 @@ def _register_routes(
                 if e.actor in ("agent", "system") and "agent" in e.action
             ]
         return JSONResponse(status_code=200, content={"item_id": item_id, "agent_events": events})
+
+    @target_app.get("/api/audit-events")
+    def api_audit_events() -> list[dict[str, Any]]:
+        """Get all audit events across all recovery items."""
+        container = _get_container(target_app)
+        events = []
+        if hasattr(container.audit_log, "_events"):
+            events = [_audit_to_dict(e) for e in container.audit_log._events]
+        return sorted(events, key=lambda x: x["timestamp"], reverse=True)
+
+    @target_app.post("/api/demo/batch-payment-failures")
+    async def api_batch_payment_failures(request: Request) -> Response:
+        """Run multiple synthetic payment failures as a batch."""
+        import json, hashlib, hmac as hmac_mod
+        body = await request.body()
+        payload = {}
+        if body:
+            try:
+                payload = json.loads(body)
+            except json.JSONDecodeError:
+                return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+        count = int(payload.get("count", 5))
+        count = max(1, min(count, 50))
+        error_reason = payload.get("error_reason", "payment_timed_out")
+        base_amount = int(payload.get("amount_minor", 50000))
+        secret = _get_secret(target_app)
+        results = []
+        total_recovered = 0
+        recovered_count = 0
+        escalated_count = 0
+        stopped_count = 0
+
+        for i in range(count):
+            event_id = f"evt_batch_{int(time.time())}_{i}"
+            payment_id = f"pay_batch_{int(time.time())}_{i}"
+            amount = base_amount + (i * 1000)
+            razorpay_payload = {
+                "entity": "event",
+                "account_id": "acc_DEMO",
+                "event": "payment.failed",
+                "contains": ["payment"],
+                "id": event_id,
+                "created_at": int(time.time()),
+                "payload": {
+                    "payment": {
+                        "entity": {
+                            "id": payment_id,
+                            "entity": "payment",
+                            "amount": amount,
+                            "currency": "INR",
+                            "status": "failed",
+                            "method": "card",
+                            "error_code": "BATCH_ERROR",
+                            "error_description": "Batch simulation",
+                            "error_source": "bank",
+                            "error_step": "payment_authorization",
+                            "error_reason": error_reason,
+                            "created_at": int(time.time()),
+                        }
+                    }
+                },
+            }
+            raw_body = json.dumps(razorpay_payload).encode()
+            sig = hmac_mod.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+            item, _, status = service.process_webhook(raw_body, sig)
+            result = {
+                "recovery_item_id": item.id if item else None,
+                "status": status,
+                "failure_category": item.root_cause if item else None,
+                "expected_recovery_value": item.expected_recovery_value if item else None,
+                "recovery_status": item.status.value if item else None,
+                "proposed_action": service.last_proposal.action.value if service.last_proposal else None,
+                "agent_confidence": service.last_proposal.confidence if service.last_proposal else None,
+                "policy_allowed": service.last_decision.allowed if service.last_decision else None,
+                "policy_rule": service.last_decision.policy_rule if service.last_decision else None,
+                "execution_status": "succeeded" if service.last_execution and service.last_execution.success else "failed",
+            }
+            results.append(result)
+            if item:
+                if item.status.value == "recovered":
+                    recovered_count += 1
+                    total_recovered += item.expected_recovery_value or 0
+                elif item.status.value == "escalated":
+                    escalated_count += 1
+                elif item.status.value == "stopped":
+                    stopped_count += 1
+
+        summary = {
+            "total_cases": count,
+            "recovered_count": recovered_count,
+            "recovered_amount_minor": total_recovered,
+            "escalated_count": escalated_count,
+            "stopped_count": stopped_count,
+            "recovery_rate": recovered_count / count if count > 0 else 0,
+        }
+        return JSONResponse(status_code=200, content={"results": results, "summary": summary})
 
 
 def _get_container(app) -> Any:
