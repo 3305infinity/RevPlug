@@ -21,3 +21,7 @@ frontend/out/
 # OS
 .DS_Store
 Thumbs.db
+frontend/.next/
+frontend/node_modules/
+__pycache__/
+*.pyc
