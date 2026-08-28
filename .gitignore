@@ -38,3 +38,8 @@ frontend/node_modules/
 .venv/
 __pycache__/
 *.pyc
+
+# Next.js
+revenue_recovery/frontend/.next/
+revenue_recovery/frontend/node_modules/
+
