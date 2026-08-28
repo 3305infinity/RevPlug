@@ -7,6 +7,16 @@ import { api, CaseDetail } from "@/lib/api";
 
 type Status = "loading" | "error" | "ready";
 
+interface DecisionRow {
+  proposed_action: string;
+  confidence: number;
+  reason: string;
+  model_name: string;
+  policy_allowed: boolean;
+  policy_rule: string;
+  policy_reason: string;
+}
+
 export default function CaseWorkspace() {
   const params = useParams();
   const id = params?.id as string;
@@ -20,12 +30,12 @@ export default function CaseWorkspace() {
     api.itemDetail(id)
       .then(setDetail)
       .catch(() => { setError("not-found"); setDetail(null); })
-      .finally(() => setStatus("loading"));
+      .finally(() => setStatus("ready"));
   }, [id]);
 
   if (status === "loading" || !detail) {
     return (
-      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
         <div className="skeleton" style={{ height: 60, marginBottom: "1.5rem" }} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
           {[...Array(3)].map((_, i) => <div key={i} className="skeleton" style={{ height: 100 }} />)}
@@ -49,10 +59,17 @@ export default function CaseWorkspace() {
   }
 
   const fmt = (n: number) => `₹${(n / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
-  const isTerminal = ["recovered", "escalated", "stopped"].includes(detail.status);
+  const firstDecision: DecisionRow | null = detail.decisions?.[0] ? {
+    proposed_action: String(detail.decisions[0].proposed_action || "—"),
+    confidence: typeof detail.decisions[0].confidence === "number" ? detail.decisions[0].confidence : 0,
+    reason: String(detail.decisions[0].reason || ""),
+    model_name: String(detail.decisions[0].model_name || ""),
+    policy_allowed: Boolean(detail.decisions[0].policy_allowed),
+    policy_rule: String(detail.decisions[0].policy_rule || ""),
+    policy_reason: String(detail.decisions[0].policy_reason || ""),
+  } : null;
 
-  // Build journey stages from audit events
-  const journeyStages = useMemo(() => buildJourney(detail), [detail]);
+  const journeyStages = useMemo(() => buildJourney(detail, firstDecision), [detail, firstDecision]);
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
@@ -147,9 +164,9 @@ export default function CaseWorkspace() {
             <DetailRow label="Currency" value={detail.currency} />
             <DetailRow label="Source" value={detail.source_type} />
             <DetailRow label="Created" value={new Date(detail.created_at).toLocaleString()} />
-                  {(detail.metadata?.error_code as string) && <DetailRow label="Error Code" value={String(detail.metadata.error_code)} />}
-                  {(detail.metadata?.error_reason as string) && <DetailRow label="Error Reason" value={String(detail.metadata.error_reason)} />}
-                  {(detail.metadata?.payment_method as string) && <DetailRow label="Payment Method" value={String(detail.metadata.payment_method)} />}
+            {(detail.metadata?.error_code as string) && <DetailRow label="Error Code" value={String(detail.metadata.error_code)} />}
+            {(detail.metadata?.error_reason as string) && <DetailRow label="Error Reason" value={String(detail.metadata.error_reason)} />}
+            {(detail.metadata?.payment_method as string) && <DetailRow label="Payment Method" value={String(detail.metadata.payment_method)} />}
           </div>
         </div>
 
@@ -160,24 +177,29 @@ export default function CaseWorkspace() {
             <h3 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: "1rem", color: "var(--purple)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               AI Recommendation
             </h3>
-            {detail.metadata?.proposed_action ? (
+            {firstDecision ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
                   <span style={{
                     background: "var(--purple-subtle)", color: "var(--purple)",
                     padding: "0.25rem 0.75rem", borderRadius: 6, fontSize: "0.8125rem", fontWeight: 600,
                   }}>
-                    {String(detail.metadata.proposed_action).replace(/_/g, " ")}
+                    {(firstDecision.proposed_action || "—").replace(/_/g, " ")}
                   </span>
-                  {detail.metadata?.confidence !== undefined && (
+                  {firstDecision.confidence > 0 && (
                     <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                      {(Number(detail.metadata.confidence) * 100).toFixed(0)}% confidence
+                      {firstDecision.confidence.toFixed(0)}% confidence
                     </span>
                   )}
                 </div>
-                {(detail.metadata?.agent_model as string) && (
+                {firstDecision.reason && (
+                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                    {firstDecision.reason}
+                  </div>
+                )}
+                {firstDecision.model_name && (
                   <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                    Model: {(detail.metadata.agent_model as string)}
+                    Model: {firstDecision.model_name}
                   </div>
                 )}
               </div>
@@ -187,22 +209,27 @@ export default function CaseWorkspace() {
           </div>
 
           {/* Policy Decision */}
-          <div className="card" style={{ padding: "1.5rem", borderLeft: `3px solid ${(detail.metadata?.policy_allowed as boolean) ? "var(--success)" : "var(--danger)"}` }}>
+          <div className="card" style={{ padding: "1.5rem", borderLeft: `3px solid ${firstDecision ? (firstDecision.policy_allowed ? "var(--success)" : "var(--danger)") : "var(--border)"}` }}>
             <h3 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: "1rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               Policy Decision
             </h3>
-            {detail.metadata?.policy_allowed !== undefined ? (
+            {firstDecision ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                  <span className={`status-badge ${detail.metadata.policy_allowed ? "status-recovered" : "status-escalated"}`}>
-                    {detail.metadata.policy_allowed ? "ALLOWED" : "DENIED"}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                  <span className={`status-badge ${firstDecision.policy_allowed ? "status-recovered" : "status-escalated"}`}>
+                    {firstDecision.policy_allowed ? "ALLOWED" : "DENIED"}
                   </span>
-                  {detail.metadata?.policy_rule && (
+                  {firstDecision.policy_rule && (
                     <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
-                      {String(detail.metadata.policy_rule)}
+                      {firstDecision.policy_rule}
                     </span>
                   )}
                 </div>
+                {firstDecision.policy_reason && (
+                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+                    {firstDecision.policy_reason}
+                  </div>
+                )}
               </div>
             ) : (
               <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>No policy decision recorded.</p>
@@ -281,12 +308,11 @@ export default function CaseWorkspace() {
   );
 }
 
-function buildJourney(detail: CaseDetail) {
+function buildJourney(detail: CaseDetail, firstDecision: DecisionRow | null) {
   const stages: { label: string; detail?: string; color: string; active: boolean }[] = [
     { label: "Payment Failed", color: "var(--danger)", active: true, detail: `${detail.root_cause || "unknown"} · ₹${(detail.amount_minor / 100).toLocaleString("en-IN")}` },
   ];
 
-  // Check what stages are present in audit events
   const actions = new Set(detail.audit_events.map((e) => e.action));
   const status = detail.status;
 
@@ -296,14 +322,14 @@ function buildJourney(detail: CaseDetail) {
     stages.push({ label: "Failure Classified", color: "var(--border)", active: false });
   }
 
-  if (actions.has("agent_proposal_created") || detail.metadata?.proposed_action) {
-    stages.push({ label: "AI Analyzed", color: "var(--purple)", active: true, detail: `Proposed: ${String(detail.metadata?.proposed_action || "—")}` });
+  if (firstDecision) {
+    stages.push({ label: "AI Analyzed", color: "var(--purple)", active: true, detail: `Proposed: ${(firstDecision.proposed_action || "—").replace(/_/g, " ")}` });
   } else {
     stages.push({ label: "AI Analyzed", color: "var(--border)", active: false });
   }
 
-  if (actions.has("policy_evaluate") || detail.metadata?.policy_allowed !== undefined) {
-    stages.push({ label: "Policy Gate", color: detail.metadata?.policy_allowed ? "var(--success)" : "var(--danger)", active: true, detail: detail.metadata?.policy_allowed ? "Allowed" : "Denied" });
+  if (firstDecision) {
+    stages.push({ label: "Policy Gate", color: firstDecision.policy_allowed ? "var(--success)" : "var(--danger)", active: true, detail: firstDecision.policy_allowed ? "Allowed" : "Denied" });
   } else {
     stages.push({ label: "Policy Gate", color: "var(--border)", active: false });
   }
@@ -347,4 +373,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.8125rem" }}>
       <span style={{ color: "var(--text-muted)" }}>{label}</span>
-      <span style={{ color: "var(--text-primary)", fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>{val
+      <span style={{ color: "var(--text-primary)", fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>{value}</span>
+    </div>
+  );
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { api, RecoveryItem } from "@/lib/api";
 
 type Status = "loading" | "error" | "ready";
