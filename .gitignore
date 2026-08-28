@@ -25,3 +25,10 @@ frontend/.next/
 frontend/node_modules/
 __pycache__/
 *.pyc
+
+frontend/.next/
+frontend/node_modules/
+__pycache__/
+*.pyc
+.venv/
+.env
