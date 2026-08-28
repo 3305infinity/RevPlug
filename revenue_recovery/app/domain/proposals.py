@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import StrEnum
+from typing import Any
+
+
+class RecoveryAction(StrEnum):
+    RETRY_PAYMENT = "retry_payment"
+    SEND_PAYMENT_LINK = "send_payment_link"
+    SEND_CUSTOMER_MESSAGE = "send_customer_message"
+    ESCALATE_HUMAN = "escalate_human"
+    STOP_RECOVERY = "stop_recovery"
+    NO_ACTION = "no_action"
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryProposal:
+    """Structured proposal produced by a RecoveryDecisionAgent.
+
+    This is a PROPOSAL only. It must pass validation and policy evaluation
+    before any action is executed.
+    """
+
+    action: RecoveryAction
+    reason: str
+    confidence: float
+    customer_message: str | None = None
+    proposed_retry: bool = False
+    retry_metadata: dict[str, Any] = field(default_factory=dict)
+    model_name: str = "mock"
+    evidence: dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError(f"confidence must be between 0.0 and 1.0, got {self.confidence}")
+        if not self.reason or not self.reason.strip():
+            raise ValueError("reason is required")
+        if len(self.reason) > 2000:
+            raise ValueError("reason must be 2000 characters or fewer")
+        if self.customer_message and len(self.customer_message) > 4000:
+            raise ValueError("customer_message must be 4000 characters or fewer")
