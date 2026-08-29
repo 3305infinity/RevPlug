@@ -101,6 +101,8 @@ def _build_webhook_service(
         state_machine=DefaultStateMachine(),
         stopping_rules=stopping_rules,
         guard=guard,
+        outcomes=container.outcomes,
+        promises=container.promises,
     )
 
 
@@ -349,13 +351,16 @@ def _register_routes(
 
     @target_app.put("/api/programs/config")
     async def api_update_program_config(request: Request) -> Response:
-        """Update program configuration. Changes are persisted in memory."""
+        """Update program configuration with safety validation."""
         import json
         body = await request.body()
         try:
             updates = json.loads(body)
         except json.JSONDecodeError:
             return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+        validation_errors = _validate_program_config(updates)
+        if validation_errors:
+            return JSONResponse(status_code=400, content={"errors": validation_errors})
         container = _get_container(target_app)
         config = getattr(container, "_program_config", None)
         if config is None:
@@ -616,6 +621,272 @@ def _register_routes(
         }
         return JSONResponse(status_code=200, content={"results": results, "summary": summary})
 
+    @target_app.post("/api/demo/dataset")
+    async def api_demo_dataset(request: Request) -> Response:
+        """Run a deterministic demo dataset of 15 mixed scenarios."""
+        import json, hashlib, hmac as hmac_mod
+        from datetime import datetime, timezone
+
+        body = await request.body()
+        payload = {}
+        if body:
+            try:
+                payload = json.loads(body)
+            except json.JSONDecodeError:
+                return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+        seed = int(payload.get("seed", 42))
+        container = _get_container(target_app)
+        secret = _get_secret(target_app)
+
+        rng = __import__("random").Random(seed)
+
+        def make_payload(event_id, payment_id, error_reason, amount, **kwargs):
+            return {
+                "entity": "event",
+                "account_id": "acc_DEMO",
+                "event": "payment.failed",
+                "contains": ["payment"],
+                "id": event_id,
+                "created_at": int(datetime.now(timezone.utc).timestamp()),
+                "payload": {
+                    "payment": {
+                        "entity": {
+                            "id": payment_id,
+                            "entity": "payment",
+                            "amount": amount,
+                            "currency": kwargs.get("currency", "INR"),
+                            "status": "failed",
+                            "method": kwargs.get("method", "card"),
+                            "error_code": kwargs.get("error_code", "BAD_REQUEST_ERROR"),
+                            "error_description": kwargs.get("error_description", "Payment failed"),
+                            "error_source": kwargs.get("error_source", "bank"),
+                            "error_step": kwargs.get("error_step", "payment_authorization"),
+                            "error_reason": error_reason,
+                            "created_at": int(datetime.now(timezone.utc).timestamp()),
+                        }
+                    }
+                },
+            }
+
+        scenarios = [
+            ("gateway_timeout", 3, "gateway_technical_error", 50000),
+            ("bank_downtime", 2, "payment_timed_out", 45000),
+            ("card_decline", 2, "card_declined", 30000),
+            ("auth_required", 1, "authentication_failed", 20000),
+            ("fraud", 2, "payment_risk_check_failed", 60000),
+            ("opted_out", 1, "payment_timed_out", 35000),
+            ("retry_exhausted", 1, "payment_timed_out", 40000),
+            ("deadline_expired", 1, "payment_timed_out", 25000),
+            ("success_retry", 1, "payment_timed_out", 50000),
+            ("failed_retry_link", 1, "payment_timed_out", 35000),
+        ]
+
+        results = []
+        total_revenue_at_risk = 0
+        total_expected_recovery = 0
+        total_actual_recovered = 0
+        automated_count = 0
+        escalated_count = 0
+        stopped_count = 0
+
+        for scenario_type, count, error_reason, base_amount in scenarios:
+            for i in range(count):
+                event_id = f"evt_ds_{seed}_{scenario_type}_{i}"
+                payment_id = f"pay_ds_{seed}_{scenario_type}_{i}"
+                amount = base_amount + rng.randint(0, 10000)
+                total_revenue_at_risk += amount
+
+                payload_data = make_payload(event_id, payment_id, error_reason, amount)
+                raw_body = json.dumps(payload_data).encode()
+                sig = hmac_mod.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+
+                if scenario_type == "opted_out":
+                    svc = _build_webhook_service(secret, container)
+                    svc._stopping_rules._opted_out_customer_ids = frozenset({svc._default_customer_id})
+                    item, _, status = svc.process_webhook(raw_body, sig)
+                elif scenario_type == "retry_exhausted":
+                    svc = _build_webhook_service(secret, container)
+                    svc._stopping_rules._max_attempts = 0
+                    item, _, status = svc.process_webhook(raw_body, sig)
+                elif scenario_type == "deadline_expired":
+                    svc = _build_webhook_service(secret, container)
+                    orig_build = svc._build_recovery_item
+                    def patched_build(razorpay_failure, normalized):
+                        itm = orig_build(razorpay_failure, normalized)
+                        return itm.__class__(
+                            id=itm.id,
+                            source_type=itm.source_type,
+                            external_id=itm.external_id,
+                            customer_id=itm.customer_id,
+                            amount_minor=itm.amount_minor,
+                            currency=itm.currency,
+                            created_at=itm.created_at,
+                            due_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+                            status=itm.status,
+                            root_cause=itm.root_cause,
+                            recovery_probability=itm.recovery_probability,
+                            expected_recovery_value=itm.expected_recovery_value,
+                            intervention_cost=itm.intervention_cost,
+                            failure_category=itm.failure_category,
+                            provider=itm.provider,
+                            provider_event_id=itm.provider_event_id,
+                            actual_recovery_value=itm.actual_recovery_value,
+                            recovery_status=itm.recovery_status,
+                            score_version=itm.score_version,
+                            scoring_reason=itm.scoring_reason,
+                            priority=itm.priority,
+                            stopped_reason=itm.stopped_reason,
+                            stopped_rule=itm.stopped_rule,
+                            metadata=itm.metadata,
+                        )
+                    svc._build_recovery_item = patched_build
+                    item, _, status = svc.process_webhook(raw_body, sig)
+                    svc._build_recovery_item = orig_build
+                else:
+                    svc = _build_webhook_service(secret, container)
+                    if scenario_type == "success_retry":
+                        orig_exec = svc._executor
+                        class SuccessExecutor(type(orig_exec)):
+                            def execute(self, item, action, *, attempt_number, scenario=None):
+                                from app.interventions.executor import ExecutionResult
+                                return ExecutionResult(
+                                    success=True,
+                                    action=action,
+                                    attempt_number=attempt_number,
+                                    reason=f"Simulated recovery succeeded for {item.id}",
+                                    retry_eligible=False,
+                                    metadata={"simulated": True, "scenario": "success"},
+                                )
+                        svc._executor = SuccessExecutor()
+                    elif scenario_type == "failed_retry_link":
+                        orig_exec = svc._executor
+                        class FailExecutor(type(orig_exec)):
+                            def execute(self, item, action, *, attempt_number, scenario=None):
+                                from app.interventions.executor import ExecutionResult
+                                return ExecutionResult(
+                                    success=False,
+                                    action=action,
+                                    attempt_number=attempt_number,
+                                    reason=f"Simulated permanent failure for {item.id}",
+                                    retry_eligible=False,
+                                    error_code="permanent_failure",
+                                    metadata={"simulated": True, "scenario": "permanent_failure"},
+                                )
+                        svc._executor = FailExecutor()
+                    item, _, status = svc.process_webhook(raw_body, sig)
+
+                if item is None:
+                    continue
+
+                result = {
+                    "recovery_item_id": item.id,
+                    "status": item.status.value,
+                    "failure_category": item.root_cause,
+                    "amount_minor": item.amount_minor,
+                    "expected_recovery_value": item.expected_recovery_value,
+                    "actual_recovery_value": item.actual_recovery_value,
+                    "proposed_action": svc.last_proposal.action.value if svc.last_proposal else None,
+                    "policy_allowed": svc.last_decision.allowed if svc.last_decision else None,
+                    "stopped_reason": getattr(item, "stopped_reason", None),
+                }
+                results.append(result)
+
+                total_expected_recovery += item.expected_recovery_value or 0
+                total_actual_recovered += item.actual_recovery_value or 0
+
+                if item.status.value == "recovered":
+                    automated_count += 1
+                elif item.status.value == "escalated":
+                    escalated_count += 1
+                elif item.status.value == "stopped":
+                    stopped_count += 1
+
+        variance = total_actual_recovered - total_expected_recovery
+        recovery_rate = total_actual_recovered / total_revenue_at_risk if total_revenue_at_risk > 0 else 0.0
+
+        summary = {
+            "total_cases": len(results),
+            "revenue_at_risk_minor": total_revenue_at_risk,
+            "expected_recovery_minor": total_expected_recovery,
+            "actual_recovered_minor": total_actual_recovered,
+            "recovery_rate": round(recovery_rate, 4),
+            "automated_count": automated_count,
+            "escalated_count": escalated_count,
+            "stopped_count": stopped_count,
+            "variance_minor": variance,
+        }
+        return JSONResponse(status_code=200, content={"results": results, "summary": summary})
+
+    @target_app.get("/api/next-action/{item_id}")
+    def api_next_action(item_id: str) -> Response:
+        """Get the deterministic next best action for a recovery case."""
+        container = _get_container(target_app)
+        item = None
+        if hasattr(container.recovery_items, "get"):
+            item = container.recovery_items.get(item_id)
+        if item is None:
+            return JSONResponse(status_code=404, content={"error": "Item not found"})
+
+        from app.policies.engine import InterventionPolicy
+        from app.policies.guard import DefaultRecoveryGuard
+        from app.policies.stopping_rules import StoppingRules
+
+        stopping_rules = StoppingRules(max_attempts=3)
+        policy_engine = InterventionPolicy(max_retry_attempts=3)
+        guard = DefaultRecoveryGuard(stopping_rules=stopping_rules, policy_engine=policy_engine)
+
+        decisions = []
+        if hasattr(container.decisions, "list_by_recovery_item_id"):
+            decisions = container.decisions.list_by_recovery_item_id(item_id)
+
+        last_proposal_action = None
+        last_policy_rule = None
+        if decisions:
+            last = decisions[-1]
+            last_proposal_action = last.get("proposed_action")
+            last_policy_rule = last.get("policy_rule")
+
+        guard_decision = guard.evaluate(item, last_proposal_action or "retry_payment", container=container)
+        attempt_count = int(item.metadata.get("attempt_count", 0))
+        retry_budget = max(0, 3 - attempt_count)
+
+        response = {
+            "item_id": item_id,
+            "current_status": item.status.value,
+            "next_action": last_proposal_action,
+            "reason": guard_decision.reason,
+            "safety_decision": guard_decision.decision_type,
+            "policy_rule": last_policy_rule or guard_decision.rule,
+            "stopping_rule": guard_decision.reason_code if not guard_decision.allowed else "none",
+            "expected_recovery_value": item.expected_recovery_value,
+            "retry_budget_remaining": retry_budget,
+        }
+        return JSONResponse(status_code=200, content=response)
+
+
+def _validate_program_config(updates: dict[str, Any]) -> list[str]:
+    errors = []
+    for program_key, program_config in updates.items():
+        if not isinstance(program_config, dict):
+            continue
+        if "max_retry_attempts" in program_config:
+            val = program_config["max_retry_attempts"]
+            if not isinstance(val, int) or val > 10:
+                errors.append(f"{program_key}: max_retry_attempts must be <= 10, got {val}")
+            if not isinstance(val, int) or val < 1:
+                errors.append(f"{program_key}: max_retry_attempts must be >= 1, got {val}")
+        if "allowed_actions" in program_config:
+            actions = program_config["allowed_actions"]
+            if isinstance(actions, list) and "retry_payment" in actions:
+                if "fraud" in program_key.lower():
+                    errors.append(f"{program_key}: retry_payment is not allowed for fraud program")
+        if "confidence_threshold" in program_config:
+            val = program_config["confidence_threshold"]
+            if isinstance(val, (int, float)) and val < 0.5:
+                errors.append(f"{program_key}: confidence_threshold must be >= 0.5, got {val}")
+    return errors
+
 
 def _get_container(app) -> Any:
     """Get the persistence container from app state or module global."""
@@ -684,6 +955,8 @@ def create_app(
     fresh.state.container = container
     fresh.state.webhook_secret = webhook_secret
     service = webhook_service or _build_webhook_service(webhook_secret, container)
+    if webhook_service is not None and hasattr(webhook_service, "container"):
+        fresh.state.container = webhook_service.container
     _register_routes(fresh, service)
     return fresh
 

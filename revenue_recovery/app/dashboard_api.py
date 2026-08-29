@@ -166,6 +166,7 @@ def _item_to_dict(item) -> dict[str, Any]:
         "root_cause": item.root_cause,
         "recovery_probability": item.recovery_probability,
         "expected_recovery_value": item.expected_recovery_value,
+        "actual_recovery_value": getattr(item, "actual_recovery_value", None),
         "stopped_reason": getattr(item, "stopped_reason", None),
         "stopped_rule": getattr(item, "stopped_rule", None),
         "metadata": item.metadata,
@@ -193,4 +194,97 @@ def _audit_to_dict(event) -> dict[str, Any]:
         "reason": event.reason,
         "metadata": event.metadata,
         "timestamp": event.timestamp.isoformat(),
+    }
+
+
+def build_next_action(container, item_id: str) -> dict[str, Any] | None:
+    """Return next best action data for a recovery case."""
+    item = None
+    if hasattr(container.recovery_items, "get"):
+        item = container.recovery_items.get(item_id)
+    if item is None:
+        return None
+
+    from app.policies.engine import InterventionPolicy
+    from app.policies.guard import DefaultRecoveryGuard
+    from app.policies.stopping_rules import StoppingRules
+
+    stopping_rules = StoppingRules(max_attempts=3)
+    policy_engine = InterventionPolicy(max_retry_attempts=3)
+    guard = DefaultRecoveryGuard(stopping_rules=stopping_rules, policy_engine=policy_engine)
+
+    decisions = []
+    if hasattr(container.decisions, "list_by_recovery_item_id"):
+        decisions = container.decisions.list_by_recovery_item_id(item_id)
+
+    last_proposal_action = None
+    last_policy_rule = None
+    if decisions:
+        last = decisions[-1]
+        last_proposal_action = last.get("proposed_action")
+        last_policy_rule = last.get("policy_rule")
+
+    guard_decision = guard.evaluate(item, last_proposal_action or "retry_payment", container=container)
+    attempt_count = int(item.metadata.get("attempt_count", 0))
+    retry_budget = max(0, 3 - attempt_count)
+
+    return {
+        "item_id": item_id,
+        "current_status": item.status.value,
+        "next_action": last_proposal_action,
+        "reason": guard_decision.reason,
+        "safety_decision": guard_decision.decision_type,
+        "policy_rule": last_policy_rule or guard_decision.rule,
+        "stopping_rule": guard_decision.reason_code if not guard_decision.allowed else "none",
+        "expected_recovery_value": item.expected_recovery_value,
+        "retry_budget_remaining": retry_budget,
+    }
+
+
+def build_batch_economics(container, results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Calculate expected vs actual, variance, recovery rate from batch results."""
+    total_cases = len(results)
+    revenue_at_risk = sum(r.get("amount_minor") or 0 for r in results)
+    expected_recovery = sum(r.get("expected_recovery_value") or 0 for r in results)
+    actual_recovered = sum(r.get("actual_recovery_value") or 0 for r in results)
+    variance = actual_recovered - expected_recovery
+    recovery_rate = actual_recovered / revenue_at_risk if revenue_at_risk > 0 else 0.0
+    automated = sum(1 for r in results if r.get("status") == "recovered")
+    escalated = sum(1 for r in results if r.get("status") == "escalated")
+    stopped = sum(1 for r in results if r.get("status") == "stopped")
+    return {
+        "total_cases": total_cases,
+        "revenue_at_risk_minor": revenue_at_risk,
+        "expected_recovery_minor": expected_recovery,
+        "actual_recovered_minor": actual_recovered,
+        "recovery_rate": round(recovery_rate, 4),
+        "automated_count": automated,
+        "escalated_count": escalated,
+        "stopped_count": stopped,
+        "variance_minor": variance,
+    }
+
+
+def build_customer_economics(container, customer_id: str) -> dict[str, Any]:
+    """Return customer-level totals with proper variance tracking."""
+    items = []
+    if hasattr(container.recovery_items, "_items"):
+        items = [i for i in container.recovery_items._items.values() if i.customer_id == customer_id]
+
+    total_cases = len(items)
+    revenue_at_risk = sum(i.amount_minor for i in items)
+    recovered_items = [i for i in items if i.status.value == "recovered"]
+    actual_recovered = sum(i.actual_recovery_value or i.amount_minor for i in recovered_items)
+    expected_recovery = sum(i.expected_recovery_value or 0 for i in items)
+    variance = actual_recovered - expected_recovery
+    recovery_rate = actual_recovered / revenue_at_risk if revenue_at_risk > 0 else 0.0
+    return {
+        "customer_id": customer_id,
+        "total_cases": total_cases,
+        "revenue_at_risk_minor": revenue_at_risk,
+        "expected_recovery_minor": expected_recovery,
+        "actual_recovered_minor": actual_recovered,
+        "recovery_rate": round(recovery_rate, 4),
+        "variance_minor": variance,
+        "items": [_item_to_dict(i) for i in items],
     }

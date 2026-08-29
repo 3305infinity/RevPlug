@@ -31,6 +31,7 @@ class RecoveryProposal:
     retry_metadata: dict[str, Any] = field(default_factory=dict)
     model_name: str = "mock"
     evidence: dict[str, Any] = field(default_factory=dict)
+    diagnosis: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def __post_init__(self) -> None:

@@ -14,7 +14,7 @@ from app.db.repositories import RecoveryItemRepository
 from app.domain.context import RecoveryContext
 from app.domain.escalation import Escalation, EscalationReason
 from app.domain.failures import FailureCategory, NormalizedFailure
-from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+from app.domain.models import RecoveryItem, RecoveryOutcome, RecoveryStatus, SourceType
 from app.domain.proposals import RecoveryAction
 from app.domain.transitions import DefaultStateMachine, RecoveryStateMachine
 from app.idempotency.store import IdempotencyStore
@@ -61,6 +61,8 @@ class RazorpayWebhookService:
         state_machine: RecoveryStateMachine | None = None,
         stopping_rules: StoppingRules | None = None,
         guard: RecoveryGuard | None = None,
+        outcomes: Any = None,
+        promises: Any = None,
         default_customer_id: str = "razorpay_customer",
     ) -> None:
         self._webhook_secret = webhook_secret
@@ -72,6 +74,8 @@ class RazorpayWebhookService:
         self._recovery_items = recovery_items
         self._decisions = decisions
         self._attempts = attempts
+        self._outcomes = outcomes
+        self._promises = promises
         self._default_customer_id = default_customer_id
         self._agent = agent or MockRecoveryDecisionAgent()
         self._orchestrator = orchestrator
@@ -88,6 +92,24 @@ class RazorpayWebhookService:
             )
         else:
             self._guard = None
+
+    @property
+    def container(self) -> Any:
+        """Expose underlying repositories as a container-like namespace for route helpers."""
+
+        class _ServiceContainer:
+            pass
+
+        c = _ServiceContainer()
+        c.recovery_items = self._recovery_items
+        c.decisions = self._decisions
+        c.attempts = self._attempts
+        c.outcomes = self._outcomes
+        c.promises = self._promises
+        c.provider_events = self._provider_events
+        c.idempotency = self._idempotency_store
+        c.audit_log = self._audit_log
+        return c
 
     def process_webhook(
         self,
@@ -286,7 +308,8 @@ class RazorpayWebhookService:
             guard_decision = self._guard.evaluate(
                 scored_item,
                 result.proposal.action.value,
-                promises=None,
+                container=None,
+                promises=self._promises,
             )
             events.append(self._audit_log.log(
                 recovery_item_id=scored_item.id,
@@ -352,6 +375,23 @@ class RazorpayWebhookService:
                 execution_result = self._execute(scored_item, result.proposal.action.value, events)
                 if execution_result.success:
                     scored_item = self._safe_transition(scored_item, RecoveryStatus.RECOVERED)
+                    if self._outcomes is not None:
+                        from app.domain.models import RecoveryOutcome
+                        recovered_amount = scored_item.expected_recovery_value or 0
+                        recovery_cost = scored_item.intervention_cost or 0
+                        outcome = RecoveryOutcome(
+                            id=f"outcome_{scored_item.id}",
+                            recovery_item_id=scored_item.id,
+                            outcome_type="recovered",
+                            expected_recovery_minor=recovered_amount,
+                            actual_recovery_minor=recovered_amount,
+                            recovery_cost_minor=recovery_cost,
+                            net_recovery_minor=recovered_amount - recovery_cost,
+                            recovered_at=datetime.now(timezone.utc),
+                            created_at=datetime.now(timezone.utc),
+                            metadata={"source": "webhook_execution"},
+                        )
+                        self._outcomes.save(outcome)
                     scored_item = scored_item.__class__(
                         id=scored_item.id,
                         source_type=scored_item.source_type,
@@ -369,7 +409,7 @@ class RazorpayWebhookService:
                         failure_category=scored_item.failure_category,
                         provider=scored_item.provider,
                         provider_event_id=scored_item.provider_event_id,
-                        actual_recovery_value=scored_item.actual_recovery_value,
+                        actual_recovery_value=scored_item.expected_recovery_value,
                         recovery_status=scored_item.recovery_status,
                         score_version=scored_item.score_version,
                         scoring_reason=scored_item.scoring_reason,
@@ -383,6 +423,7 @@ class RazorpayWebhookService:
                         occurred_at=datetime.now(timezone.utc),
                     )
                     if retry_decision.allowed:
+                        scored_item = self._safe_transition(scored_item, RecoveryStatus.FAILED)
                         scored_item = self._safe_transition(scored_item, RecoveryStatus.QUEUED)
                         events.append(self._audit_log.log(
                             recovery_item_id=scored_item.id,
@@ -422,6 +463,49 @@ class RazorpayWebhookService:
                         scored_item = self._safe_transition(scored_item, RecoveryStatus.ESCALATED)
                     else:
                         scored_item = self._safe_transition(scored_item, RecoveryStatus.RECOVERED)
+                        if self._outcomes is not None:
+                            from app.domain.models import RecoveryOutcome
+                            recovered_amount = scored_item.expected_recovery_value or 0
+                            recovery_cost = scored_item.intervention_cost or 0
+                            outcome = RecoveryOutcome(
+                                id=f"outcome_{scored_item.id}",
+                                recovery_item_id=scored_item.id,
+                                outcome_type="recovered",
+                                expected_recovery_minor=recovered_amount,
+                                actual_recovery_minor=recovered_amount,
+                                recovery_cost_minor=recovery_cost,
+                                net_recovery_minor=recovered_amount - recovery_cost,
+                                recovered_at=datetime.now(timezone.utc),
+                                created_at=datetime.now(timezone.utc),
+                                metadata={"source": "webhook_execution"},
+                            )
+                            self._outcomes.save(outcome)
+                        scored_item = scored_item.__class__(
+                            id=scored_item.id,
+                            source_type=scored_item.source_type,
+                            external_id=scored_item.external_id,
+                            customer_id=scored_item.customer_id,
+                            amount_minor=scored_item.amount_minor,
+                            currency=scored_item.currency,
+                            created_at=scored_item.created_at,
+                            due_at=scored_item.due_at,
+                            status=scored_item.status,
+                            root_cause=scored_item.root_cause,
+                            recovery_probability=scored_item.recovery_probability,
+                            expected_recovery_value=scored_item.expected_recovery_value,
+                            intervention_cost=scored_item.intervention_cost,
+                            failure_category=scored_item.failure_category,
+                            provider=scored_item.provider,
+                            provider_event_id=scored_item.provider_event_id,
+                            actual_recovery_value=scored_item.expected_recovery_value,
+                            recovery_status=scored_item.recovery_status,
+                            score_version=scored_item.score_version,
+                            scoring_reason=scored_item.scoring_reason,
+                            priority=scored_item.priority,
+                            stopped_reason=scored_item.stopped_reason,
+                            stopped_rule=scored_item.stopped_rule,
+                            metadata=scored_item.metadata,
+                        )
                 else:
                     retry_decision = self._retry_policy.evaluate(
                         scored_item,
@@ -429,6 +513,7 @@ class RazorpayWebhookService:
                         occurred_at=datetime.now(timezone.utc),
                     )
                     if retry_decision.allowed:
+                        scored_item = self._safe_transition(scored_item, RecoveryStatus.FAILED)
                         scored_item = self._safe_transition(scored_item, RecoveryStatus.QUEUED)
                         events.append(self._audit_log.log(
                             recovery_item_id=scored_item.id,
