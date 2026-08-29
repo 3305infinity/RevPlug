@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 type ControlItem = {
   name: string;
@@ -14,6 +15,25 @@ const CONTROLS_KEY = "recovery_controls";
 export default function ControlsPage() {
   const [controls, setControls] = useState<ControlItem[]>([]);
   const [status, setStatus] = useState<"loading" | "error" | "ready">("loading");
+  const [resetStatus, setResetStatus] = useState<"idle" | "resetting">("idle");
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const handleReset = async () => {
+    if (!confirm("Are you sure you want to reset demo data? This will clear all generated synthetic cases and cannot be undone.")) {
+      return;
+    }
+    setResetStatus("resetting");
+    setToast(null);
+    try {
+      await api.resetDemoData();
+      setToast({ type: "success", message: "Demo data reset successfully." });
+      // reload after 1 sec
+      setTimeout(() => window.location.reload(), 1000);
+    } catch {
+      setToast({ type: "error", message: "Failed to reset demo data." });
+      setResetStatus("idle");
+    }
+  };
 
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/controls`)
@@ -152,6 +172,40 @@ export default function ControlsPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {toast && (
+        <div style={{
+          marginTop: "1.5rem",
+          padding: "0.875rem 1.25rem",
+          borderRadius: 8,
+          fontSize: "0.8125rem",
+          fontWeight: 500,
+          background: toast.type === "success" ? "var(--success-subtle)" : "var(--danger-subtle)",
+          color: toast.type === "success" ? "var(--success)" : "var(--danger)",
+          border: `1px solid ${toast.type === "success" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`,
+        }}>
+          {toast.message}
+        </div>
+      )}
+
+      <div className="card" style={{ padding: "1.5rem", marginTop: "2rem", border: "1px solid rgba(239,68,68,0.2)" }}>
+        <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "var(--danger)", marginBottom: "0.5rem" }}>Danger Zone</h3>
+        <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
+          Reset all synthetic demo data. This will clear generated items, promises, and audit logs.
+        </p>
+        <button
+          onClick={handleReset}
+          disabled={resetStatus === "resetting"}
+          className="btn-secondary"
+          style={{
+            borderColor: "var(--danger)",
+            color: "var(--danger)",
+            background: "var(--danger-subtle)",
+          }}
+        >
+          {resetStatus === "resetting" ? "Resetting..." : "Reset Demo Data"}
+        </button>
       </div>
     </div>
   );

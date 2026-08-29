@@ -21,8 +21,9 @@ class PromiseService:
         metadata: dict[str, Any] | None = None,
     ) -> Promise:
         """Create a new promise-to-pay."""
+        import uuid
         return Promise(
-            id=f"promise_{item_id}",
+            id=str(uuid.uuid4()),
             recovery_item_id=item_id,
             customer_id=customer_id,
             promised_amount_minor=promised_amount_minor,

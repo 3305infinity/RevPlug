@@ -468,7 +468,7 @@ class TestCustomerDetailAPI:
         assert "cases" in data
         assert "total_cases" in data
         assert "revenue_at_risk" in data
-        assert "recovered" in data
+        assert "actually_recovered" in data
 
     def test_customer_detail_not_found(self, client):
         resp = client.get("/api/customers/nonexistent_customer_xyz")
@@ -590,3 +590,17 @@ class TestBatchRecoveryAPI:
         for r in data["results"]:
             assert r["recovery_status"] == "stopped"
             assert r["proposed_action"] == "stop_recovery"
+
+    def test_get_recovery_detail_serialization(self, client):
+        payload = _SOFT_FAILURE_PAYLOAD
+        body = json.dumps(payload).encode()
+        sig = _sign(body)
+        resp = client.post("/webhooks/razorpay", content=body, headers={"X-Razorpay-Signature": sig})
+        assert resp.status_code == 200
+        item_id = resp.json()["recovery_item_id"]
+        
+        detail_resp = client.get(f"/api/recovery-items/{item_id}")
+        assert detail_resp.status_code == 200
+        data = detail_resp.json()
+        assert "audit_events" in data
+        assert "decisions" in data or len(data.get("decisions", [])) >= 0

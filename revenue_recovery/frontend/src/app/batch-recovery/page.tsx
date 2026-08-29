@@ -17,7 +17,7 @@ const EVENT_TYPES = [
 
 export default function BatchRecovery() {
   const [status, setStatus] = useState<Status>("loading");
-  const [count, setCount] = useState(10);
+  const [count, setCount] = useState(50);
   const [errorReason, setErrorReason] = useState(EVENT_TYPES[0].value);
   const [baseAmount, setBaseAmount] = useState(50000);
   const [result, setResult] = useState<BatchSimulationResult | null>(null);
@@ -96,16 +96,18 @@ export default function BatchRecovery() {
             <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.5rem" }}>
               Number of Cases
             </label>
-            <input
-              type="number"
+            <select
               value={count}
-              onChange={(e) => setCount(Math.max(1, Math.min(50, Number(e.target.value))))}
+              onChange={(e) => setCount(Number(e.target.value))}
               className="input"
               style={{ width: "100%" }}
-              min={1}
-              max={50}
               disabled={status === "running"}
-            />
+            >
+              <option value={10}>10 cases</option>
+              <option value={50}>50 cases</option>
+              <option value={100}>100 cases</option>
+              <option value={500}>500 cases</option>
+            </select>
           </div>
           <div>
             <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.5rem" }}>
@@ -194,7 +196,12 @@ export default function BatchRecovery() {
                 {stoppedReasons.map((r) => (
                   <div key={r.reason} style={{ padding: "0.75rem 1rem", background: "var(--bg-tertiary)", borderRadius: 8 }}>
                     <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)", textTransform: "capitalize", marginBottom: "0.25rem" }}>
-                      {r.reason.replace(/_/g, " ")}
+                      {r.reason === "fraud_detected" ? "Fraud (Policy Block)" :
+                       r.reason === "retry_limit_exhausted" ? "Retry Limit Exhausted" :
+                       r.reason === "deadline_exceeded" ? "Deadline Exceeded" :
+                       r.reason === "opt_out" ? "Customer Opt-out" :
+                       r.reason === "promise_expired" ? "Promise Expired" :
+                       r.reason.replace(/_/g, " ")}
                     </div>
                     <div style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--danger)", fontFamily: "monospace" }}>{r.count}</div>
                     <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>cases stopped</div>

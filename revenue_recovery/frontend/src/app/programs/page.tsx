@@ -195,8 +195,13 @@ export default function Programs() {
 
                   {/* Safety config */}
                   <div style={{ padding: "1rem 1.25rem", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border-subtle)" }}>
-                    <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
-                      Safety Configuration
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                      <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        Safety Configuration
+                      </div>
+                      <div style={{ fontSize: "0.625rem", color: "var(--accent)" }}>
+                        Managed by backend policy.
+                      </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
                       <div>

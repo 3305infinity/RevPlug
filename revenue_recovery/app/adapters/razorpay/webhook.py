@@ -173,9 +173,10 @@ class RazorpayWebhookService:
         provider_event = None
         is_new_event = False
         if self._provider_events is not None:
+            import uuid
             from app.domain.models import ProviderEvent
             candidate = ProviderEvent(
-                id=f"pe_{provider_event_id}",
+                id=str(uuid.uuid4()),
                 provider=provider,
                 provider_event_id=provider_event_id,
                 received_at=received_at,
@@ -186,7 +187,7 @@ class RazorpayWebhookService:
                     "amount_minor": razorpay_failure.amount_minor,
                     "currency": razorpay_failure.currency,
                 },
-                processing_status="received",
+                processing_status="pending",
             )
             is_new_event, provider_event = self._provider_events.try_insert(candidate)
             if is_new_event:
@@ -238,6 +239,10 @@ class RazorpayWebhookService:
         # Stage 5: create RecoveryItem and transition to DIAGNOSED
         item = self._build_recovery_item(razorpay_failure, normalized)
         item = self._safe_transition(item, RecoveryStatus.DIAGNOSED)
+
+        if self._recovery_items is not None:
+            self._recovery_items.save(item)
+
         events.append(self._audit_log.log(
             recovery_item_id=item.id,
             actor="system",
@@ -379,8 +384,9 @@ class RazorpayWebhookService:
                         from app.domain.models import RecoveryOutcome
                         recovered_amount = scored_item.expected_recovery_value or 0
                         recovery_cost = scored_item.intervention_cost or 0
+                        import uuid
                         outcome = RecoveryOutcome(
-                            id=f"outcome_{scored_item.id}",
+                            id=str(uuid.uuid4()),
                             recovery_item_id=scored_item.id,
                             outcome_type="recovered",
                             expected_recovery_minor=recovered_amount,
@@ -467,8 +473,9 @@ class RazorpayWebhookService:
                             from app.domain.models import RecoveryOutcome
                             recovered_amount = scored_item.expected_recovery_value or 0
                             recovery_cost = scored_item.intervention_cost or 0
+                            import uuid
                             outcome = RecoveryOutcome(
-                                id=f"outcome_{scored_item.id}",
+                                id=str(uuid.uuid4()),
                                 recovery_item_id=scored_item.id,
                                 outcome_type="recovered",
                                 expected_recovery_minor=recovered_amount,
@@ -692,8 +699,9 @@ class RazorpayWebhookService:
         razorpay_failure: RazorpayPaymentFailure,
         normalized: NormalizedFailure,
     ) -> RecoveryItem:
+        import uuid
         return RecoveryItem(
-            id=razorpay_failure.razorpay_payment_id,
+            id=str(uuid.uuid4()),
             source_type=SourceType.PAYMENT_FAILURE,
             external_id=razorpay_failure.razorpay_event_id,
             customer_id=self._default_customer_id,

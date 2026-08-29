@@ -3,17 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api, RecoveryItem } from "@/lib/api";
+import { api, RecoveryItem, CustomerDetail as CustomerData } from "@/lib/api";
 
 type Status = "loading" | "error" | "ready";
 
-interface CustomerData {
-  customer_id: string;
-  total_cases: number;
-  revenue_at_risk: number;
-  recovered: number;
-  cases: RecoveryItem[];
-}
 
 export default function CustomerDetail() {
   const params = useParams();
@@ -61,12 +54,35 @@ export default function CustomerDetail() {
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-      <div style={{ marginBottom: "1.5rem" }}>
-        <Link href="/customers" style={{ fontSize: "0.75rem", color: "var(--text-muted)", textDecoration: "none" }}>
-          ← Customers
-        </Link>
+      <div style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+        <div>
+          <Link href="/customers" style={{ fontSize: "0.8125rem", color: "var(--text-muted)", display: "inline-block", marginBottom: "0.5rem" }}>
+            ← Back to Customers
+          </Link>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ opacity: 0.5 }}>Customer:</span> {data.customer_id}
+          </h1>
+        </div>
       </div>
 
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", marginBottom: "2rem" }}>
+        <div className="metric-card" style={{ borderLeft: "3px solid var(--danger)" }}>
+          <div className="metric-label">Revenue at Risk</div>
+          <div className="metric-value" style={{ color: "var(--danger)" }}>{fmt(data.revenue_at_risk)}</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{activeCases.length} active cases</div>
+        </div>
+        <div className="metric-card" style={{ borderLeft: "3px solid var(--success)" }}>
+          <div className="metric-label">Actually Recovered</div>
+          <div className="metric-value" style={{ color: "var(--success)" }}>{fmt(data.actually_recovered)}</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{recoveredCases.length} cases resolved</div>
+        </div>
+        <div className="metric-card" style={{ borderLeft: "3px solid var(--purple)" }}>
+          <div className="metric-label">Expected Recovery</div>
+          <div className="metric-value" style={{ color: "var(--purple)" }}>{fmt(data.expected_recovery || 0)}</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>projected</div>
+        </div>
+      </div>
+      
       <div className="card" style={{ padding: "2rem", marginBottom: "1.5rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
           <div>
@@ -86,8 +102,8 @@ export default function CustomerDetail() {
               <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--danger)", fontFamily: "monospace" }}>{fmt(data.revenue_at_risk)}</div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: "0.625rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>Recovered</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--success)", fontFamily: "monospace" }}>{fmt(data.recovered)}</div>
+              <div style={{ fontSize: "0.625rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>Actually Recovered</div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--success)", fontFamily: "monospace" }}>{fmt(data.actually_recovered)}</div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: "0.625rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>Active Cases</div>

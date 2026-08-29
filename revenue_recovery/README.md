@@ -162,6 +162,7 @@ The RecoverOS frontend is a Next.js application that provides an operational com
 | `GET` | `/api/customers/{id}` | Customer account detail with recovery history |
 | `GET` | `/api/programs/config` | Recovery program configuration |
 | `PUT` | `/api/programs/config` | Update program configuration |
+| `POST` | `/api/demo/reset` | Safely clear synthetic demo data |
 
 ## Retry Behavior
 
@@ -270,7 +271,6 @@ HTTP 200
 - Python 3.11
 - No global mutable state
 - No external APIs
-- No background workers
 
 ## BUILT
 
@@ -295,11 +295,14 @@ HTTP 200
 - Customer account view
 - Recovery program configuration
 - Safety controls dashboard
+- Async background recovery worker (Stage 7)
+- Real revenue operations data model and financial truth (Stage 8)
+- Judge-proof systemic constraints and UI refinements (Stage 9)
+- Secure synthetic data scope and reset capabilities
 
 ## FUTURE (ROADMAP)
 
 - Real Razorpay payment execution
-- Background retry worker
 - Real LLM provider integration (OpenAI, Anthropic, etc.)
 - Multi-channel customer communication (email, SMS)
 - Advanced metrics and reporting

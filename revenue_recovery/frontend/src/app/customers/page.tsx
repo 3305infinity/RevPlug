@@ -2,32 +2,21 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { api, RecoveryItem, CaseDetail } from "@/lib/api";
+import { api, CustomerDetail } from "@/lib/api";
 
 type Status = "loading" | "error" | "ready";
 
-interface CustomerAccount {
-  customerId: string;
-  name: string;
-  totalOutstanding: number;
-  revenueAtRisk: number;
-  recovered: number;
-  openCases: number;
-  lastActivity: string;
-  cases: RecoveryItem[];
-}
-
 export default function Customers() {
   const [status, setStatus] = useState<Status>("loading");
-  const [items, setItems] = useState<RecoveryItem[]>([]);
+  const [customers, setCustomers] = useState<CustomerDetail[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       setStatus("loading");
-      const data = await api.items();
-      setItems(data);
+      const data = await api.customers();
+      setCustomers(data.sort((a, b) => b.revenue_at_risk - a.revenue_at_risk));
       setError(null);
       setStatus("ready");
     } catch (err) {
@@ -38,45 +27,8 @@ export default function Customers() {
 
   useEffect(() => { load(); }, [load]);
 
-  const customers = useMemo<CustomerAccount[]>(() => {
-    const map = new Map<string, CustomerAccount>();
-
-    items.forEach((item) => {
-      const cid = item.customer_id || "unknown";
-      if (!map.has(cid)) {
-        map.set(cid, {
-          customerId: cid,
-          name: "Customer " + cid.slice(-4),
-          totalOutstanding: 0,
-          revenueAtRisk: 0,
-          recovered: 0,
-          openCases: 0,
-          lastActivity: item.created_at,
-          cases: [],
-        });
-      }
-      const c = map.get(cid)!;
-      c.cases.push(item);
-      c.totalOutstanding += item.amount_minor;
-      if (item.status !== "recovered" && item.status !== "stopped") {
-        c.revenueAtRisk += item.amount_minor;
-      }
-      if (item.status === "recovered") {
-        c.recovered += item.amount_minor;
-      }
-      if (["queued", "intervention_executed", "diagnosed", "processing", "escalated", "intervention_pending"].includes(item.status)) {
-        c.openCases += 1;
-      }
-      if (new Date(item.created_at) > new Date(c.lastActivity)) {
-        c.lastActivity = item.created_at;
-      }
-    });
-
-    return Array.from(map.values()).sort((a, b) => b.totalOutstanding - a.totalOutstanding);
-  }, [items]);
-
   const selectedCustomer = useMemo(
-    () => customers.find((c) => c.customerId === selectedCustomerId) || null,
+    () => customers.find((c) => c.customer_id === selectedCustomerId) || null,
     [customers, selectedCustomerId]
   );
 
@@ -114,10 +66,10 @@ export default function Customers() {
         <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.25rem", background: "var(--accent-subtle)", border: "1px solid rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
           <div>
             <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--accent)", marginBottom: 2 }}>
-              Showing cases for {selectedCustomer.name}
+              Showing cases for Customer {selectedCustomer.customer_id.slice(-4)}
             </div>
             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-              {selectedCustomer.cases.length} case{selectedCustomer.cases.length !== 1 ? "s" : ""} · {fmt(selectedCustomer.totalOutstanding)} total outstanding
+              {selectedCustomer.cases.length} case{selectedCustomer.cases.length !== 1 ? "s" : ""} · {fmt(selectedCustomer.revenue_at_risk)} revenue at risk
             </div>
           </div>
           <button onClick={() => setSelectedCustomerId(null)} className="btn-secondary" style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}>
@@ -129,52 +81,57 @@ export default function Customers() {
       <div style={{ display: "grid", gap: "0.75rem" }}>
         {(selectedCustomer ? [selectedCustomer] : customers).map((customer) => (
           <div
-            key={customer.customerId}
+            key={customer.customer_id}
             className="card"
             style={{
               padding: "1.25rem 1.5rem",
               cursor: "pointer",
-              border: selectedCustomerId === customer.customerId ? "1px solid var(--accent)" : undefined,
+              border: selectedCustomerId === customer.customer_id ? "1px solid var(--accent)" : undefined,
               transition: "border-color 0.15s",
             }}
             onClick={() => {
-              if (selectedCustomerId === customer.customerId) {
-                window.location.href = `/customers/${customer.customerId}`;
+              if (selectedCustomerId === customer.customer_id) {
+                window.location.href = `/customers/${customer.customer_id}`;
               } else {
-                setSelectedCustomerId(customer.customerId);
+                setSelectedCustomerId(customer.customer_id);
               }
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem", gap: "1rem", flexWrap: "wrap" }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                  <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>{customer.name}</div>
-                  <Link href={`/customers/${customer.customerId}`} onClick={(e) => e.stopPropagation()} style={{ fontSize: "0.6875rem", color: "var(--accent)", textDecoration: "none" }}>
+                  <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Customer {customer.customer_id.slice(-4)}</div>
+                  {customer.opt_out && <span className="status-badge status-stopped">Opted Out</span>}
+                  <Link href={`/customers/${customer.customer_id}`} onClick={(e) => e.stopPropagation()} style={{ fontSize: "0.6875rem", color: "var(--accent)", textDecoration: "none" }}>
                     Open →
                   </Link>
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
-                  {customer.customerId}
+                  {customer.customer_id}
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Outstanding</div>
-                <div style={{ fontWeight: 700, fontSize: "1.0625rem", color: "var(--danger)" }}>{fmt(customer.totalOutstanding)}</div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>At Risk</div>
+                <div style={{ fontWeight: 700, fontSize: "1.0625rem", color: "var(--danger)" }}>{fmt(customer.revenue_at_risk)}</div>
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem", marginBottom: "0.75rem" }}>
-              <MetricCell label="Revenue at Risk" value={fmt(customer.revenueAtRisk)} accent="var(--warning)" />
-              <MetricCell label="Recovered" value={fmt(customer.recovered)} accent="var(--success)" />
-              <MetricCell label="Open Cases" value={String(customer.openCases)} accent="var(--accent)" />
+              <MetricCell label="Total Cases" value={String(customer.total_cases)} accent="var(--text-primary)" />
+              <MetricCell label="Actually Recovered" value={fmt(customer.actually_recovered)} accent="var(--success)" />
+              <MetricCell label="Active Cases" value={String(customer.active_cases)} accent="var(--accent)" />
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", color: "var(--text-secondary)", flexWrap: "wrap", gap: "0.5rem" }}>
               <span>
-                {customer.cases.length} case{customer.cases.length !== 1 ? "s" : ""}
+                {customer.promises && customer.promises.length > 0 ? (
+                  <span style={{ color: "var(--warning)" }}>{customer.promises.length} promises</span>
+                ) : (
+                  `${customer.cases.length} case${customer.cases.length !== 1 ? "s" : ""}`
+                )}
               </span>
               <span style={{ color: "var(--text-muted)" }}>
-                Last activity: {new Date(customer.lastActivity).toLocaleString()}
+                Last activity: {customer.last_action_at ? new Date(customer.last_action_at).toLocaleString() : "Unknown"}
               </span>
             </div>
           </div>
@@ -184,7 +141,7 @@ export default function Customers() {
       {selectedCustomer && (
         <div style={{ marginTop: "1.5rem" }}>
           <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>
-            Cases for {selectedCustomer.name}
+            Cases for Customer {selectedCustomer.customer_id.slice(-4)}
           </h3>
           <div style={{ display: "grid", gap: "0.5rem" }}>
             {selectedCustomer.cases.map((item) => (

@@ -8,12 +8,14 @@ type Status = "loading" | "error" | "ready";
 
 const FILTERS = [
   { key: "all", label: "All" },
-  { key: "system", label: "System" },
-  { key: "agent", label: "AI" },
-  { key: "policy_denied", label: "Policy Denied" },
-  { key: "recovery_stopped", label: "Stopped" },
-  { key: "recovery_escalated", label: "Escalated" },
-  { key: "execution_succeeded", label: "Recovered" },
+  { key: "provider", label: "Provider" },
+  { key: "recovery", label: "Recovery" },
+  { key: "ai", label: "AI" },
+  { key: "policy", label: "Policy" },
+  { key: "execution", label: "Execution" },
+  { key: "worker", label: "Worker" },
+  { key: "human", label: "Human" },
+  { key: "outcome", label: "Outcome" },
 ] as const;
 
 export default function Activity() {
@@ -39,10 +41,21 @@ export default function Activity() {
 
   const filtered = useMemo(() => {
     if (filter === "all") return events;
-    if (filter === "policy_denied" || filter === "recovery_stopped" || filter === "recovery_escalated" || filter === "execution_succeeded") {
-      return events.filter((e) => e.action === filter);
-    }
-    return events.filter((e) => e.actor.toLowerCase() === filter);
+    return events.filter((e) => {
+      const act = e.action.toLowerCase();
+      const actor = e.actor.toLowerCase();
+      switch (filter) {
+        case "provider": return act.includes("provider") || actor.includes("provider");
+        case "recovery": return act.includes("recovery") || actor.includes("recovery");
+        case "ai": return actor === "agent" || act.includes("ai_");
+        case "policy": return actor === "policy" || act.includes("guard_") || act.includes("policy");
+        case "execution": return actor === "execution" || act.includes("execution") || act.includes("intervention_");
+        case "worker": return actor === "worker" || act.includes("worker") || act.includes("job_") || act.includes("batch_");
+        case "human": return actor === "human" || act.includes("human");
+        case "outcome": return act.includes("outcome") || act.includes("recovered") || act.includes("escalated") || act.includes("stopped");
+        default: return true;
+      }
+    });
   }, [events, filter]);
 
   if (status === "error") {

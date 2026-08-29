@@ -89,23 +89,23 @@ export default function RevenueRecovery() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "2rem" }}>
         <div className="metric-card" style={{ borderLeft: `3px solid var(--danger)` }}>
           <div className="metric-label">Revenue at Risk</div>
-          <div className="metric-value" style={{ color: "var(--danger)", marginTop: 4 }}>{fmt(summary.total_amount_minor)}</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{summary.total_items} cases</div>
+          <div className="metric-value" style={{ color: "var(--danger)", marginTop: 4 }}>{fmt(summary.revenue_at_risk)}</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{summary.active_recoveries} cases</div>
         </div>
         <div className="metric-card" style={{ borderLeft: `3px solid var(--success)` }}>
           <div className="metric-label">Actually Recovered</div>
-          <div className="metric-value" style={{ color: "var(--success)", marginTop: 4 }}>{fmt(summary.recovered_amount_minor)}</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{summary.recovered_count} cases resolved</div>
+          <div className="metric-value" style={{ color: "var(--success)", marginTop: 4 }}>{fmt(summary.actually_recovered)}</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{summary.recovered_cases} cases resolved</div>
         </div>
         <div className="metric-card" style={{ borderLeft: `3px solid var(--accent)` }}>
           <div className="metric-label">Recovery Rate</div>
           <div className="metric-value" style={{ color: "var(--accent)", marginTop: 4 }}>{(summary.recovery_rate * 100).toFixed(1)}%</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{summary.pending_count} pending</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>of revenue at risk</div>
         </div>
         <div className="metric-card" style={{ borderLeft: `3px solid var(--purple)` }}>
           <div className="metric-label">Expected Recovery</div>
-          <div className="metric-value" style={{ color: "var(--purple)", marginTop: 4 }}>{fmt(summary.expected_recovery_value)}</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>projected</div>
+          <div className="metric-value" style={{ color: "var(--purple)", marginTop: 4 }}>{fmt(summary.expected_recovery)}</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>projected deterministically</div>
         </div>
       </div>
 
@@ -252,9 +252,11 @@ function CaseRow({ item, fmt }: { item: RecoveryItem; fmt: (n: number) => string
   } else {
     statusColor = "var(--accent)";
     actionLabel = (item.metadata?.proposed_action as string | undefined)?.replace(/_/g, " ") || null;
-    policyLabel = item.stopped_reason ? item.stopped_reason.replace(/_/g, " ") : "In progress";
+    policyLabel = item.stopped_reason ? item.stopped_reason.replace(/_/g, " ") : "Policy allows execution";
     policyColor = "var(--accent)";
   }
+
+  const nextAction = isBlocked ? "None (Blocked)" : isEscalated ? "Human Review Required" : isFailed ? "None (Failed)" : isPending ? "Awaiting Human" : actionLabel ? `Executing: ${actionLabel}` : "Processing";
 
   return (
     <Link href={`/recovery/${item.id}`} style={{ textDecoration: "none", display: "block" }}>
@@ -292,16 +294,20 @@ function CaseRow({ item, fmt }: { item: RecoveryItem; fmt: (n: number) => string
             )}
             {actionLabel && (
               <div style={{ textAlign: "right", minWidth: 100 }}>
-                <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Action</div>
+                <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>AI Recommendation</div>
                 <div style={{ fontWeight: 500, fontSize: "0.75rem", color: "var(--text-secondary)", textTransform: "capitalize" }}>{actionLabel}</div>
               </div>
             )}
             {policyLabel && (
               <div style={{ textAlign: "right", minWidth: 100 }}>
-                <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Policy</div>
+                <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Policy State</div>
                 <div style={{ fontWeight: 500, fontSize: "0.75rem", color: policyColor || "var(--text-secondary)", textTransform: "capitalize" }}>{policyLabel}</div>
               </div>
             )}
+            <div style={{ textAlign: "right", minWidth: 120 }}>
+              <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Next Action</div>
+              <div style={{ fontWeight: 500, fontSize: "0.75rem", color: "var(--text-secondary)" }}>{nextAction}</div>
+            </div>
           </div>
         </div>
       </div>

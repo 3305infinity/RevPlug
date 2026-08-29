@@ -18,6 +18,9 @@ class RecoveryItemRepository(Protocol):
     def update_status(self, item_id: str, status: RecoveryStatus) -> None:
         ...
 
+    def delete_synthetic_data(self) -> int:
+        ...
+
 
 class InMemoryRecoveryItemRepository:
     """In-memory RecoveryItem repository for unit tests and local development."""
@@ -49,3 +52,12 @@ class InMemoryRecoveryItemRepository:
                 expected_recovery_value=existing.expected_recovery_value,
                 metadata=existing.metadata,
             )
+
+    def delete_synthetic_data(self) -> int:
+        to_delete = [
+            k for k, v in self._items.items() 
+            if v.metadata and v.metadata.get("is_synthetic") is True
+        ]
+        for k in to_delete:
+            del self._items[k]
+        return len(to_delete)

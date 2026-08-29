@@ -27,20 +27,32 @@ class PostgresConnection:
     _conn: psycopg.Connection
 
     def execute(self, query: str, params: tuple | dict | None = None) -> None:
-        with self._conn.cursor() as cur:
-            cur.execute(query, params)
-        self._conn.commit()
+        try:
+            with self._conn.cursor() as cur:
+                cur.execute(query, params)
+            self._conn.commit()
+        except Exception:
+            self._conn.rollback()
+            raise
 
     def fetchone(self, query: str, params: tuple | dict | None = None) -> dict | None:
-        with self._conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
-            cur.execute(query, params)
-            row = cur.fetchone()
-            return dict(row) if row else None
+        try:
+            with self._conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                cur.execute(query, params)
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception:
+            self._conn.rollback()
+            raise
 
     def fetchall(self, query: str, params: tuple | dict | None = None) -> list[dict]:
-        with self._conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
-            cur.execute(query, params)
-            return [dict(row) for row in cur.fetchall()]
+        try:
+            with self._conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                cur.execute(query, params)
+                return [dict(row) for row in cur.fetchall()]
+        except Exception:
+            self._conn.rollback()
+            raise
 
 
 def get_database_url() -> str:

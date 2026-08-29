@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from app.audit.models import AuditEvent
@@ -21,6 +22,9 @@ from app.ledger.attempts import AttemptLedger, AttemptRecord
 
 class PostgresRecoveryItemRepository:
     """PostgreSQL-backed RecoveryItem repository with canonical schema."""
+
+    def __init__(self, conn: PostgresConnection) -> None:
+        self._conn = conn
 
     def save(self, item: RecoveryItem) -> None:
         self._conn.execute(
@@ -89,7 +93,7 @@ class PostgresRecoveryItemRepository:
         if not row:
             return None
         return RecoveryItem(
-            id=row["id"],
+            id=str(row["id"]),
             source_type=SourceType(row["source_type"]),
             external_id=row.get("external_id", row["id"]),
             customer_id=row["customer_id"],
@@ -131,17 +135,16 @@ class PostgresRecoveryOutcomeRepository:
             """
             INSERT INTO recovery_outcomes
                 (id, recovery_item_id, outcome_type, expected_recovery_minor,
-                 actual_recovery_minor, recovery_cost_minor, net_recovery_minor,
+                 actual_recovery_minor, recovery_cost_minor,
                  recovered_at, created_at, metadata)
             VALUES (%(id)s, %(recovery_item_id)s, %(outcome_type)s,
                     %(expected_recovery_minor)s, %(actual_recovery_minor)s,
-                    %(recovery_cost_minor)s, %(net_recovery_minor)s,
+                    %(recovery_cost_minor)s,
                     %(recovered_at)s, %(created_at)s, %(metadata)s)
             ON CONFLICT (recovery_item_id) DO UPDATE SET
                 outcome_type = EXCLUDED.outcome_type,
                 actual_recovery_minor = EXCLUDED.actual_recovery_minor,
                 recovery_cost_minor = EXCLUDED.recovery_cost_minor,
-                net_recovery_minor = EXCLUDED.net_recovery_minor,
                 recovered_at = EXCLUDED.recovered_at,
                 metadata = EXCLUDED.metadata
             """,
@@ -170,8 +173,8 @@ class PostgresRecoveryOutcomeRepository:
 
     def _row_to_outcome(self, row: dict[str, Any]) -> RecoveryOutcome:
         return RecoveryOutcome(
-            id=row["id"],
-            recovery_item_id=row["recovery_item_id"],
+            id=str(row["id"]),
+            recovery_item_id=str(row["recovery_item_id"]),
             outcome_type=row["outcome_type"],
             expected_recovery_minor=row["expected_recovery_minor"],
             actual_recovery_minor=row.get("actual_recovery_minor"),
@@ -221,8 +224,8 @@ class PostgresPromiseRepository:
         if not row:
             return None
         return Promise(
-            id=row["id"],
-            recovery_item_id=row["recovery_item_id"],
+            id=str(row["id"]),
+            recovery_item_id=str(row["recovery_item_id"]),
             customer_id=row["customer_id"],
             promised_amount_minor=row["promised_amount_minor"],
             promised_date=row["promised_date"],
@@ -325,7 +328,7 @@ class PostgresProviderEventRepository:
 
     def _row_to_event(self, row: dict[str, Any]) -> ProviderEvent:
         return ProviderEvent(
-            id=row["id"],
+            id=str(row["id"]),
             provider=row["provider"],
             provider_event_id=row["provider_event_id"],
             received_at=row["received_at"],
@@ -333,7 +336,7 @@ class PostgresProviderEventRepository:
             raw_payload=row.get("raw_payload", {}) if isinstance(row.get("raw_payload"), dict) else json.loads(row.get("raw_payload", "{}")),
             processing_status=row.get("processing_status", "pending"),
             processed_at=row.get("processed_at"),
-            recovery_item_id=row.get("recovery_item_id"),
+            recovery_item_id=str(row.get("recovery_item_id")) if row.get("recovery_item_id") else None,
             error_message=row.get("error_message"),
             metadata=row.get("metadata", {}) if isinstance(row.get("metadata"), dict) else json.loads(row.get("metadata", "{}")),
         )
@@ -384,7 +387,7 @@ class PostgresAuditLog:
         )
         return AuditEvent(
             id=str(row["id"]),
-            recovery_item_id=row["recovery_item_id"] or "",
+            recovery_item_id=str(row["recovery_item_id"]) if row.get("recovery_item_id") else "",
             actor=row["actor"],
             action=row["action"],
             reason=row["reasoning"],
@@ -400,7 +403,7 @@ class PostgresAuditLog:
         return [
             AuditEvent(
                 id=str(r["id"]),
-                recovery_item_id=r["recovery_item_id"],
+                recovery_item_id=str(r["recovery_item_id"]) if r.get("recovery_item_id") else None,
                 actor=r["actor"],
                 action=r["action"],
                 reason=r["reasoning"],
@@ -445,7 +448,7 @@ class PostgresAttemptLedger:
         )
         return [
             AttemptRecord(
-                recovery_item_id=r["recovery_item_id"],
+                recovery_item_id=str(r["recovery_item_id"]) if r.get("recovery_item_id") else None,
                 attempt_number=r["attempt_number"],
                 action=r["action"],
                 scheduled_at=r["scheduled_at"],
@@ -509,4 +512,245 @@ class PostgresRecoveryDecisionRepository:
             "SELECT * FROM recovery_decisions WHERE recovery_item_id = %s ORDER BY created_at",
             (item_id,),
         )
-        return [dict(r) for r in rows]
+        result = []
+        for r in rows:
+            d = dict(r)
+            if d.get("id"):
+                d["id"] = str(d["id"])
+            if d.get("recovery_item_id"):
+                d["recovery_item_id"] = str(d["recovery_item_id"])
+            if d.get("created_at") and hasattr(d["created_at"], "isoformat"):
+                d["created_at"] = d["created_at"].isoformat()
+            result.append(d)
+        return result
+
+
+class PostgresRecoveryJobRepository:
+    """PostgreSQL-backed recovery job repository using FOR UPDATE SKIP LOCKED.
+
+    Concurrent workers can safely call claim_next_job() without a distributed
+    lock. PostgreSQL's SKIP LOCKED skips any row that is already locked by
+    another transaction, so each worker claims a distinct job.
+
+    Crash recovery: jobs stuck in PROCESSING for longer than worker_timeout_seconds
+    are re-claimed by the next worker to call claim_next_job().
+    """
+
+    def __init__(self, conn) -> None:
+        self._conn = conn
+
+    def create_job(
+        self,
+        recovery_item_id: str,
+        *,
+        max_attempts: int = 3,
+        metadata: dict | None = None,
+    ):
+        """Create a QUEUED job. Returns None if an active job already exists (ON CONFLICT DO NOTHING)."""
+        from app.worker.models import RecoveryJob, JobStatus
+        job_id = str(uuid.uuid4())
+        row = self._conn.fetchone(
+            """
+            INSERT INTO recovery_jobs
+                (job_id, recovery_item_id, status, max_attempts, metadata)
+            VALUES (%(job_id)s, %(item_id)s, 'QUEUED', %(max_attempts)s, %(meta)s)
+            ON CONFLICT (recovery_item_id)
+                WHERE status IN ('QUEUED', 'PROCESSING')
+            DO NOTHING
+            RETURNING job_id, recovery_item_id, status, attempt_count, max_attempts,
+                      available_at, locked_at, locked_by, last_error, created_at,
+                      completed_at, metadata
+            """,
+            {
+                "job_id": job_id,
+                "item_id": recovery_item_id,
+                "max_attempts": max_attempts,
+                "meta": json.dumps(metadata or {}),
+            },
+        )
+        if row is None:
+            return None  # active job already existed
+        return self._row_to_job(row)
+
+    def claim_next_job(
+        self,
+        worker_id: str,
+        *,
+        worker_timeout_seconds: int = 300,
+    ):
+        """Atomically claim the next available job using FOR UPDATE SKIP LOCKED.
+
+        Also reclaims stale PROCESSING jobs (locked_at + timeout < now).
+        """
+        from app.worker.models import RecoveryJob, JobStatus
+        now = datetime.now(timezone.utc)
+        stale_cutoff = now - timedelta(seconds=worker_timeout_seconds)
+
+        # First: try to reclaim a stale PROCESSING job (crash recovery)
+        row = self._conn.fetchone(
+            """
+            UPDATE recovery_jobs
+            SET locked_at = %(now)s, locked_by = %(worker_id)s
+            WHERE job_id = (
+                SELECT job_id FROM recovery_jobs
+                WHERE status = 'PROCESSING'
+                  AND locked_at IS NOT NULL
+                  AND locked_at < %(stale_cutoff)s
+                ORDER BY locked_at
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+            )
+            RETURNING job_id, recovery_item_id, status, attempt_count, max_attempts,
+                      available_at, locked_at, locked_by, last_error, created_at,
+                      completed_at, metadata
+            """,
+            {"now": now, "worker_id": worker_id, "stale_cutoff": stale_cutoff},
+        )
+        if row:
+            return self._row_to_job(row)
+
+        # Second: claim a fresh QUEUED job
+        row = self._conn.fetchone(
+            """
+            UPDATE recovery_jobs
+            SET status = 'PROCESSING',
+                locked_at = %(now)s,
+                locked_by = %(worker_id)s,
+                attempt_count = attempt_count + 1
+            WHERE job_id = (
+                SELECT job_id FROM recovery_jobs
+                WHERE status = 'QUEUED'
+                  AND available_at <= %(now)s
+                ORDER BY available_at
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+            )
+            RETURNING job_id, recovery_item_id, status, attempt_count, max_attempts,
+                      available_at, locked_at, locked_by, last_error, created_at,
+                      completed_at, metadata
+            """,
+            {"now": now, "worker_id": worker_id},
+        )
+        if not row:
+            return None
+        return self._row_to_job(row)
+
+    def mark_completed(self, job_id: str) -> None:
+        self._conn.execute(
+            """
+            UPDATE recovery_jobs
+            SET status = 'COMPLETED', completed_at = now(), locked_at = NULL, locked_by = NULL
+            WHERE job_id = %s
+            """,
+            (job_id,),
+        )
+
+    def mark_failed(
+        self,
+        job_id: str,
+        error: str,
+        *,
+        retry_delay_seconds: int = 0,
+    ) -> None:
+        """Re-queue if retries remain, dead-letter otherwise."""
+        self._conn.execute(
+            """
+            UPDATE recovery_jobs
+            SET
+                last_error = %(error)s,
+                locked_at = NULL,
+                locked_by = NULL,
+                status = CASE
+                    WHEN attempt_count >= max_attempts THEN 'DEAD_LETTER'
+                    ELSE 'QUEUED'
+                END,
+                available_at = CASE
+                    WHEN attempt_count >= max_attempts THEN available_at
+                    ELSE now() + (%(delay)s || ' seconds')::interval
+                END
+            WHERE job_id = %(job_id)s
+            """,
+            {"job_id": job_id, "error": error, "delay": retry_delay_seconds},
+        )
+
+    def mark_dead_letter(self, job_id: str, reason: str) -> None:
+        self._conn.execute(
+            """
+            UPDATE recovery_jobs
+            SET status = 'DEAD_LETTER', last_error = %s, locked_at = NULL, locked_by = NULL
+            WHERE job_id = %s
+            """,
+            (reason, job_id),
+        )
+
+    def get_job(self, job_id: str):
+        row = self._conn.fetchone(
+            """
+            SELECT job_id, recovery_item_id, status, attempt_count, max_attempts,
+                   available_at, locked_at, locked_by, last_error, created_at,
+                   completed_at, metadata
+            FROM recovery_jobs WHERE job_id = %s
+            """,
+            (job_id,),
+        )
+        if not row:
+            return None
+        return self._row_to_job(row)
+
+    def list_jobs(self, status=None, limit: int = 50):
+        if status is not None:
+            status_val = status.value if hasattr(status, "value") else status
+            rows = self._conn.fetchall(
+                """
+                SELECT job_id, recovery_item_id, status, attempt_count, max_attempts,
+                       available_at, locked_at, locked_by, last_error, created_at,
+                       completed_at, metadata
+                FROM recovery_jobs WHERE status = %s
+                ORDER BY created_at DESC LIMIT %s
+                """,
+                (status_val, limit),
+            )
+        else:
+            rows = self._conn.fetchall(
+                """
+                SELECT job_id, recovery_item_id, status, attempt_count, max_attempts,
+                       available_at, locked_at, locked_by, last_error, created_at,
+                       completed_at, metadata
+                FROM recovery_jobs
+                ORDER BY created_at DESC LIMIT %s
+                """,
+                (limit,),
+            )
+        return [self._row_to_job(r) for r in rows]
+
+    def get_job_for_item(self, recovery_item_id: str):
+        row = self._conn.fetchone(
+            """
+            SELECT job_id, recovery_item_id, status, attempt_count, max_attempts,
+                   available_at, locked_at, locked_by, last_error, created_at,
+                   completed_at, metadata
+            FROM recovery_jobs WHERE recovery_item_id = %s
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (recovery_item_id,),
+        )
+        if not row:
+            return None
+        return self._row_to_job(row)
+
+    def _row_to_job(self, row: dict):
+        from app.worker.models import RecoveryJob, JobStatus
+        return RecoveryJob(
+            job_id=str(row["job_id"]),
+            recovery_item_id=str(row["recovery_item_id"]),
+            status=JobStatus(row["status"]),
+            attempt_count=row["attempt_count"],
+            max_attempts=row["max_attempts"],
+            available_at=row["available_at"],
+            locked_at=row.get("locked_at"),
+            locked_by=row.get("locked_by"),
+            last_error=row.get("last_error"),
+            created_at=row["created_at"],
+            completed_at=row.get("completed_at"),
+            metadata=row.get("metadata", {}) if isinstance(row.get("metadata"), dict) else json.loads(row.get("metadata", "{}")),
+        )

@@ -16,11 +16,14 @@ from app.db.postgres_repositories import (
     PostgresPromiseRepository,
     PostgresRecoveryItemRepository,
     PostgresRecoveryOutcomeRepository,
+    PostgresRecoveryJobRepository,
 )
+from app.worker.job_repository import InMemoryRecoveryJobRepository
 from app.db.repositories import InMemoryRecoveryItemRepository, RecoveryItemRepository
 from app.db.session import PostgresConnection, create_connection
 from app.idempotency.store import IdempotencyStore, InMemoryIdempotencyStore
 from app.ledger.attempts import AttemptLedger, InMemoryAttemptLedger
+
 
 
 @dataclass
@@ -35,6 +38,62 @@ class PersistenceContainer:
     outcomes: "RecoveryOutcomeRepository"
     promises: "PromiseRepository"
     provider_events: "ProviderEventRepository"
+    jobs: "object | None" = None  # RecoveryJobRepository (Stage 7 async worker)
+    batches: "object | None" = None  # InMemoryBatchRepository (Stage 8 batch recovery)
+
+    def reset_demo_data(self) -> int:
+        """Permanently deletes all synthetic data marked for demos."""
+        # 1. PostgreSQL mode
+        if hasattr(self.recovery_items, "_conn"):
+            conn = getattr(self.recovery_items, "_conn")
+            with conn._conn.cursor() as cur:
+                cur.execute("SELECT id FROM recovery_items WHERE metadata->>'is_synthetic' = 'true'")
+                rows = cur.fetchall()
+                if not rows:
+                    return 0
+                item_ids = tuple(row[0] for row in rows)
+
+                cur.execute("DELETE FROM recovery_outcomes WHERE recovery_item_id IN %s", (item_ids,))
+                cur.execute("DELETE FROM promises WHERE recovery_item_id IN %s", (item_ids,))
+                cur.execute("DELETE FROM audit_log WHERE recovery_item_id IN %s", (item_ids,))
+                cur.execute("DELETE FROM attempts WHERE recovery_item_id IN %s", (item_ids,))
+                cur.execute("DELETE FROM recovery_decisions WHERE recovery_item_id IN %s", (item_ids,))
+                cur.execute("DELETE FROM recovery_items WHERE id IN %s", (item_ids,))
+                conn._conn.commit()
+                return len(item_ids)
+
+        # 2. In-Memory mode
+        count = 0
+        if hasattr(self.recovery_items, "_items"):
+            items_repo = getattr(self.recovery_items, "_items")
+            synthetic_ids = {k for k, v in items_repo.items() if v.metadata and v.metadata.get("is_synthetic") is True}
+            count = len(synthetic_ids)
+            for k in synthetic_ids:
+                del items_repo[k]
+            
+            # Clean dependent in-memory stores
+            if hasattr(self.audit_log, "_events"):
+                events = getattr(self.audit_log, "_events")
+                events[:] = [e for e in events if e.recovery_item_id not in synthetic_ids]
+            if hasattr(self.attempts, "_records"):
+                records = getattr(self.attempts, "_records")
+                records[:] = [r for r in records if r.recovery_item_id not in synthetic_ids]
+            if hasattr(self.outcomes, "_outcomes"):
+                outcomes = getattr(self.outcomes, "_outcomes")
+                for k in synthetic_ids:
+                    outcomes.pop(k, None)
+            if hasattr(self.promises, "_by_item"):
+                promises_by_item = getattr(self.promises, "_by_item")
+                promises_by_id = getattr(self.promises, "_by_id")
+                for k in synthetic_ids:
+                    p = promises_by_item.pop(k, None)
+                    if p:
+                        if isinstance(p, dict):
+                            promises_by_id.pop(p.get("id"), None)
+                        else:
+                            promises_by_id.pop(p.id, None)
+
+        return count
 
 
 def create_persistence_container(mode: str | None = None) -> PersistenceContainer:
@@ -48,6 +107,7 @@ def create_persistence_container(mode: str | None = None) -> PersistenceContaine
         mode = os.environ.get("PERSISTENCE_MODE", "memory")
 
     if mode == "memory":
+        from app.services.batch_service import InMemoryBatchRepository
         return PersistenceContainer(
             recovery_items=InMemoryRecoveryItemRepository(),
             idempotency=InMemoryIdempotencyStore(),
@@ -57,6 +117,8 @@ def create_persistence_container(mode: str | None = None) -> PersistenceContaine
             outcomes=_InMemoryRecoveryOutcomeRepository(),
             promises=_InMemoryPromiseRepository(),
             provider_events=_InMemoryProviderEventRepository(),
+            jobs=InMemoryRecoveryJobRepository(),
+            batches=InMemoryBatchRepository(),
         )
 
     if mode == "postgres":
@@ -71,6 +133,7 @@ def create_persistence_container(mode: str | None = None) -> PersistenceContaine
             outcomes=PostgresRecoveryOutcomeRepository(conn),
             promises=PostgresPromiseRepository(conn),
             provider_events=PostgresProviderEventRepository(conn),
+            jobs=PostgresRecoveryJobRepository(conn),
         )
 
     raise ValueError(f"Unknown PERSISTENCE_MODE: {mode!r}. Use 'memory' or 'postgres'.")
@@ -96,17 +159,70 @@ class _InMemoryRecoveryOutcomeRepository:
 
 
 class _InMemoryPromiseRepository:
-    """In-memory promise repository for unit tests and local development."""
+    """In-memory promise repository — full CRUD for Stage 8 promise lifecycle."""
 
     def __init__(self) -> None:
-        self._promises: dict[str, dict] = {}
+        self._by_item: dict[str, object] = {}   # item_id → Promise
+        self._by_id: dict[str, object] = {}     # promise_id → Promise
 
     def save(self, promise) -> None:
-        self._promises[promise.recovery_item_id] = promise
+        if isinstance(promise, dict):
+            item_id = promise.get("recovery_item_id", "")
+            promise_id = promise.get("id", "")
+        else:
+            item_id = promise.recovery_item_id
+            promise_id = promise.id
+        self._by_item[item_id] = promise
+        if promise_id:
+            self._by_id[promise_id] = promise
 
     def get_for_item(self, recovery_item_id: str):
-        data = self._promises.get(recovery_item_id)
-        return data
+        return self._by_item.get(recovery_item_id)
+
+    def get(self, promise_id: str):
+        """Get promise by its own ID."""
+        return self._by_id.get(promise_id)
+
+    def list_all(self) -> list:
+        """List all promises."""
+        return list(self._by_id.values())
+
+    def list_by_item(self, item_id: str) -> list:
+        p = self._by_item.get(item_id)
+        return [p] if p is not None else []
+
+    def list_by_customer(self, customer_id: str) -> list:
+        result = []
+        for promise in self._by_id.values():
+            p_cust = getattr(promise, "customer_id", None) or (promise.get("customer_id") if isinstance(promise, dict) else None)
+            if p_cust == customer_id:
+                result.append(promise)
+        return result
+
+    def update_status(self, promise_id: str, status: str, **extra) -> object | None:
+        """Update promise status and extra fields. Returns updated promise."""
+        from app.domain.models import Promise
+        promise = self._by_id.get(promise_id)
+        if promise is None:
+            return None
+        if isinstance(promise, Promise):
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            updated = Promise(
+                id=promise.id,
+                recovery_item_id=promise.recovery_item_id,
+                customer_id=promise.customer_id,
+                promised_amount_minor=promise.promised_amount_minor,
+                promised_date=promise.promised_date,
+                status=status,
+                created_at=promise.created_at,
+                fulfilled_at=extra.get("fulfilled_at", promise.fulfilled_at),
+                expired_at=extra.get("expired_at", promise.expired_at),
+                metadata={**promise.metadata, **extra.get("metadata", {})},
+            )
+            self.save(updated)
+            return updated
+        return None
 
 
 class _InMemoryProviderEventRepository:

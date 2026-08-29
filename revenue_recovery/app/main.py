@@ -118,6 +118,130 @@ def _register_routes(
         x_razorpay_signature: str | None = Header(default=None, alias="X-Razorpay-Signature"),
     ) -> Response:
         raw_body = await request.body()
+
+        # Check whether async job queue is available for this app instance.
+        # When job_repo is present (Stage 7 mode): fast-accept, enqueue, return immediately.
+        # When job_repo is absent (legacy / test mode): synchronous path (unchanged behaviour).
+        container = _get_container(target_app)
+        job_repo = getattr(container, "jobs", None)
+
+        if job_repo is not None:
+            # ── ASYNC FAST-ACCEPT PATH ──────────────────────────────────────
+            # Stage 1: verify signature (raw body, before any parsing)
+            from app.adapters.razorpay.signatures import (
+                RazorpaySignatureError as _SigErr,
+                verify_razorpay_signature,
+            )
+            try:
+                verify_razorpay_signature(raw_body, x_razorpay_signature, service._webhook_secret)
+            except _SigErr:
+                return JSONResponse(
+                    status_code=400,
+                    content={"status": "rejected", "reason": "signature_verification_failed"},
+                )
+
+            # Stage 2: parse event
+            from app.adapters.razorpay.events import parse_razorpay_event
+            try:
+                razorpay_failure = parse_razorpay_event(raw_body)
+            except Exception:
+                return JSONResponse(
+                    status_code=422,
+                    content={"status": "rejected", "reason": "event_parse_failed"},
+                )
+
+            provider = "razorpay"
+            provider_event_id = razorpay_failure.razorpay_event_id
+
+            # Stage 3: durable provider_event insert (idempotent)
+            from datetime import datetime, timezone as _tz
+            from app.domain.models import ProviderEvent
+            received_at = datetime.now(_tz.utc)
+            import uuid
+            candidate = ProviderEvent(
+                id=str(uuid.uuid4()),
+                provider=provider,
+                provider_event_id=provider_event_id,
+                received_at=received_at,
+                event_type="payment.failed",
+                raw_payload={
+                    "razorpay_event_id": razorpay_failure.razorpay_event_id,
+                    "razorpay_payment_id": razorpay_failure.razorpay_payment_id,
+                    "amount_minor": razorpay_failure.amount_minor,
+                    "currency": razorpay_failure.currency,
+                },
+                processing_status="pending",
+            )
+
+            provider_events = getattr(container, "provider_events", None)
+            is_new_event = True
+            if provider_events is not None:
+                is_new_event, _ = provider_events.try_insert(candidate)
+
+            # Stage 4: duplicate detection
+            if not is_new_event:
+                return JSONResponse(
+                    status_code=200,
+                    content={"status": "duplicate", "provider_event_id": provider_event_id},
+                )
+
+            # Stage 5: classify + create recovery item (for immediate prioritization)
+            from app.adapters.razorpay.classifier import RazorpayFailureClassifier
+            from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+            classifier = RazorpayFailureClassifier()
+            normalized = classifier.classify(razorpay_failure)
+            item = service._build_recovery_item(razorpay_failure, normalized)
+            item = service._safe_transition(item, RecoveryStatus.DIAGNOSED)
+
+            # Score immediately so item is prioritized in the dashboard
+            score_result = service._score(
+                item=item,
+                failure_category=normalized.category.value,
+                proposed_action="retry_payment",
+                attempt_number=0,
+            )
+            item = service._apply_score(item, score_result)
+
+            if container.recovery_items is not None:
+                container.recovery_items.save(item)
+
+            if provider_events is not None:
+                provider_events.mark_processed(
+                    provider=provider,
+                    provider_event_id=provider_event_id,
+                    recovery_item_id=item.id,
+                )
+
+            # Stage 6: enqueue recovery job
+            job = job_repo.create_job(item.id)
+
+            # Emit audit event
+            try:
+                container.audit_log.log(
+                    recovery_item_id=item.id,
+                    actor="system",
+                    action="job_created",
+                    reason="Recovery job enqueued for async worker",
+                    metadata={
+                        "job_id": job.job_id if job else None,
+                        "provider_event_id": provider_event_id,
+                    },
+                )
+            except Exception:
+                pass
+
+            # Stage 7: return immediately with job reference
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": "accepted",
+                    "provider_event_id": provider_event_id,
+                    "recovery_item_id": item.id,
+                    "job_id": job.job_id if job else None,
+                },
+            )
+
+        # ── LEGACY SYNCHRONOUS PATH (used by all pre-Stage-7 tests) ────────
         try:
             item, audit_events, status = service.process_webhook(
                 raw_body=raw_body,
@@ -176,8 +300,476 @@ def _register_routes(
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    # ── Stage 7: Worker Observability Endpoints ─────────────────────────────
+
+    @target_app.get("/api/jobs")
+    def api_list_jobs() -> list[dict[str, Any]]:
+        """List recovery jobs. Does not expose secrets or raw payment payloads."""
+        container = _get_container(target_app)
+        job_repo = getattr(container, "jobs", None)
+        if job_repo is None:
+            return []
+        jobs = job_repo.list_jobs(limit=100)
+        return [j.to_dict() for j in jobs]
+
+    @target_app.get("/api/jobs/{job_id}")
+    def api_get_job(job_id: str) -> Response:
+        """Get details for a specific recovery job."""
+        container = _get_container(target_app)
+        job_repo = getattr(container, "jobs", None)
+        if job_repo is None:
+            return JSONResponse(status_code=404, content={"error": "Job queue not available"})
+        job = job_repo.get_job(job_id)
+        if job is None:
+            return JSONResponse(status_code=404, content={"error": "Job not found"})
+        return JSONResponse(status_code=200, content=job.to_dict())
+
+    @target_app.get("/api/recovery/{item_id}/next-action")
+    def api_recovery_next_action(item_id: str) -> Response:
+        """Get the deterministic next best action for a recovery item (worker perspective)."""
+        from app.policies.engine import InterventionPolicy
+        from app.policies.guard import DefaultRecoveryGuard
+        from app.policies.stopping_rules import StoppingRules as _SR
+
+        container = _get_container(target_app)
+        item = None
+        if hasattr(container.recovery_items, "get"):
+            item = container.recovery_items.get(item_id)
+        if item is None:
+            return JSONResponse(status_code=404, content={"error": "Item not found"})
+
+        stopping_rules = _SR(max_attempts=3)
+        policy_engine = InterventionPolicy(max_retry_attempts=3)
+        guard = DefaultRecoveryGuard(stopping_rules=stopping_rules, policy_engine=policy_engine)
+
+        decisions = []
+        if hasattr(container.decisions, "list_by_recovery_item_id"):
+            decisions = container.decisions.list_by_recovery_item_id(item_id)
+
+        last_proposal_action = None
+        last_policy_rule = None
+        if decisions:
+            last = decisions[-1]
+            last_proposal_action = last.get("proposed_action")
+            last_policy_rule = last.get("policy_rule")
+
+        guard_decision = guard.evaluate(item, last_proposal_action or "retry_payment", container=container)
+        attempt_count = int(item.metadata.get("attempt_count", 0))
+        retry_budget = max(0, 3 - attempt_count)
+
+        # Get job info for this item if available
+        job_repo = getattr(container, "jobs", None)
+        job_info = None
+        if job_repo is not None:
+            job = job_repo.get_job_for_item(item_id)
+            if job is not None:
+                job_info = {
+                    "job_id": job.job_id,
+                    "status": job.status.value,
+                    "attempt_count": job.attempt_count,
+                    "last_error": job.last_error,
+                }
+
+        response = {
+            "item_id": item_id,
+            "current_status": item.status.value,
+            "next_action": last_proposal_action,
+            "reason": guard_decision.reason,
+            "safety_decision": guard_decision.decision_type,
+            "policy_rule": last_policy_rule or guard_decision.rule,
+            "stopping_rule": guard_decision.reason_code if not guard_decision.allowed else "none",
+            "expected_recovery_value": item.expected_recovery_value,
+            "retry_budget_remaining": retry_budget,
+            "job": job_info,
+        }
+        return JSONResponse(status_code=200, content=response)
+
+    # -----------------------------------------------------------------------
+    # Stage 8: Financial Truth, Batches, Customers, Promises, Time-Series
+    # -----------------------------------------------------------------------
+
+    @target_app.post("/api/promises")
+    async def api_create_promise(request: Request) -> Response:
+        """Create a new promise-to-pay."""
+        import json
+        from datetime import date
+        body = await request.body()
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+            
+        item_id = payload.get("item_id")
+        customer_id = payload.get("customer_id")
+        amount = payload.get("amount_minor")
+        promised_date_str = payload.get("promised_date")
+        
+        if not all([item_id, customer_id, amount, promised_date_str]):
+            return JSONResponse(status_code=400, content={"error": "Missing required fields"})
+            
+        try:
+            promised_date = date.fromisoformat(promised_date_str)
+        except ValueError:
+            return JSONResponse(status_code=400, content={"error": "Invalid date format, use YYYY-MM-DD"})
+            
+        container = _get_container(target_app)
+        from app.services.promise_service import PromiseService
+        service = PromiseService()
+        promise = service.create_promise(
+            item_id=item_id,
+            customer_id=customer_id,
+            promised_amount_minor=amount,
+            promised_date=promised_date,
+            metadata=payload.get("metadata", {}),
+        )
+        if container.promises:
+            container.promises.save(promise)
+            
+        # Log audit event
+        container.audit_log.log(
+            recovery_item_id=item_id,
+            actor="agent",
+            action="promise_created",
+            reason=f"Promise-to-pay recorded for {amount} minor units by {promised_date_str}",
+            metadata={"promise_id": promise.id, "amount_minor": amount, "promised_date": promised_date_str},
+        )
+            
+        from app.dashboard_api import _promise_to_dict
+        return JSONResponse(status_code=201, content=_promise_to_dict(promise))
+
+    @target_app.get("/api/promises")
+    def api_list_promises() -> list[dict[str, Any]]:
+        """List all promises."""
+        container = _get_container(target_app)
+        if hasattr(container.promises, "list_all"):
+            promises = container.promises.list_all()
+        else:
+            promises = []
+        from app.dashboard_api import _promise_to_dict
+        return [_promise_to_dict(p) for p in promises]
+
+    @target_app.get("/api/promises/{promise_id}")
+    def api_get_promise(promise_id: str) -> Response:
+        """Get a single promise by ID."""
+        container = _get_container(target_app)
+        if hasattr(container.promises, "get"):
+            promise = container.promises.get(promise_id)
+            if promise:
+                from app.dashboard_api import _promise_to_dict
+                return JSONResponse(status_code=200, content=_promise_to_dict(promise))
+        return JSONResponse(status_code=404, content={"error": "Promise not found"})
+
+    @target_app.post("/api/promises/{promise_id}/fulfill")
+    def api_fulfill_promise(promise_id: str) -> Response:
+        """Fulfill a promise, generating a RecoveryOutcome (financial truth)."""
+        container = _get_container(target_app)
+        if not hasattr(container.promises, "get"):
+            return JSONResponse(status_code=500, content={"error": "Promises not configured"})
+            
+        promise = container.promises.get(promise_id)
+        if not promise:
+            return JSONResponse(status_code=404, content={"error": "Promise not found"})
+            
+        item_id = promise.recovery_item_id if not isinstance(promise, dict) else promise.get("recovery_item_id")
+        amount = promise.promised_amount_minor if not isinstance(promise, dict) else promise.get("promised_amount_minor")
+        status = promise.status if not isinstance(promise, dict) else promise.get("status")
+        
+        if status != "promised":
+            return JSONResponse(status_code=400, content={"error": f"Promise is {status}, cannot fulfill"})
+            
+        # Update status
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        if hasattr(container.promises, "update_status"):
+            updated = container.promises.update_status(promise_id, "fulfilled", fulfilled_at=now)
+            if updated:
+                promise = updated
+                
+        # Generate financial truth Outcome
+        if container.outcomes:
+            from app.domain.models import RecoveryOutcome
+            outcome = RecoveryOutcome(
+                recovery_item_id=item_id,
+                outcome_type="recovered",
+                expected_recovery_minor=amount,
+                actual_recovery_minor=amount,
+                recovery_cost_minor=0,
+                net_recovery_minor=amount,
+                recovered_at=now,
+            )
+            container.outcomes.save(outcome)
+            
+            # Transition item to recovered
+            item = container.recovery_items.get(item_id) if hasattr(container.recovery_items, "get") else None
+            if item:
+                from app.domain.models import RecoveryStatus
+                from app.domain.transitions import DefaultStateMachine
+                sm = DefaultStateMachine()
+                res = sm.transition(item, RecoveryStatus.RECOVERED)
+                if res.applied:
+                    container.recovery_items.save(res.item)
+                    
+        # Log audit
+        container.audit_log.log(
+            recovery_item_id=item_id,
+            actor="system",
+            action="promise_fulfilled",
+            reason=f"Promise fulfilled, recovered {amount}",
+            metadata={"promise_id": promise_id, "amount_minor": amount},
+        )
+        
+        from app.dashboard_api import _promise_to_dict
+        return JSONResponse(status_code=200, content=_promise_to_dict(promise))
+
+    @target_app.post("/api/promises/{promise_id}/break")
+    async def api_break_promise(promise_id: str, request: Request) -> Response:
+        """Mark a promise as broken."""
+        import json
+        body = await request.body()
+        reason = "Payment not received by promised date"
+        if body:
+            try:
+                payload = json.loads(body)
+                reason = payload.get("reason", reason)
+            except json.JSONDecodeError:
+                pass
+                
+        container = _get_container(target_app)
+        if not hasattr(container.promises, "get"):
+            return JSONResponse(status_code=500, content={"error": "Promises not configured"})
+            
+        promise = container.promises.get(promise_id)
+        if not promise:
+            return JSONResponse(status_code=404, content={"error": "Promise not found"})
+            
+        status = promise.status if not isinstance(promise, dict) else promise.get("status")
+        if status != "promised":
+            return JSONResponse(status_code=400, content={"error": f"Promise is {status}, cannot break"})
+            
+        if hasattr(container.promises, "update_status"):
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            updated = container.promises.update_status(
+                promise_id, 
+                "broken", 
+                metadata={"break_reason": reason},
+                expired_at=now
+            )
+            if updated:
+                promise = updated
+                
+        item_id = promise.recovery_item_id if not isinstance(promise, dict) else promise.get("recovery_item_id")
+        
+        # Log audit
+        container.audit_log.log(
+            recovery_item_id=item_id,
+            actor="system",
+            action="promise_broken",
+            reason=f"Promise broken: {reason}",
+            metadata={"promise_id": promise_id, "break_reason": reason},
+        )
+        
+        from app.dashboard_api import _promise_to_dict
+        return JSONResponse(status_code=200, content=_promise_to_dict(promise))
+
+    @target_app.get("/api/customers")
+    def api_list_customers() -> list[dict[str, Any]]:
+        from app.dashboard_api import build_customers_list
+        return build_customers_list(_get_container(target_app))
+
+    @target_app.get("/api/customers/{customer_id}")
+    def api_get_customer(customer_id: str) -> Response:
+        from app.dashboard_api import build_customer_economics
+        container = _get_container(target_app)
+        data = build_customer_economics(container, customer_id)
+        if not data.get("total_cases"):
+            return JSONResponse(status_code=404, content={"error": "Customer not found"})
+        return JSONResponse(status_code=200, content=data)
+
+    @target_app.get("/api/recovery-items/{item_id}/lifecycle")
+    def api_lifecycle(item_id: str) -> Response:
+        """Get the full reconstructed lifecycle for an item."""
+        from app.dashboard_api import build_lifecycle
+        container = _get_container(target_app)
+        data = build_lifecycle(container, item_id)
+        if not data:
+            return JSONResponse(status_code=404, content={"error": "Item not found"})
+        return JSONResponse(status_code=200, content=data)
+
+    @target_app.get("/api/time-series/recovered-by-day")
+    def api_ts_recovered() -> list[dict[str, Any]]:
+        from app.dashboard_api import build_recovered_by_day
+        return build_recovered_by_day(_get_container(target_app))
+
+    @target_app.get("/api/time-series/revenue-at-risk-by-day")
+    def api_ts_risk() -> list[dict[str, Any]]:
+        from app.dashboard_api import build_revenue_at_risk_by_day
+        return build_revenue_at_risk_by_day(_get_container(target_app))
+
+    @target_app.get("/api/time-series/attempts-by-day")
+    def api_ts_attempts() -> list[dict[str, Any]]:
+        from app.dashboard_api import build_attempts_by_day
+        return build_attempts_by_day(_get_container(target_app))
+
+    @target_app.get("/api/time-series/stopped-by-reason")
+    def api_ts_stopped() -> list[dict[str, Any]]:
+        from app.dashboard_api import build_stopped_by_reason
+        return build_stopped_by_reason(_get_container(target_app))
+
+    @target_app.post("/api/demo/reset")
+    def api_demo_reset():
+        """Reset all synthetic data for a clean demo state."""
+        container = _get_container(target_app)
+        count = container.reset_demo_data()
+        return {"status": "success", "message": f"Deleted {count} synthetic items and their related data."}
+
+    @target_app.get("/api/demo/datasets")
+    def api_demo_datasets() -> list[dict[str, Any]]:
+        from app.datasets.synthetic import list_datasets
+        import dataclasses
+        return [dataclasses.asdict(d) for d in list_datasets()]
+
+    @target_app.post("/api/demo/datasets/{label}/run")
+    def api_run_dataset(label: str) -> Response:
+        from app.datasets.synthetic import load_dataset
+        try:
+            items = load_dataset(label)
+        except ValueError as e:
+            return JSONResponse(status_code=404, content={"error": str(e)})
+            
+        container = _get_container(target_app)
+        if not hasattr(container, "batches") or container.batches is None:
+            return JSONResponse(status_code=500, content={"error": "Batch repository not configured"})
+            
+        from app.services.batch_service import BatchService
+        from app.scoring.expected_value import ExpectedValueScorer
+        batch_svc = BatchService(
+            batch_repo=container.batches,
+            recovery_items_repo=container.recovery_items,
+            outcomes_repo=container.outcomes,
+            scorer=ExpectedValueScorer(),
+        )
+        
+        batch = batch_svc.create_batch(
+            name=f"Synthetic Dataset: {label}",
+            items=items,
+            dataset_label=label,
+            is_synthetic=True,
+        )
+        
+        enqueued = batch_svc.enqueue_batch(batch.batch_id, container.jobs)
+        
+        return JSONResponse(status_code=201, content={
+            "status": "started",
+            "batch_id": batch.batch_id,
+            "items_created": len(items),
+            "jobs_enqueued": enqueued,
+        })
+
+    @target_app.post("/api/batches")
+    async def api_create_batch(request: Request) -> Response:
+        """Create a custom batch from a list of item payloads."""
+        import json
+        body = await request.body()
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+            
+        name = payload.get("name", "Custom Batch")
+        raw_items = payload.get("items", [])
+        
+        from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+        from datetime import datetime, timezone
+        
+        items = []
+        import uuid
+        for idx, ri in enumerate(raw_items):
+            items.append(RecoveryItem(
+                id=str(uuid.uuid4()),
+                source_type=SourceType(ri.get("source_type", "payment_failure")),
+                external_id=ri.get("external_id", f"ext_{idx}"),
+                customer_id=ri.get("customer_id", f"cust_{idx}"),
+                amount_minor=ri.get("amount_minor", 10000),
+                currency=ri.get("currency", "INR"),
+                created_at=datetime.now(timezone.utc),
+                status=RecoveryStatus.QUEUED,
+                root_cause=ri.get("root_cause", "unknown"),
+                metadata=ri.get("metadata", {}),
+            ))
+            
+        container = _get_container(target_app)
+        from app.services.batch_service import BatchService
+        from app.scoring.expected_value import ExpectedValueScorer
+        batch_svc = BatchService(
+            batch_repo=container.batches,
+            recovery_items_repo=container.recovery_items,
+            outcomes_repo=container.outcomes,
+            scorer=ExpectedValueScorer(),
+        )
+        
+        batch = batch_svc.create_batch(name=name, items=items)
+        return JSONResponse(status_code=201, content=batch.to_dict())
+
+    @target_app.get("/api/batches")
+    def api_list_batches() -> list[dict[str, Any]]:
+        container = _get_container(target_app)
+        if not hasattr(container, "batches") or container.batches is None:
+            return []
+            
+        from app.services.batch_service import BatchService
+        batch_svc = BatchService(
+            batch_repo=container.batches,
+            recovery_items_repo=container.recovery_items,
+            outcomes_repo=container.outcomes,
+        )
+        return [batch_svc.summarize_batch(b.batch_id) for b in batch_svc.list_batches()]
+
+    @target_app.get("/api/batches/{batch_id}")
+    def api_get_batch(batch_id: str) -> Response:
+        container = _get_container(target_app)
+        if not hasattr(container, "batches") or container.batches is None:
+            return JSONResponse(status_code=500, content={"error": "Batches not configured"})
+            
+        from app.services.batch_service import BatchService
+        batch_svc = BatchService(
+            batch_repo=container.batches,
+            recovery_items_repo=container.recovery_items,
+            outcomes_repo=container.outcomes,
+        )
+        
+        summary = batch_svc.summarize_batch(batch_id)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Batch not found"})
+            
+        items = batch_svc._get_batch_items(batch_id)
+        from app.dashboard_api import _item_to_dict
+        summary["items"] = [_item_to_dict(i) for i in items]
+        
+        return JSONResponse(status_code=200, content=summary)
+
+    @target_app.post("/api/batches/{batch_id}/enqueue")
+    def api_enqueue_batch(batch_id: str) -> Response:
+        container = _get_container(target_app)
+        if not hasattr(container, "batches") or container.batches is None:
+            return JSONResponse(status_code=500, content={"error": "Batches not configured"})
+            
+        from app.services.batch_service import BatchService
+        batch_svc = BatchService(
+            batch_repo=container.batches,
+            recovery_items_repo=container.recovery_items,
+            outcomes_repo=container.outcomes,
+        )
+        
+        try:
+            enqueued = batch_svc.enqueue_batch(batch_id, container.jobs)
+            return JSONResponse(status_code=200, content={"status": "enqueued", "jobs": enqueued})
+        except ValueError as e:
+            return JSONResponse(status_code=404, content={"error": str(e)})
+
     # Dashboard API endpoints
     @target_app.get("/api/dashboard/summary")
+
     def api_dashboard_summary() -> dict[str, Any]:
         from app.dashboard_api import build_dashboard_summary
         container = _get_container(target_app)
@@ -259,6 +851,14 @@ def _register_routes(
             "audit_event_count": len(audit_events),
         }
         if item is not None:
+            # Mark as synthetic for easy demo reset
+            container = _get_container(target_app)
+            if hasattr(container.recovery_items, "get"):
+                db_item = container.recovery_items.get(item.id)
+                if db_item:
+                    db_item.metadata["is_synthetic"] = True
+                    container.recovery_items.save(db_item)
+                    
             response_body["failure_category"] = item.root_cause
             response_body["expected_recovery_value"] = item.expected_recovery_value
             response_body["recovery_status"] = item.status.value
@@ -478,13 +1078,11 @@ def _register_routes(
         return JSONResponse(status_code=200, content={"item_id": item_id, "agent_events": events})
 
     @target_app.get("/api/audit-events")
-    def api_audit_events() -> list[dict[str, Any]]:
-        """Get all audit events across all recovery items."""
+    def api_audit_events(filter: str = "all") -> list[dict[str, Any]]:
+        """Get all audit events across all recovery items, optionally filtered."""
+        from app.dashboard_api import build_audit_events_list
         container = _get_container(target_app)
-        events = []
-        if hasattr(container.audit_log, "_events"):
-            events = [_audit_to_dict(e) for e in container.audit_log._events]
-        return sorted(events, key=lambda x: x["timestamp"], reverse=True)
+        return build_audit_events_list(container, filter_by=filter)
 
     @target_app.get("/api/provider-events/{provider_event_id}")
     def api_provider_event(provider_event_id: str) -> Response:
@@ -580,8 +1178,15 @@ def _register_routes(
                 "policy_rule": service.last_decision.policy_rule if service.last_decision else None,
                 "execution_status": "succeeded" if service.last_execution and service.last_execution.success else "failed",
             }
-            results.append(result)
             if item:
+                # Mark as synthetic
+                container = _get_container(target_app)
+                if hasattr(container.recovery_items, "get"):
+                    db_item = container.recovery_items.get(item.id)
+                    if db_item:
+                        db_item.metadata["is_synthetic"] = True
+                        container.recovery_items.save(db_item)
+
                 if item.status.value == "recovered":
                     recovered_count += 1
                     total_recovered += item.expected_recovery_value or 0
@@ -589,6 +1194,8 @@ def _register_routes(
                     escalated_count += 1
                 elif item.status.value == "stopped":
                     stopped_count += 1
+                    
+            results.append(result)
 
         summary = {
             "total_cases": count,
@@ -939,8 +1546,17 @@ def create_app(
     *,
     webhook_secret: str,
     webhook_service: RazorpayWebhookService | None = None,
+    async_mode: bool = False,
 ) -> FastAPI:
-    """Build a fresh FastAPI app with a pre-configured webhook service."""
+    """Build a fresh FastAPI app with a pre-configured webhook service.
+
+    Args:
+        webhook_secret: The Razorpay webhook HMAC secret.
+        webhook_service: Optional pre-built webhook service.
+        async_mode: If True, enable Stage 7 async job queue (fast-accept webhook +
+                    job enqueue). If False (default), use the synchronous path so
+                    existing tests are not affected.
+    """
     fresh = FastAPI(title="Recovery Engine", version="0.1.0")
     # Enable CORS for frontend communication
     fresh.add_middleware(
@@ -952,13 +1568,20 @@ def create_app(
     )
     # Create a container for this app instance
     container = create_persistence_container("memory")
+    if not async_mode:
+        # Null out jobs so the webhook handler uses the synchronous path.
+        # This preserves backward compatibility for all pre-Stage-7 tests.
+        container.jobs = None
     fresh.state.container = container
     fresh.state.webhook_secret = webhook_secret
     service = webhook_service or _build_webhook_service(webhook_secret, container)
     if webhook_service is not None and hasattr(webhook_service, "container"):
         fresh.state.container = webhook_service.container
+        if not async_mode:
+            fresh.state.container.jobs = None
     _register_routes(fresh, service)
     return fresh
+
 
 
 # Wire the default singleton app for `uvicorn app.main:app`.

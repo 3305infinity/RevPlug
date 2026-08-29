@@ -227,30 +227,48 @@ export default function CaseWorkspace() {
             background: "var(--danger-subtle)",
           }}
         >
-          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--danger)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-            Recovery Stopped
+          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--danger)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "1rem" }}>
+            Recovery Blocked by Safety Guard
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
+            {firstDecision && (
+              <>
+                <div>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Proposed Action</div>
+                  <div style={{ fontSize: "0.8125rem", color: "var(--purple)", textTransform: "capitalize", fontWeight: 600 }}>
+                    {firstDecision.proposed_action.replace(/_/g, " ")}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Why It Was Proposed</div>
+                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+                    {firstDecision.reason}
+                  </div>
+                </div>
+              </>
+            )}
+            
             <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Reason</div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Expected Value</div>
+              <div style={{ fontSize: "0.8125rem", color: "var(--text-primary)", fontWeight: 600, fontFamily: "monospace" }}>
+                {detail.expected_recovery_value ? fmt(detail.expected_recovery_value) : "—"}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Why System Blocked It</div>
               <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--danger)", textTransform: "capitalize" }}>
                 {(detail.stopped_reason || "unknown").replace(/_/g, " ")}
               </div>
             </div>
+
             <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Rule</div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Policy Rule / Stopping Rule</div>
               <div style={{ fontSize: "0.8125rem", color: "var(--text-primary)", fontFamily: "monospace" }}>
-                {detail.stopped_rule || "—"}
+                {detail.stopped_rule || firstDecision?.policy_rule || "—"}
               </div>
             </div>
-            {firstDecision && (
-              <div>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>AI Recommended</div>
-                <div style={{ fontSize: "0.8125rem", color: "var(--purple)", textTransform: "capitalize" }}>
-                  {firstDecision.proposed_action.replace(/_/g, " ")}
-                </div>
-              </div>
-            )}
+
             <div>
               <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Next Action</div>
               <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
@@ -261,21 +279,31 @@ export default function CaseWorkspace() {
         </div>
       )}
 
-      {/* Financial Outcome */}
+      {/* Financial Outcome & Economic Reasoning */}
       <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
-        <h3
-          style={{
-            fontSize: "0.75rem",
-            fontWeight: 600,
-            marginBottom: "1rem",
-            color: "var(--text-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-          }}
-        >
-          Financial Outcome
-        </h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+          <h3
+            style={{
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              color: "var(--text-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
+            Financial Outcome
+          </h3>
+          <div style={{ textAlign: "right" }}>
+            <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block" }}>
+              Deterministic Economic Score
+            </span>
+            <span style={{ fontSize: "0.625rem", color: "var(--accent)" }}>
+              LLM does not control this value.
+            </span>
+          </div>
+        </div>
+        
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
           <div>
             <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>At Risk</div>
             <div style={{ fontSize: "1.0625rem", fontWeight: 700, color: "var(--danger)", fontFamily: "monospace" }}>{fmt(detail.amount_minor)}</div>
@@ -299,6 +327,18 @@ export default function CaseWorkspace() {
             </div>
           </div>
         </div>
+
+        {detail.expected_recovery_value != null && (
+          <div style={{ background: "var(--bg-tertiary)", padding: "0.75rem", borderRadius: 8, fontSize: "0.75rem", fontFamily: "monospace", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span>{fmt(detail.amount_minor)}</span>
+            <span style={{ color: "var(--text-muted)" }}>×</span>
+            <span>{((detail.recovery_probability || 0) * 100).toFixed(1)}% prob</span>
+            <span style={{ color: "var(--text-muted)" }}>−</span>
+            <span>{fmt(detail.intervention_cost || 0)} cost</span>
+            <span style={{ color: "var(--text-muted)" }}>=</span>
+            <span style={{ fontWeight: 600, color: "var(--purple)" }}>{fmt(detail.expected_recovery_value)}</span>
+          </div>
+        )}
       </div>
 
       {/* AI Recommendation */}
@@ -921,89 +961,65 @@ function buildTimeline(detail: CaseDetail, firstDecision: DecisionRow | null, re
   const isExecuted = ["intervention_executed", "recovered", "failed", "escalated", "stopped"].includes(status);
   const isOutcome = ["recovered", "escalated", "stopped", "failed"].includes(status);
 
-  addStage("Event received", "failure_detected", "var(--accent)");
+  addStage("01 EVENT", "failure_detected", "var(--accent)");
 
   if (eventMap.has("failure_classified") || detail.root_cause) {
-    addStage(
-      "Classified",
-      "failure_classified",
-      "var(--accent)",
-      detail.root_cause || undefined
-    );
+    addStage("02 DIAGNOSE", "failure_classified", "var(--accent)", detail.root_cause || undefined);
   } else {
-    stages.push({ label: "Classified", color: "var(--border)", active: false });
+    stages.push({ label: "02 DIAGNOSE", color: "var(--border)", active: false });
   }
 
   if (hasDecision) {
-    addStage(
-      "Value Scored",
-      "recovery_scored",
-      "var(--purple)",
-      detail.expected_recovery_value
-        ? fmt(detail.expected_recovery_value)
-        : undefined
-    );
+    addStage("03 SCORE", "recovery_scored", "var(--purple)", detail.expected_recovery_value ? fmt(detail.expected_recovery_value) : undefined);
   } else {
-    stages.push({ label: "Value Scored", color: "var(--border)", active: false });
+    stages.push({ label: "03 SCORE", color: "var(--border)", active: false });
   }
 
   if (hasDecision) {
-    addStage(
-      "AI Recommendation",
-      "ai_recommendation",
-      "var(--purple)",
-      firstDecision.proposed_action
-    );
+    addStage("04 RECOMMEND", "ai_recommendation", "var(--purple)", firstDecision.proposed_action);
   } else {
-    stages.push({ label: "AI Recommendation", color: "var(--border)", active: false });
+    stages.push({ label: "04 RECOMMEND", color: "var(--border)", active: false });
   }
 
   if (hasDecision) {
     const policyDecision = eventMap.get("guard_evaluate") || eventMap.get("policy_evaluate");
     const policyAllowed = policyDecision ? (policyDecision.metadata?.allowed ?? firstDecision.policy_allowed) : firstDecision.policy_allowed;
     addStage(
-      "Safety Check",
+      "05 SAFETY",
       "guard_evaluate",
       policyAllowed ? "var(--success)" : "var(--danger)",
       policyAllowed ? "Allowed" : String(policyDecision?.metadata?.reason_code || "Denied")
     );
   } else {
-    stages.push({ label: "Safety Check", color: "var(--border)", active: false });
+    stages.push({ label: "05 SAFETY", color: "var(--border)", active: false });
   }
 
   if (isExecuted) {
-    addStage(
-      "Execution",
-      "intervention_executed",
-      "var(--accent)",
-      detail.attempts[0]?.outcome || undefined
-    );
+    addStage("06 EXECUTE", "intervention_executed", "var(--accent)", detail.attempts[0]?.outcome || undefined);
   } else {
-    stages.push({ label: "Execution", color: "var(--border)", active: false });
+    stages.push({ label: "06 EXECUTE", color: "var(--border)", active: false });
+  }
+
+  // 07 VERIFY (pseudo-stage to represent the check after execution)
+  if (isExecuted && isOutcome) {
+    stages.push({
+      label: "07 VERIFY",
+      color: "var(--success)",
+      active: true,
+      result: "Verified",
+    });
+  } else {
+    stages.push({ label: "07 VERIFY", color: "var(--border)", active: false });
   }
 
   if (isOutcome) {
     const outcomeColor =
-      status === "recovered"
-        ? "var(--success)"
-        : status === "escalated"
-          ? "var(--danger)"
-          : status === "stopped"
-            ? "var(--text-muted)"
-            : "var(--text-muted)";
+      status === "recovered" ? "var(--success)" : status === "escalated" ? "var(--danger)" : "var(--text-muted)";
     const outcomeResult =
-      status === "recovered"
-        ? recoveredAmount
-          ? fmt(recoveredAmount)
-          : "Recovered"
-        : status === "escalated"
-          ? "Escalated"
-          : status === "stopped"
-            ? "Stopped"
-            : status;
-    addStage("Outcome", "outcome", outcomeColor, outcomeResult);
+      status === "recovered" ? (recoveredAmount ? fmt(recoveredAmount) : "Recovered") : status === "escalated" ? "Escalated" : "Stopped";
+    addStage("08 OUTCOME", "outcome", outcomeColor, outcomeResult);
   } else {
-    stages.push({ label: "Outcome", color: "var(--border)", active: false });
+    stages.push({ label: "08 OUTCOME", color: "var(--border)", active: false });
   }
 
   return stages;
