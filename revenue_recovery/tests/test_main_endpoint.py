@@ -69,6 +69,7 @@ def service() -> RazorpayWebhookService:
         policy_engine=InterventionPolicy(max_retry_attempts=3),
         audit_log=container.audit_log,
         idempotency_store=container.idempotency,
+        provider_events=container.provider_events,
         recovery_items=container.recovery_items,
         decisions=container.decisions,
         attempts=container.attempts,
@@ -79,7 +80,6 @@ def service() -> RazorpayWebhookService:
 def app(service):
     """A fresh FastAPI app wired with the fresh service."""
     app = main_module.create_app(webhook_secret=SECRET, webhook_service=service)
-    # Share the service's container with the app state so API endpoints see the same data
     if hasattr(service, '_recovery_items') or hasattr(service, '_container'):
         container = getattr(service, '_container', None)
         if container is None:
@@ -95,6 +95,9 @@ def app(service):
                 audit_log=getattr(service, '_audit_log', InMemoryAuditLog()),
                 attempts=getattr(service, '_attempts', InMemoryAttemptLedger()),
                 decisions=getattr(service, '_decisions', InMemoryRecoveryDecisionRepository()),
+                outcomes=getattr(service, '_outcomes', None),
+                promises=getattr(service, '_promises', None),
+                provider_events=getattr(service, '_provider_events', None),
             )
         app.state.container = container
     return app

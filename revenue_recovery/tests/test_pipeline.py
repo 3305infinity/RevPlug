@@ -25,8 +25,8 @@ def build_item(utcnow, **overrides):
         "currency": "INR",
         "created_at": utcnow,
         "status": RecoveryStatus.DETECTED,
-        "root_cause": "temporary_processing",
-        "recovery_probability": 0.4,
+        "root_cause": "soft",
+        "recovery_probability": 0.6,
         "metadata": {},
     }
     data.update(overrides)
@@ -44,7 +44,9 @@ def test_pipeline_scores_and_queues_item(utcnow):
     item = build_item(utcnow, recovery_probability=0.6)
     result, events = pipeline.process(item)
     assert result.status == RecoveryStatus.INTERVENTION_EXECUTED
-    assert result.expected_recovery_value == 6000
+    # soft + retry_payment = 0.70 probability, cost 500
+    # 10000 * 0.7 - 500 = 6500
+    assert result.expected_recovery_value == 6500
 
 
 def test_pipeline_blocks_hard_failure_retry(utcnow):
@@ -60,7 +62,7 @@ def test_pipeline_blocks_hard_failure_retry(utcnow):
     # Force the diagnose step to propose retry so we can verify policy blocks it
     pipeline._diagnose = lambda item: "retry_payment"  # type: ignore[assignment]
     result, events = pipeline.process(item)
-    assert result.status == RecoveryStatus.QUEUED
+    assert result.status == RecoveryStatus.STOPPED
     policy_events = [e for e in events if e.action == "policy_evaluate"]
     assert len(policy_events) == 1
     assert policy_events[0].metadata["allowed"] is False
@@ -79,10 +81,10 @@ def test_pipeline_requires_human_approval_for_exhausted_retry(utcnow):
     item = build_item(utcnow, metadata={"attempt_count": 1})
     pipeline._diagnose = lambda item: "retry_payment"  # type: ignore[assignment]
     result, events = pipeline.process(item)
-    assert result.status == RecoveryStatus.QUEUED
-    pending_events = [e for e in events if e.action == "intervention_pending"]
-    assert len(pending_events) == 1
-    assert "Human approval required" in pending_events[0].reason
+    assert result.status == RecoveryStatus.STOPPED
+    stopped_events = [e for e in events if e.action == "recovery_stopped"]
+    assert len(stopped_events) == 1
+    assert stopped_events[0].metadata.get("reason_code") == "retry_budget_exhausted"
 
 
 def test_pipeline_executes_allowed_intervention(utcnow):

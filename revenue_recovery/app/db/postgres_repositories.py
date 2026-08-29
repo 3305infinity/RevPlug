@@ -2,52 +2,82 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Iterable
+from typing import Any, Iterable
 
 from app.audit.models import AuditEvent
 from app.db.session import PostgresConnection
-from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+from app.domain.models import (
+    RecoveryItem,
+    RecoveryOutcome,
+    RecoveryStatus,
+    SourceType,
+    ProviderEvent,
+    Promise,
+)
 from app.domain.proposals import RecoveryProposal
 from app.idempotency.store import IdempotencyStore
 from app.ledger.attempts import AttemptLedger, AttemptRecord
 
 
 class PostgresRecoveryItemRepository:
-    """PostgreSQL-backed RecoveryItem repository."""
-
-    def __init__(self, conn: PostgresConnection) -> None:
-        self._conn = conn
+    """PostgreSQL-backed RecoveryItem repository with canonical schema."""
 
     def save(self, item: RecoveryItem) -> None:
         self._conn.execute(
             """
             INSERT INTO recovery_items
-                (id, source_type, amount, currency, customer_id, created_at,
-                 status, root_cause, risk_score, expected_recovery_value,
+                (id, source_type, external_id, customer_id, amount, currency,
+                 created_at, due_at, status, root_cause, risk_score,
+                 expected_recovery_value, intervention_cost, failure_category,
+                 provider, provider_event_id, actual_recovery_value, recovery_status,
+                 score_version, scoring_reason, priority,
                  metadata, updated_at)
-            VALUES (%(id)s, %(source_type)s, %(amount)s, %(currency)s,
-                    %(customer_id)s, %(created_at)s, %(status)s, %(root_cause)s,
-                    %(risk_score)s, %(expected_recovery_value)s, %(metadata)s,
-                    now())
+            VALUES (%(id)s, %(source_type)s, %(external_id)s, %(customer_id)s,
+                    %(amount)s, %(currency)s, %(created_at)s, %(due_at)s,
+                    %(status)s, %(root_cause)s, %(risk_score)s,
+                    %(expected_recovery_value)s, %(intervention_cost)s, %(failure_category)s,
+                    %(provider)s, %(provider_event_id)s, %(actual_recovery_value)s, %(recovery_status)s,
+                    %(score_version)s, %(scoring_reason)s, %(priority)s,
+                    %(metadata)s, now())
             ON CONFLICT (id) DO UPDATE SET
                 status = EXCLUDED.status,
                 root_cause = EXCLUDED.root_cause,
                 risk_score = EXCLUDED.risk_score,
                 expected_recovery_value = EXCLUDED.expected_recovery_value,
+                intervention_cost = EXCLUDED.intervention_cost,
+                failure_category = EXCLUDED.failure_category,
+                provider = EXCLUDED.provider,
+                provider_event_id = EXCLUDED.provider_event_id,
+                actual_recovery_value = EXCLUDED.actual_recovery_value,
+                recovery_status = EXCLUDED.recovery_status,
+                score_version = EXCLUDED.score_version,
+                scoring_reason = EXCLUDED.scoring_reason,
+                priority = EXCLUDED.priority,
                 metadata = EXCLUDED.metadata,
                 updated_at = now()
             """,
             {
                 "id": item.id,
                 "source_type": item.source_type.value,
+                "external_id": item.external_id,
+                "customer_id": item.customer_id,
                 "amount": item.amount_minor,
                 "currency": item.currency,
-                "customer_id": item.customer_id,
                 "created_at": item.created_at,
+                "due_at": item.due_at,
                 "status": item.status.value,
                 "root_cause": item.root_cause,
                 "risk_score": item.recovery_probability,
                 "expected_recovery_value": item.expected_recovery_value,
+                "intervention_cost": item.intervention_cost,
+                "failure_category": item.failure_category,
+                "provider": item.provider,
+                "provider_event_id": item.provider_event_id,
+                "actual_recovery_value": item.actual_recovery_value,
+                "recovery_status": item.recovery_status,
+                "score_version": item.score_version,
+                "scoring_reason": item.scoring_reason,
+                "priority": item.priority,
                 "metadata": json.dumps(item.metadata),
             },
         )
@@ -61,22 +91,251 @@ class PostgresRecoveryItemRepository:
         return RecoveryItem(
             id=row["id"],
             source_type=SourceType(row["source_type"]),
-            external_id=row["id"],
+            external_id=row.get("external_id", row["id"]),
             customer_id=row["customer_id"],
             amount_minor=row["amount"],
             currency=row["currency"],
             created_at=row["created_at"],
+            due_at=row.get("due_at"),
             status=RecoveryStatus(row["status"]),
-            root_cause=row["root_cause"],
-            recovery_probability=row["risk_score"],
-            expected_recovery_value=row["expected_recovery_value"],
-            metadata=row["metadata"] if isinstance(row["metadata"], dict) else json.loads(row["metadata"]),
+            root_cause=row.get("root_cause"),
+            recovery_probability=row.get("risk_score"),
+            expected_recovery_value=row.get("expected_recovery_value"),
+            intervention_cost=row.get("intervention_cost"),
+            failure_category=row.get("failure_category"),
+            provider=row.get("provider"),
+            provider_event_id=row.get("provider_event_id"),
+            actual_recovery_value=row.get("actual_recovery_value"),
+            recovery_status=row.get("recovery_status"),
+            score_version=row.get("score_version"),
+            scoring_reason=row.get("scoring_reason"),
+            priority=row.get("priority"),
+            metadata=row.get("metadata", {}) if isinstance(row.get("metadata"), dict) else json.loads(row.get("metadata", "{}")),
         )
 
     def update_status(self, item_id: str, status: RecoveryStatus) -> None:
         self._conn.execute(
             "UPDATE recovery_items SET status = %s, updated_at = now() WHERE id = %s",
             (status.value, item_id),
+        )
+
+
+class PostgresRecoveryOutcomeRepository:
+    """PostgreSQL-backed recovery outcome repository."""
+
+    def __init__(self, conn: PostgresConnection) -> None:
+        self._conn = conn
+
+    def save(self, outcome: RecoveryOutcome) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO recovery_outcomes
+                (id, recovery_item_id, outcome_type, expected_recovery_minor,
+                 actual_recovery_minor, recovery_cost_minor, net_recovery_minor,
+                 recovered_at, created_at, metadata)
+            VALUES (%(id)s, %(recovery_item_id)s, %(outcome_type)s,
+                    %(expected_recovery_minor)s, %(actual_recovery_minor)s,
+                    %(recovery_cost_minor)s, %(net_recovery_minor)s,
+                    %(recovered_at)s, %(created_at)s, %(metadata)s)
+            ON CONFLICT (recovery_item_id) DO UPDATE SET
+                outcome_type = EXCLUDED.outcome_type,
+                actual_recovery_minor = EXCLUDED.actual_recovery_minor,
+                recovery_cost_minor = EXCLUDED.recovery_cost_minor,
+                net_recovery_minor = EXCLUDED.net_recovery_minor,
+                recovered_at = EXCLUDED.recovered_at,
+                metadata = EXCLUDED.metadata
+            """,
+            {
+                "id": outcome.id,
+                "recovery_item_id": outcome.recovery_item_id,
+                "outcome_type": outcome.outcome_type,
+                "expected_recovery_minor": outcome.expected_recovery_minor,
+                "actual_recovery_minor": outcome.actual_recovery_minor,
+                "recovery_cost_minor": outcome.recovery_cost_minor,
+                "net_recovery_minor": outcome.net_recovery_minor,
+                "recovered_at": outcome.recovered_at,
+                "created_at": outcome.created_at or datetime.now(),
+                "metadata": json.dumps(outcome.metadata),
+            },
+        )
+
+    def get_for_item(self, recovery_item_id: str) -> RecoveryOutcome | None:
+        row = self._conn.fetchone(
+            "SELECT * FROM recovery_outcomes WHERE recovery_item_id = %s",
+            (recovery_item_id,),
+        )
+        if not row:
+            return None
+        return self._row_to_outcome(row)
+
+    def _row_to_outcome(self, row: dict[str, Any]) -> RecoveryOutcome:
+        return RecoveryOutcome(
+            id=row["id"],
+            recovery_item_id=row["recovery_item_id"],
+            outcome_type=row["outcome_type"],
+            expected_recovery_minor=row["expected_recovery_minor"],
+            actual_recovery_minor=row.get("actual_recovery_minor"),
+            recovery_cost_minor=row.get("recovery_cost_minor", 0),
+            net_recovery_minor=row.get("net_recovery_minor"),
+            recovered_at=row.get("recovered_at"),
+            created_at=row.get("created_at"),
+            metadata=row.get("metadata", {}) if isinstance(row.get("metadata"), dict) else json.loads(row.get("metadata", "{}")),
+        )
+
+
+class PostgresPromiseRepository:
+    """PostgreSQL-backed promise-to-pay repository."""
+
+    def __init__(self, conn: PostgresConnection) -> None:
+        self._conn = conn
+
+    def save(self, promise: Promise) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO promises
+                (id, recovery_item_id, customer_id, promised_amount_minor,
+                 promised_date, status, created_at, fulfilled_at, expired_at, metadata)
+            VALUES (%(id)s, %(recovery_item_id)s, %(customer_id)s,
+                    %(promised_amount_minor)s, %(promised_date)s, %(status)s,
+                    %(created_at)s, %(fulfilled_at)s, %(expired_at)s, %(metadata)s)
+            """,
+            {
+                "id": promise.id,
+                "recovery_item_id": promise.recovery_item_id,
+                "customer_id": promise.customer_id,
+                "promised_amount_minor": promise.promised_amount_minor,
+                "promised_date": promise.promised_date,
+                "status": promise.status,
+                "created_at": promise.created_at or datetime.now(),
+                "fulfilled_at": promise.fulfilled_at,
+                "expired_at": promise.expired_at,
+                "metadata": json.dumps(promise.metadata),
+            },
+        )
+
+    def get_for_item(self, recovery_item_id: str) -> Promise | None:
+        row = self._conn.fetchone(
+            "SELECT * FROM promises WHERE recovery_item_id = %s ORDER BY created_at DESC LIMIT 1",
+            (recovery_item_id,),
+        )
+        if not row:
+            return None
+        return Promise(
+            id=row["id"],
+            recovery_item_id=row["recovery_item_id"],
+            customer_id=row["customer_id"],
+            promised_amount_minor=row["promised_amount_minor"],
+            promised_date=row["promised_date"],
+            status=row["status"],
+            created_at=row.get("created_at"),
+            fulfilled_at=row.get("fulfilled_at"),
+            expired_at=row.get("expired_at"),
+            metadata=row.get("metadata", {}) if isinstance(row.get("metadata"), dict) else json.loads(row.get("metadata", "{}")),
+        )
+
+
+class PostgresProviderEventRepository:
+    """PostgreSQL-backed provider event repository with durable uniqueness."""
+
+    def __init__(self, conn: PostgresConnection) -> None:
+        self._conn = conn
+
+    def try_insert(self, event: ProviderEvent) -> tuple[bool, ProviderEvent | None]:
+        row = self._conn.fetchone(
+            """
+            INSERT INTO provider_events
+                (id, provider, provider_event_id, received_at, event_type,
+                 raw_payload, processing_status, processed_at,
+                 recovery_item_id, error_message, metadata)
+            VALUES (%(id)s, %(provider)s, %(provider_event_id)s, %(received_at)s,
+                    %(event_type)s, %(raw_payload)s, %(processing_status)s,
+                    %(processed_at)s, %(recovery_item_id)s, %(error_message)s,
+                    %(metadata)s)
+            ON CONFLICT (provider, provider_event_id) DO NOTHING
+            RETURNING id, provider, provider_event_id, received_at, event_type,
+                      raw_payload, processing_status, processed_at,
+                      recovery_item_id, error_message, metadata
+            """,
+            {
+                "id": event.id,
+                "provider": event.provider,
+                "provider_event_id": event.provider_event_id,
+                "received_at": event.received_at,
+                "event_type": event.event_type,
+                "raw_payload": json.dumps(event.raw_payload),
+                "processing_status": event.processing_status,
+                "processed_at": event.processed_at,
+                "recovery_item_id": event.recovery_item_id,
+                "error_message": event.error_message,
+                "metadata": json.dumps(event.metadata),
+            },
+        )
+        if row:
+            return True, self._row_to_event(row)
+        existing = self.get_by_provider_event(event.provider, event.provider_event_id)
+        return False, existing
+
+    def save(self, event: ProviderEvent) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO provider_events
+                (id, provider, provider_event_id, received_at, event_type,
+                 raw_payload, processing_status, processed_at,
+                 recovery_item_id, error_message, metadata)
+            VALUES (%(id)s, %(provider)s, %(provider_event_id)s, %(received_at)s,
+                    %(event_type)s, %(raw_payload)s, %(processing_status)s,
+                    %(processed_at)s, %(recovery_item_id)s, %(error_message)s,
+                    %(metadata)s)
+            ON CONFLICT (provider, provider_event_id) DO NOTHING
+            """,
+            {
+                "id": event.id,
+                "provider": event.provider,
+                "provider_event_id": event.provider_event_id,
+                "received_at": event.received_at,
+                "event_type": event.event_type,
+                "raw_payload": json.dumps(event.raw_payload),
+                "processing_status": event.processing_status,
+                "processed_at": event.processed_at,
+                "recovery_item_id": event.recovery_item_id,
+                "error_message": event.error_message,
+                "metadata": json.dumps(event.metadata),
+            },
+        )
+
+    def get_by_provider_event(self, provider: str, provider_event_id: str) -> ProviderEvent | None:
+        row = self._conn.fetchone(
+            "SELECT * FROM provider_events WHERE provider = %s AND provider_event_id = %s",
+            (provider, provider_event_id),
+        )
+        if not row:
+            return None
+        return self._row_to_event(row)
+
+    def mark_processed(self, provider: str, provider_event_id: str, recovery_item_id: str | None = None) -> None:
+        self._conn.execute(
+            """
+            UPDATE provider_events
+            SET processing_status = 'processed', processed_at = now(),
+                recovery_item_id = %(recovery_item_id)s
+            WHERE provider = %(provider)s AND provider_event_id = %(provider_event_id)s
+            """,
+            {"provider": provider, "provider_event_id": provider_event_id, "recovery_item_id": recovery_item_id},
+        )
+
+    def _row_to_event(self, row: dict[str, Any]) -> ProviderEvent:
+        return ProviderEvent(
+            id=row["id"],
+            provider=row["provider"],
+            provider_event_id=row["provider_event_id"],
+            received_at=row["received_at"],
+            event_type=row["event_type"],
+            raw_payload=row.get("raw_payload", {}) if isinstance(row.get("raw_payload"), dict) else json.loads(row.get("raw_payload", "{}")),
+            processing_status=row.get("processing_status", "pending"),
+            processed_at=row.get("processed_at"),
+            recovery_item_id=row.get("recovery_item_id"),
+            error_message=row.get("error_message"),
+            metadata=row.get("metadata", {}) if isinstance(row.get("metadata"), dict) else json.loads(row.get("metadata", "{}")),
         )
 
 
@@ -98,7 +357,6 @@ class PostgresIdempotencyStore:
                 "INSERT INTO idempotency_keys (event_key) VALUES (%s)", (key,)
             )
         except Exception:
-            # UNIQUE violation means already processed; treat as idempotent success.
             self._conn._conn.rollback()
 
 

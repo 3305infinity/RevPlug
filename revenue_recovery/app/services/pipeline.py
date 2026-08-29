@@ -16,8 +16,10 @@ from app.idempotency.store import IdempotencyStore
 from app.interventions.simulated import Intervention, InterventionResult
 from app.ledger.attempts import AttemptLedger, AttemptRecord
 from app.policies.engine import PolicyEngine, PolicyDecision
+from app.policies.guard import DefaultRecoveryGuard, RecoveryGuard
 from app.policies.retry import RetryPolicy
-from app.scoring.expected_value import RecoveryScorer
+from app.policies.stopping_rules import StoppingRules
+from app.scoring.expected_value import ExpectedValueScorer, ScoreResult
 
 
 class RecoveryPipeline:
@@ -42,6 +44,8 @@ class RecoveryPipeline:
         state_machine: RecoveryStateMachine | None = None,
         retry_policy: RetryPolicy | None = None,
         attempt_ledger: AttemptLedger | None = None,
+        stopping_rules: StoppingRules | None = None,
+        guard: RecoveryGuard | None = None,
     ) -> None:
         self._scorer = scorer
         self._policy_engine = policy_engine
@@ -51,6 +55,16 @@ class RecoveryPipeline:
         self._state_machine = state_machine or DefaultStateMachine()
         self._retry_policy = retry_policy
         self._attempt_ledger = attempt_ledger
+        self._stopping_rules = stopping_rules
+        if guard is not None:
+            self._guard = guard
+        elif stopping_rules is not None:
+            self._guard = DefaultRecoveryGuard(
+                stopping_rules=stopping_rules,
+                policy_engine=policy_engine,
+            )
+        else:
+            self._guard = None
 
     def process(self, item: RecoveryItem, context: dict[str, object] | None = None) -> tuple[RecoveryItem, list[AuditEvent]]:
         """Run the recovery pipeline on a single item.
@@ -61,17 +75,7 @@ class RecoveryPipeline:
         events: list[AuditEvent] = []
         current = item
 
-        # Stage 1: score (unchanged from foundation)
-        current = self._score(current)
-        events.append(self._audit_log.log(
-            recovery_item_id=current.id,
-            actor="system",
-            action="score",
-            reason="Expected value calculated",
-            metadata={"expected_recovery_value": current.expected_recovery_value},
-        ))
-
-        # Stage 2: diagnose (deterministic placeholder)
+        # Stage 1: diagnose (deterministic action selection before scoring)
         proposed_action = self._diagnose(current)
         events.append(self._audit_log.log(
             recovery_item_id=current.id,
@@ -81,85 +85,198 @@ class RecoveryPipeline:
             metadata={"proposed_action": proposed_action},
         ))
 
-        # Stage 3: policy decision
-        decision = self._policy_engine.evaluate(current, proposed_action)
+        # Stage 2: deterministic expected-value scoring (LLM never determines the score)
+        score_result = self._score(
+            item=current,
+            failure_category=current.root_cause or "unknown",
+            proposed_action=proposed_action,
+            attempt_number=int(current.metadata.get("attempt_count", 0)),
+        )
+        current = self._apply_score(current, score_result)
         events.append(self._audit_log.log(
             recovery_item_id=current.id,
-            actor="rule",
-            action="policy_evaluate",
-            reason=decision.reason,
+            actor="system",
+            action="recovery_scored",
+            reason="Expected value calculated deterministically",
             metadata={
-                "proposed_action": proposed_action,
-                "allowed": decision.allowed,
-                "requires_human_approval": decision.requires_human_approval,
-                "policy_rule": decision.policy_rule,
+                "amount_at_risk": score_result.amount_at_risk,
+                "recovery_probability": score_result.recovery_probability,
+                "intervention_cost": score_result.intervention_cost,
+                "expected_recovery_value": score_result.expected_recovery_value,
+                "priority": score_result.priority,
+                "score_version": score_result.score_version,
+                "scoring_reason": score_result.scoring_reason,
             },
         ))
 
-        # Stage 4: retry policy check
-        if proposed_action == "retry_payment" and self._retry_policy is not None:
-            retry_decision = self._retry_policy.evaluate(current)
+        # Stage 3: guard decision (stopping rules + policy engine)
+        if self._guard is not None:
+            guard_decision = self._guard.evaluate(
+                current,
+                proposed_action,
+                container=None,
+            )
             events.append(self._audit_log.log(
                 recovery_item_id=current.id,
                 actor="rule",
-                action="retry_policy_evaluate",
-                reason=retry_decision.reason,
+                action="guard_evaluate",
+                reason=guard_decision.reason,
                 metadata={
-                    "allowed": retry_decision.allowed,
-                    "max_attempts": retry_decision.max_attempts,
-                    "policy_rule": retry_decision.policy_rule,
+                    "proposed_action": proposed_action,
+                    "allowed": guard_decision.allowed,
+                    "decision_type": guard_decision.decision_type,
+                    "reason_code": guard_decision.reason_code,
+                    "rule": guard_decision.rule,
+                    "next_state": guard_decision.next_state.value,
                 },
             ))
-            if not retry_decision.allowed and decision.allowed:
-                decision = PolicyDecision(
-                    allowed=False,
-                    requires_human_approval=True,
-                    reason=retry_decision.reason,
-                    policy_rule=retry_decision.policy_rule,
-                    action=proposed_action,
-                )
 
-        # Stage 5: intervene
-        if decision.requires_human_approval:
-            events.append(self._audit_log.log(
-                recovery_item_id=current.id,
-                actor="system",
-                action="intervention_pending",
-                reason="Human approval required before execution",
-                metadata={"action": proposed_action, "policy_rule": decision.policy_rule},
-            ))
-        elif decision.allowed:
-            attempt_number = int(current.metadata.get("attempt_count", 0)) + 1
-            result = self._intervention.execute(current, {"action": proposed_action, **context})
-            current = self._apply_outcome(current, result)
-            events.append(self._audit_log.log(
-                recovery_item_id=current.id,
-                actor="system",
-                action="intervention_execute",
-                reason=result.message,
-                metadata={"action": proposed_action, "success": result.success, "side_effects": result.side_effects},
-            ))
-
-            # Stage 6: attempt ledger
-            if self._attempt_ledger is not None:
-                attempt = AttemptRecord(
-                    recovery_item_id=current.id,
-                    attempt_number=attempt_number,
-                    action=proposed_action,
-                    executed_at=datetime.utcnow(),
-                    outcome="success" if result.success else "failed",
-                    metadata=result.side_effects or {},
-                )
-                self._attempt_ledger.record(attempt)
+            if not guard_decision.allowed:
+                final_status = guard_decision.next_state
+                if final_status != current.status:
+                    tr = self._state_machine.transition(current, final_status)
+                    if tr.applied:
+                        current = tr.item
+                        current = current.__class__(
+                            id=current.id,
+                            source_type=current.source_type,
+                            external_id=current.external_id,
+                            customer_id=current.customer_id,
+                            amount_minor=current.amount_minor,
+                            currency=current.currency,
+                            created_at=current.created_at,
+                            due_at=current.due_at,
+                            status=final_status,
+                            root_cause=current.root_cause,
+                            recovery_probability=current.recovery_probability,
+                            expected_recovery_value=current.expected_recovery_value,
+                            intervention_cost=current.intervention_cost,
+                            failure_category=current.failure_category,
+                            provider=current.provider,
+                            provider_event_id=current.provider_event_id,
+                            actual_recovery_value=current.actual_recovery_value,
+                            recovery_status=current.recovery_status,
+                            score_version=current.score_version,
+                            scoring_reason=current.scoring_reason,
+                            priority=current.priority,
+                            stopped_reason=guard_decision.reason_code,
+                            stopped_rule=guard_decision.rule,
+                            metadata=current.metadata,
+                        )
                 events.append(self._audit_log.log(
                     recovery_item_id=current.id,
                     actor="system",
-                    action="attempt_recorded",
-                    reason=f"Attempt {attempt_number} recorded",
-                    metadata={"attempt_number": attempt_number, "action": proposed_action},
+                    action="recovery_stopped",
+                    reason=guard_decision.reason,
+                    metadata={
+                        "reason_code": guard_decision.reason_code,
+                        "rule": guard_decision.rule,
+                        "next_state": final_status.value,
+                    },
                 ))
+                return current, events
+        else:
+            # Fallback to policy-only evaluation if no guard is configured
+            decision = self._policy_engine.evaluate(current, proposed_action)
+            events.append(self._audit_log.log(
+                recovery_item_id=current.id,
+                actor="rule",
+                action="policy_evaluate",
+                reason=decision.reason,
+                metadata={
+                    "proposed_action": proposed_action,
+                    "allowed": decision.allowed,
+                    "requires_human_approval": decision.requires_human_approval,
+                    "policy_rule": decision.policy_rule,
+                    "reason_code": decision.reason_code,
+                },
+            ))
 
-        # Stage 7: final audit
+            if not decision.allowed:
+                final_status = RecoveryStatus.STOPPED
+                tr = self._state_machine.transition(current, final_status)
+                if tr.applied:
+                    current = tr.item
+                    current = current.__class__(
+                        id=current.id,
+                        source_type=current.source_type,
+                        external_id=current.external_id,
+                        customer_id=current.customer_id,
+                        amount_minor=current.amount_minor,
+                        currency=current.currency,
+                        created_at=current.created_at,
+                        due_at=current.due_at,
+                        status=final_status,
+                        root_cause=current.root_cause,
+                        recovery_probability=current.recovery_probability,
+                        expected_recovery_value=current.expected_recovery_value,
+                        intervention_cost=current.intervention_cost,
+                        failure_category=current.failure_category,
+                        provider=current.provider,
+                        provider_event_id=current.provider_event_id,
+                        actual_recovery_value=current.actual_recovery_value,
+                        recovery_status=current.recovery_status,
+                        score_version=current.score_version,
+                        scoring_reason=current.scoring_reason,
+                        priority=current.priority,
+                        stopped_reason=decision.reason_code,
+                        stopped_rule=decision.policy_rule,
+                        metadata=current.metadata,
+                    )
+                events.append(self._audit_log.log(
+                    recovery_item_id=current.id,
+                    actor="system",
+                    action="recovery_stopped",
+                    reason=decision.reason,
+                    metadata={
+                        "reason_code": decision.reason_code,
+                        "rule": decision.policy_rule,
+                    },
+                ))
+                return current, events
+
+            if decision.requires_human_approval:
+                events.append(self._audit_log.log(
+                    recovery_item_id=current.id,
+                    actor="system",
+                    action="intervention_pending",
+                    reason="Human approval required before execution",
+                    metadata={"action": proposed_action, "policy_rule": decision.policy_rule},
+                ))
+                return current, events
+
+        # Stage 4: execute approved intervention (both guard and fallback paths)
+        attempt_number = int(current.metadata.get("attempt_count", 0)) + 1
+        result = self._intervention.execute(current, {"action": proposed_action, **context})
+        current = self._apply_outcome(current, result)
+        events.append(self._audit_log.log(
+            recovery_item_id=current.id,
+            actor="system",
+            action="intervention_execute",
+            reason=result.message,
+            metadata={"action": proposed_action, "success": result.success, "side_effects": result.side_effects},
+        ))
+
+        # Stage 5: attempt ledger
+        if self._attempt_ledger is not None:
+            attempt = AttemptRecord(
+                recovery_item_id=current.id,
+                attempt_number=attempt_number,
+                action=proposed_action,
+                executed_at=datetime.utcnow(),
+                outcome="success" if result.success else "failed",
+                metadata=result.side_effects or {},
+            )
+            self._attempt_ledger.record(attempt)
+            events.append(self._audit_log.log(
+                recovery_item_id=current.id,
+                actor="system",
+                action="attempt_recorded",
+                reason=f"Attempt {attempt_number} recorded",
+                metadata={"attempt_number": attempt_number, "action": proposed_action},
+            ))
+
+        # Stage 6: final audit
         events.append(self._audit_log.log(
             recovery_item_id=current.id,
             actor="system",
@@ -170,8 +287,28 @@ class RecoveryPipeline:
 
         return current, events
 
-    def _score(self, item: RecoveryItem) -> RecoveryItem:
-        value = self._scorer.score(item)
+    def _score(
+        self,
+        item: RecoveryItem,
+        failure_category: str,
+        proposed_action: str,
+        attempt_number: int = 0,
+    ) -> ScoreResult:
+        """Deterministically score a recovery item."""
+        return self._scorer.score(
+            amount_minor=item.amount_minor,
+            failure_category=failure_category,
+            proposed_action=proposed_action,
+            attempt_number=attempt_number + 1,
+            context={
+                "customer_id": item.customer_id,
+                "currency": item.currency,
+                "source_type": item.source_type.value,
+            },
+        )
+
+    def _apply_score(self, item: RecoveryItem, score_result: ScoreResult) -> RecoveryItem:
+        """Apply scoring results to a RecoveryItem."""
         return item.__class__(
             id=item.id,
             source_type=item.source_type,
@@ -183,8 +320,17 @@ class RecoveryPipeline:
             due_at=item.due_at,
             status=RecoveryStatus.QUEUED,
             root_cause=item.root_cause,
-            recovery_probability=item.recovery_probability,
-            expected_recovery_value=value,
+            recovery_probability=score_result.recovery_probability,
+            expected_recovery_value=score_result.expected_recovery_value,
+            intervention_cost=score_result.intervention_cost,
+            failure_category=item.failure_category,
+            provider=item.provider,
+            provider_event_id=item.provider_event_id,
+            actual_recovery_value=item.actual_recovery_value,
+            recovery_status=item.recovery_status,
+            score_version=score_result.score_version,
+            scoring_reason=score_result.scoring_reason,
+            priority=score_result.priority,
             metadata=item.metadata,
         )
 

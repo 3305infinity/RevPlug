@@ -10,6 +10,7 @@ from app.agents.decision_agent import MockRecoveryDecisionAgent
 from app.agents.orchestrator import RecoveryAgentOrchestrator
 from app.agents.validator import ProposalValidator
 from app.audit.models import InMemoryAuditLog
+from app.db.container import create_persistence_container
 from app.domain.failures import FailureCategory
 from app.idempotency.store import InMemoryIdempotencyStore
 from app.policies.engine import InterventionPolicy
@@ -61,8 +62,9 @@ def _payload(event_id: str, payment_id: str, error_reason: str, error_descriptio
 @pytest.fixture
 def service():
     """Build a RazorpayWebhookService with the agent wired in."""
+    container = create_persistence_container("memory")
     agent = MockRecoveryDecisionAgent()
-    audit_log = InMemoryAuditLog()
+    audit_log = container.audit_log
     policy_engine = InterventionPolicy(max_retry_attempts=3)
     orchestrator = RecoveryAgentOrchestrator(
         agent=agent,
@@ -75,7 +77,11 @@ def service():
         scorer=ExpectedValueScorer(),
         policy_engine=policy_engine,
         audit_log=audit_log,
-        idempotency_store=InMemoryIdempotencyStore(),
+        idempotency_store=container.idempotency,
+        provider_events=container.provider_events,
+        recovery_items=container.recovery_items,
+        decisions=container.decisions,
+        attempts=container.attempts,
         agent=agent,
         orchestrator=orchestrator,
     ), audit_log
@@ -155,7 +161,7 @@ class TestAgentWebhookIntegration:
         item, events, status = svc.process_webhook(body, sig)
         assert item is not None
         assert item.expected_recovery_value is not None
-        assert item.expected_recovery_value == 17500  # 50000 * 0.35
+        assert item.expected_recovery_value == 34500  # 50000 * 0.70 - 500
 
     def test_audit_trail_is_complete(self, service):
         svc, audit = service
@@ -172,11 +178,9 @@ class TestAgentWebhookIntegration:
 
     def test_opt_out_denies_outbound(self):
         """Opted-out customer cannot receive outbound actions."""
+        container = create_persistence_container("memory")
         agent = MockRecoveryDecisionAgent()
-        audit = InMemoryAuditLog()
-        # The policy engine checks opt-out via customer_id. Our webhook uses
-        # default_customer_id="razorpay_customer". We need to configure the
-        # policy to block that ID.
+        audit = container.audit_log
         policy = InterventionPolicy(
             max_retry_attempts=3,
             opted_out_customer_ids=frozenset({"razorpay_customer"}),
@@ -192,7 +196,11 @@ class TestAgentWebhookIntegration:
             scorer=ExpectedValueScorer(),
             policy_engine=policy,
             audit_log=audit,
-            idempotency_store=InMemoryIdempotencyStore(),
+            idempotency_store=container.idempotency,
+            provider_events=container.provider_events,
+            recovery_items=container.recovery_items,
+            decisions=container.decisions,
+            attempts=container.attempts,
             agent=agent,
             orchestrator=orchestrator,
         )
@@ -201,14 +209,14 @@ class TestAgentWebhookIntegration:
         sig = _sign(body)
         item, events, status = svc.process_webhook(body, sig)
         assert status == "processed"
-        # Agent proposes RETRY_PAYMENT, but policy denies due to opt-out
         assert svc.last_decision.allowed is False
 
     def test_retry_limit_enforced(self):
         """Retry policy still wins even if agent proposes retry."""
+        container = create_persistence_container("memory")
         agent = MockRecoveryDecisionAgent()
-        audit = InMemoryAuditLog()
-        policy = InterventionPolicy(max_retry_attempts=0)  # No retries allowed
+        audit = container.audit_log
+        policy = InterventionPolicy(max_retry_attempts=0)
         orchestrator = RecoveryAgentOrchestrator(
             agent=agent,
             policy_engine=policy,
@@ -220,7 +228,11 @@ class TestAgentWebhookIntegration:
             scorer=ExpectedValueScorer(),
             policy_engine=policy,
             audit_log=audit,
-            idempotency_store=InMemoryIdempotencyStore(),
+            idempotency_store=container.idempotency,
+            provider_events=container.provider_events,
+            recovery_items=container.recovery_items,
+            decisions=container.decisions,
+            attempts=container.attempts,
             agent=agent,
             orchestrator=orchestrator,
         )
@@ -229,7 +241,6 @@ class TestAgentWebhookIntegration:
         sig = _sign(body)
         item, events, status = svc.process_webhook(body, sig)
         assert status == "processed"
-        # Agent proposes RETRY_PAYMENT, but policy denies (max_attempts=0)
         assert svc.last_decision.allowed is False
 
 
@@ -257,7 +268,7 @@ class TestEndpointWithAgent:
         assert data["status"] == "processed"
         assert data["recovery_item_id"] == "pay_endpoint"
         assert data["failure_category"] == "soft"
-        assert data["expected_recovery_value"] == 17500
+        assert data["expected_recovery_value"] == 34500  # 50000 * 0.70 - 500
         assert data["proposed_action"] == "retry_payment"
         assert data["policy_allowed"] is True
         assert data["agent_model"] == "mock"

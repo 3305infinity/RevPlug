@@ -6,7 +6,15 @@ import { api, AuditEvent } from "@/lib/api";
 
 type Status = "loading" | "error" | "ready";
 
-const FILTERS = ["all", "system", "agent", "human"] as const;
+const FILTERS = [
+  { key: "all", label: "All" },
+  { key: "system", label: "System" },
+  { key: "agent", label: "AI" },
+  { key: "policy_denied", label: "Policy Denied" },
+  { key: "recovery_stopped", label: "Stopped" },
+  { key: "recovery_escalated", label: "Escalated" },
+  { key: "execution_succeeded", label: "Recovered" },
+] as const;
 
 export default function Activity() {
   const [status, setStatus] = useState<Status>("loading");
@@ -31,6 +39,9 @@ export default function Activity() {
 
   const filtered = useMemo(() => {
     if (filter === "all") return events;
+    if (filter === "policy_denied" || filter === "recovery_stopped" || filter === "recovery_escalated" || filter === "execution_succeeded") {
+      return events.filter((e) => e.action === filter);
+    }
     return events.filter((e) => e.actor.toLowerCase() === filter);
   }, [events, filter]);
 
@@ -47,8 +58,11 @@ export default function Activity() {
 
   if (status === "loading") {
     return (
-      <div style={{ display: "grid", gap: "0.5rem" }}>
-        {[...Array(8)].map((_, i) => <div key={i} className="skeleton" style={{ height: 72 }} />)}
+      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+        <div className="skeleton" style={{ height: 60, marginBottom: "1.5rem" }} />
+        <div style={{ display: "grid", gap: "0.5rem" }}>
+          {[...Array(8)].map((_, i) => <div key={i} className="skeleton" style={{ height: 72 }} />)}
+        </div>
       </div>
     );
   }
@@ -56,8 +70,8 @@ export default function Activity() {
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
       <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em" }}>Activity</h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>
+        <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em", marginBottom: "0.5rem" }}>Activity</h1>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem" }}>
           Chronological log of every recovery event
         </p>
       </div>
@@ -65,8 +79,8 @@ export default function Activity() {
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.25rem", flexWrap: "wrap" }}>
         {FILTERS.map((f) => (
           <button
-            key={f}
-            onClick={() => setFilter(f)}
+            key={f.key}
+            onClick={() => setFilter(f.key)}
             style={{
               padding: "0.4rem 0.85rem",
               borderRadius: 6,
@@ -74,21 +88,19 @@ export default function Activity() {
               fontWeight: 500,
               cursor: "pointer",
               border: "1px solid",
-              borderColor: filter === f ? "var(--accent)" : "var(--border)",
-              background: filter === f ? "var(--accent-subtle)" : "var(--bg-card)",
-              color: filter === f ? "var(--accent)" : "var(--text-secondary)",
+              borderColor: filter === f.key ? "var(--accent)" : "var(--border)",
+              background: filter === f.key ? "var(--accent-subtle)" : "var(--bg-card)",
+              color: filter === f.key ? "var(--accent)" : "var(--text-secondary)",
               transition: "all 0.15s",
-              textTransform: "capitalize",
             }}
           >
-            {f}
+            {f.label}
           </button>
         ))}
       </div>
 
       {filtered.length === 0 ? (
         <div className="card" style={{ padding: "4rem", textAlign: "center", color: "var(--text-muted)" }}>
-          <div style={{ fontSize: "2rem", marginBottom: "1rem", opacity: 0.6 }}>📋</div>
           <p style={{ fontSize: "0.9375rem", fontWeight: 500, marginBottom: "0.25rem" }}>No events to display</p>
           <p style={{ fontSize: "0.8125rem" }}>There are no activity events matching this filter.</p>
         </div>
@@ -97,36 +109,46 @@ export default function Activity() {
           {filtered.map((event) => {
             const actionLower = event.action.toLowerCase();
             const dotColor = actionColor(actionLower);
+            const isBlocked = actionLower.includes("denied") || actionLower.includes("stopped");
+            const isSuccess = actionLower.includes("succeeded") || actionLower.includes("recovered");
             return (
-              <div key={event.id} className="card" style={{ padding: "0.875rem 1.25rem", display: "flex", alignItems: "center", gap: "1rem" }}>
-                <div style={{ flexShrink: 0, width: 8, height: 8, borderRadius: "50%", background: dotColor }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: 2, flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 600, fontSize: "0.8125rem" }}>{formatAction(event.action)}</span>
-                    {event.reason && (
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>· {event.reason}</span>
-                    )}
+              <Link key={event.id} href={`/recovery/${event.recovery_item_id}`} style={{ textDecoration: "none", display: "block" }}>
+                <div className="card" style={{
+                  padding: "0.875rem 1.25rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "1rem",
+                  cursor: "pointer",
+                  borderLeft: isBlocked ? "3px solid var(--danger)" : isSuccess ? "3px solid var(--success)" : undefined,
+                  transition: "border-color 0.15s",
+                }}>
+                  <div style={{ flexShrink: 0, width: 8, height: 8, borderRadius: "50%", background: dotColor }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: 2, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 600, fontSize: "0.8125rem" }}>{formatAction(event.action)}</span>
+                      {event.reason && (
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>· {event.reason}</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: "monospace" }}>{event.recovery_item_id}</span>
+                      <span>Actor: <span style={{ color: dotColor, fontWeight: 500 }}>{event.actor}</span></span>
+                      <span>{new Date(event.timestamp).toLocaleString()}</span>
+                    </div>
                   </div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-                    <span>
-                      Case: <Link href={`/recovery/${event.recovery_item_id}`} style={{ color: "var(--accent)", textDecoration: "none" }}>{event.recovery_item_id}</Link>
-                    </span>
-                    <span>Actor: <span style={{ color: dotColor, fontWeight: 500 }}>{event.actor}</span></span>
-                    <span>{new Date(event.timestamp).toLocaleString()}</span>
-                  </div>
+                  <span
+                    className="status-badge"
+                    style={{
+                      flexShrink: 0,
+                      textTransform: "capitalize",
+                      background: actorBadgeBg(event.actor),
+                      color: dotColor,
+                    }}
+                  >
+                    {event.actor}
+                  </span>
                 </div>
-                <span
-                  className="status-badge"
-                  style={{
-                    flexShrink: 0,
-                    textTransform: "capitalize",
-                    background: actorBadgeBg(event.actor),
-                    color: dotColor,
-                  }}
-                >
-                  {event.actor}
-                </span>
-              </div>
+              </Link>
             );
           })}
         </div>

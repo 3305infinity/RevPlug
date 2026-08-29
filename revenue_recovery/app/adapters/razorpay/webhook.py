@@ -21,21 +21,25 @@ from app.idempotency.store import IdempotencyStore
 from app.interventions.executor import ExecutionResult, RecoveryExecutor, SimulatedRecoveryExecutor
 from app.ledger.attempts import AttemptLedger, AttemptRecord
 from app.policies.engine import PolicyEngine, PolicyDecision
+from app.policies.guard import DefaultRecoveryGuard, RecoveryGuard
 from app.policies.retry import DefaultRetryPolicy, RetryPolicy
-from app.scoring.expected_value import RecoveryScorer
+from app.policies.stopping_rules import StoppingRules
+from app.scoring.expected_value import ExpectedValueScorer, ScoreResult
 
 
 class RazorpayWebhookService:
-    """Processes Razorpay webhooks into a complete safe recovery lifecycle.
+    """Processes Razorpay webhooks through a durable, idempotent recovery lifecycle.
 
     Flow:
-        verify signature → parse event → idempotency check → classify failure
-        → create RecoveryItem → score → build context → agent proposes
+        verify signature → parse event → persist provider event (idempotent)
+        → if duplicate: return early
+        → classify failure → create RecoveryItem → score → agent proposes
         → validator validates → policy decides → IF allowed: execute
         → attempt ledger → retry decision → state transition → audit
         → IF denied: escalate → audit
+        → mark provider event processed with recovery_item_id
 
-    The agent NEVER executes directly. The PolicyEngine is the final gate.
+    The database provider_events table is the source of truth for idempotency.
     """
 
     def __init__(
@@ -46,6 +50,7 @@ class RazorpayWebhookService:
         policy_engine: PolicyEngine,
         audit_log: AuditLog,
         idempotency_store: IdempotencyStore,
+        provider_events: Any = None,
         recovery_items: RecoveryItemRepository | None = None,
         decisions: RecoveryDecisionRepository | None = None,
         attempts: AttemptLedger | None = None,
@@ -54,6 +59,8 @@ class RazorpayWebhookService:
         executor: RecoveryExecutor | None = None,
         retry_policy: RetryPolicy | None = None,
         state_machine: RecoveryStateMachine | None = None,
+        stopping_rules: StoppingRules | None = None,
+        guard: RecoveryGuard | None = None,
         default_customer_id: str = "razorpay_customer",
     ) -> None:
         self._webhook_secret = webhook_secret
@@ -61,6 +68,7 @@ class RazorpayWebhookService:
         self._policy_engine = policy_engine
         self._audit_log = audit_log
         self._idempotency_store = idempotency_store
+        self._provider_events = provider_events
         self._recovery_items = recovery_items
         self._decisions = decisions
         self._attempts = attempts
@@ -70,13 +78,22 @@ class RazorpayWebhookService:
         self._executor = executor or SimulatedRecoveryExecutor()
         self._retry_policy = retry_policy or DefaultRetryPolicy(max_attempts=3)
         self._state_machine = state_machine or DefaultStateMachine()
+        self._stopping_rules = stopping_rules
+        if guard is not None:
+            self._guard = guard
+        elif stopping_rules is not None:
+            self._guard = DefaultRecoveryGuard(
+                stopping_rules=stopping_rules,
+                policy_engine=policy_engine,
+            )
+        else:
+            self._guard = None
 
     def process_webhook(
         self,
         raw_body: bytes,
         signature_header: str | None,
     ) -> tuple[RecoveryItem | None, list[AuditEvent], str]:
-        """Process a Razorpay webhook through the complete recovery lifecycle."""
         events: list[AuditEvent] = []
 
         # Stage 1: verify signature (raw body, before any parsing)
@@ -126,26 +143,58 @@ class RazorpayWebhookService:
             },
         ))
 
-        # Stage 3: idempotency check (before any expensive work including agent)
-        event_key = razorpay_failure.razorpay_event_id
-        if self._idempotency_store.has_processed(event_key):
+        # Stage 3: durable provider event idempotency (database is source of truth)
+        provider = "razorpay"
+        provider_event_id = razorpay_failure.razorpay_event_id
+        received_at = datetime.now(timezone.utc)
+
+        provider_event = None
+        is_new_event = False
+        if self._provider_events is not None:
+            from app.domain.models import ProviderEvent
+            candidate = ProviderEvent(
+                id=f"pe_{provider_event_id}",
+                provider=provider,
+                provider_event_id=provider_event_id,
+                received_at=received_at,
+                event_type="payment.failed",
+                raw_payload={
+                    "razorpay_event_id": razorpay_failure.razorpay_event_id,
+                    "razorpay_payment_id": razorpay_failure.razorpay_payment_id,
+                    "amount_minor": razorpay_failure.amount_minor,
+                    "currency": razorpay_failure.currency,
+                },
+                processing_status="received",
+            )
+            is_new_event, provider_event = self._provider_events.try_insert(candidate)
+            if is_new_event:
+                events.append(self._audit_log.log(
+                    recovery_item_id=None,
+                    actor="system",
+                    action="provider_event_recorded",
+                    reason="Provider event persisted for durable idempotency",
+                    metadata={
+                        "provider": provider,
+                        "provider_event_id": provider_event_id,
+                        "event_type": "payment.failed",
+                    },
+                ))
+        else:
+            is_new_event = True
+
+        if not is_new_event and provider_event is not None:
             events.append(self._audit_log.log(
-                recovery_item_id=None,
+                recovery_item_id=provider_event.recovery_item_id,
                 actor="system",
                 action="duplicate_event_ignored",
-                reason="Event already processed",
-                metadata={"razorpay_event_id": event_key},
+                reason="Provider event already processed",
+                metadata={
+                    "provider": provider,
+                    "provider_event_id": provider_event_id,
+                    "recovery_item_id": provider_event.recovery_item_id,
+                },
             ))
             return None, events, "duplicate"
-
-        self._idempotency_store.mark_processed(event_key)
-        events.append(self._audit_log.log(
-            recovery_item_id=None,
-            actor="system",
-            action="event_idempotency_recorded",
-            reason="Event marked as processed",
-            metadata={"razorpay_event_id": event_key},
-        ))
 
         # Stage 4: classify failure
         from app.adapters.razorpay.classifier import RazorpayFailureClassifier
@@ -179,23 +228,9 @@ class RazorpayWebhookService:
             },
         ))
 
-        # Stage 6: score
-        scored_item = self._score(item)
-        events.append(self._audit_log.log(
-            recovery_item_id=scored_item.id,
-            actor="system",
-            action="score",
-            reason="Expected value calculated",
-            metadata={"expected_recovery_value": scored_item.expected_recovery_value},
-        ))
-
-        # Persist the scored item (with expected_recovery_value)
-        if self._recovery_items is not None:
-            self._recovery_items.save(scored_item)
-
-        # Stage 7: build context and call agent
+        # Stage 6: build context and call agent (before scoring, so score can use proposed action)
         ctx = RecoveryContext.from_item_and_failure(
-            scored_item,
+            item,
             normalized,
             attempt_count=0,
             customer_opt_out=False,
@@ -214,74 +249,224 @@ class RazorpayWebhookService:
         result = orchestrator.decide(ctx)
         events.extend(result.audit_events)
 
-        # Stage 8: execution boundary
+        # Stage 7: deterministic expected-value scoring (LLM never determines the score)
+        score_result = self._score(
+            item=item,
+            failure_category=normalized.category.value,
+            proposed_action=result.proposal.action.value,
+            attempt_number=0,
+        )
+        scored_item = self._apply_score(item, score_result)
+        events.append(self._audit_log.log(
+            recovery_item_id=scored_item.id,
+            actor="system",
+            action="recovery_scored",
+            reason="Expected value calculated deterministically",
+            metadata={
+                "amount_at_risk": score_result.amount_at_risk,
+                "recovery_probability": score_result.recovery_probability,
+                "intervention_cost": score_result.intervention_cost,
+                "expected_recovery_value": score_result.expected_recovery_value,
+                "priority": score_result.priority,
+                "score_version": score_result.score_version,
+                "scoring_reason": score_result.scoring_reason,
+            },
+        ))
+
+        if self._recovery_items is not None:
+            self._recovery_items.save(scored_item)
+
+        # Stage 8: guard evaluation before execution
         execution_result = None
         escalation = None
         retry_decision = None
+        guard_decision = None
 
-        if result.policy_decision.allowed and not result.policy_decision.requires_human_approval:
-            # Policy approved — execute
-            # Transition: QUEUED → INTERVENTION_PENDING → INTERVENTION_EXECUTED
-            scored_item = self._safe_transition(scored_item, RecoveryStatus.INTERVENTION_PENDING)
-            scored_item = self._safe_transition(scored_item, RecoveryStatus.INTERVENTION_EXECUTED)
-            execution_result = self._execute(scored_item, result.proposal.action.value, events)
-
-            if execution_result.success:
-                if result.proposal.action == RecoveryAction.STOP_RECOVERY:
-                    scored_item = self._safe_transition(scored_item, RecoveryStatus.STOPPED)
-                elif result.proposal.action == RecoveryAction.ESCALATE_HUMAN:
-                    scored_item = self._safe_transition(scored_item, RecoveryStatus.ESCALATED)
-                else:
-                    scored_item = self._safe_transition(scored_item, RecoveryStatus.RECOVERED)
-            else:
-                # Failure → check retry
-                retry_decision = self._retry_policy.evaluate(
-                    scored_item,
-                    category=normalized.category,
-                    occurred_at=datetime.now(timezone.utc),
-                )
-                if retry_decision.allowed:
-                    # Schedule retry → back to QUEUED for next attempt
-                    scored_item = self._safe_transition(scored_item, RecoveryStatus.QUEUED)
-                    events.append(self._audit_log.log(
-                        recovery_item_id=scored_item.id,
-                        actor="system",
-                        action="retry_scheduled",
-                        reason=retry_decision.reason,
-                        metadata={
-                            "attempt_number": retry_decision.attempt_number,
-                            "next_attempt_at": retry_decision.next_attempt_at.isoformat() if retry_decision.next_attempt_at else None,
-                        },
-                    ))
-                else:
-                    # Retry exhausted → ESCALATE
-                    scored_item = self._safe_transition(scored_item, RecoveryStatus.ESCALATED)
-                    escalation = Escalation(
-                        reason=EscalationReason.RETRY_EXHAUSTED,
-                        message=f"Retry exhausted for {scored_item.id}",
-                        item_id=scored_item.id,
-                    )
-                    events.append(self._audit_log.log(
-                        recovery_item_id=scored_item.id,
-                        actor="system",
-                        action="retry_exhausted",
-                        reason=escalation.message,
-                        metadata={"reason": escalation.reason.value},
-                    ))
-        else:
-            # Policy denied → escalate
-            scored_item = self._safe_transition(scored_item, RecoveryStatus.ESCALATED)
-            escalation = self._create_escalation(result, scored_item)
+        if self._guard is not None:
+            guard_decision = self._guard.evaluate(
+                scored_item,
+                result.proposal.action.value,
+                promises=None,
+            )
             events.append(self._audit_log.log(
                 recovery_item_id=scored_item.id,
-                actor="system",
-                action="execution_denied",
-                reason=escalation.message,
+                actor="rule",
+                action="guard_evaluate",
+                reason=guard_decision.reason,
                 metadata={
-                    "reason": escalation.reason.value,
-                    "policy_rule": result.policy_decision.policy_rule,
+                    "proposed_action": result.proposal.action.value,
+                    "allowed": guard_decision.allowed,
+                    "decision_type": guard_decision.decision_type,
+                    "reason_code": guard_decision.reason_code,
+                    "rule": guard_decision.rule,
+                    "next_state": guard_decision.next_state.value,
                 },
             ))
+
+            if not guard_decision.allowed:
+                final_status = guard_decision.next_state
+                scored_item = self._safe_transition(scored_item, final_status)
+                scored_item = scored_item.__class__(
+                    id=scored_item.id,
+                    source_type=scored_item.source_type,
+                    external_id=scored_item.external_id,
+                    customer_id=scored_item.customer_id,
+                    amount_minor=scored_item.amount_minor,
+                    currency=scored_item.currency,
+                    created_at=scored_item.created_at,
+                    due_at=scored_item.due_at,
+                    status=final_status,
+                    root_cause=scored_item.root_cause,
+                    recovery_probability=scored_item.recovery_probability,
+                    expected_recovery_value=scored_item.expected_recovery_value,
+                    intervention_cost=scored_item.intervention_cost,
+                    failure_category=scored_item.failure_category,
+                    provider=scored_item.provider,
+                    provider_event_id=scored_item.provider_event_id,
+                    actual_recovery_value=scored_item.actual_recovery_value,
+                    recovery_status=scored_item.recovery_status,
+                    score_version=scored_item.score_version,
+                    scoring_reason=scored_item.scoring_reason,
+                    priority=scored_item.priority,
+                    stopped_reason=guard_decision.reason_code,
+                    stopped_rule=guard_decision.rule,
+                    metadata=scored_item.metadata,
+                )
+                if final_status == RecoveryStatus.ESCALATED:
+                    escalation = self._create_escalation(result, scored_item)
+                events.append(self._audit_log.log(
+                    recovery_item_id=scored_item.id,
+                    actor="system",
+                    action="recovery_stopped",
+                    reason=guard_decision.reason,
+                    metadata={
+                        "reason_code": guard_decision.reason_code,
+                        "rule": guard_decision.rule,
+                        "decision_type": guard_decision.decision_type,
+                    },
+                ))
+            else:
+                # Guard allowed — execute
+                scored_item = self._safe_transition(scored_item, RecoveryStatus.INTERVENTION_PENDING)
+                scored_item = self._safe_transition(scored_item, RecoveryStatus.INTERVENTION_EXECUTED)
+                execution_result = self._execute(scored_item, result.proposal.action.value, events)
+                if execution_result.success:
+                    scored_item = self._safe_transition(scored_item, RecoveryStatus.RECOVERED)
+                    scored_item = scored_item.__class__(
+                        id=scored_item.id,
+                        source_type=scored_item.source_type,
+                        external_id=scored_item.external_id,
+                        customer_id=scored_item.customer_id,
+                        amount_minor=scored_item.amount_minor,
+                        currency=scored_item.currency,
+                        created_at=scored_item.created_at,
+                        due_at=scored_item.due_at,
+                        status=RecoveryStatus.RECOVERED,
+                        root_cause=scored_item.root_cause,
+                        recovery_probability=scored_item.recovery_probability,
+                        expected_recovery_value=scored_item.expected_recovery_value,
+                        intervention_cost=scored_item.intervention_cost,
+                        failure_category=scored_item.failure_category,
+                        provider=scored_item.provider,
+                        provider_event_id=scored_item.provider_event_id,
+                        actual_recovery_value=scored_item.actual_recovery_value,
+                        recovery_status=scored_item.recovery_status,
+                        score_version=scored_item.score_version,
+                        scoring_reason=scored_item.scoring_reason,
+                        priority=scored_item.priority,
+                        metadata=scored_item.metadata,
+                    )
+                else:
+                    retry_decision = self._retry_policy.evaluate(
+                        scored_item,
+                        category=normalized.category,
+                        occurred_at=datetime.now(timezone.utc),
+                    )
+                    if retry_decision.allowed:
+                        scored_item = self._safe_transition(scored_item, RecoveryStatus.QUEUED)
+                        events.append(self._audit_log.log(
+                            recovery_item_id=scored_item.id,
+                            actor="system",
+                            action="retry_scheduled",
+                            reason=retry_decision.reason,
+                            metadata={
+                                "attempt_number": retry_decision.attempt_number,
+                                "next_attempt_at": retry_decision.next_attempt_at.isoformat() if retry_decision.next_attempt_at else None,
+                            },
+                        ))
+                    else:
+                        scored_item = self._safe_transition(scored_item, RecoveryStatus.ESCALATED)
+                        escalation = Escalation(
+                            reason=EscalationReason.RETRY_EXHAUSTED,
+                            message=f"Retry exhausted for {scored_item.id}",
+                            item_id=scored_item.id,
+                        )
+                        events.append(self._audit_log.log(
+                            recovery_item_id=scored_item.id,
+                            actor="system",
+                            action="retry_exhausted",
+                            reason=escalation.message,
+                            metadata={"reason": escalation.reason.value},
+                        ))
+        else:
+            # Fallback to original policy-only logic
+            if result.policy_decision.allowed and not result.policy_decision.requires_human_approval:
+                scored_item = self._safe_transition(scored_item, RecoveryStatus.INTERVENTION_PENDING)
+                scored_item = self._safe_transition(scored_item, RecoveryStatus.INTERVENTION_EXECUTED)
+                execution_result = self._execute(scored_item, result.proposal.action.value, events)
+
+                if execution_result.success:
+                    if result.proposal.action == RecoveryAction.STOP_RECOVERY:
+                        scored_item = self._safe_transition(scored_item, RecoveryStatus.STOPPED)
+                    elif result.proposal.action == RecoveryAction.ESCALATE_HUMAN:
+                        scored_item = self._safe_transition(scored_item, RecoveryStatus.ESCALATED)
+                    else:
+                        scored_item = self._safe_transition(scored_item, RecoveryStatus.RECOVERED)
+                else:
+                    retry_decision = self._retry_policy.evaluate(
+                        scored_item,
+                        category=normalized.category,
+                        occurred_at=datetime.now(timezone.utc),
+                    )
+                    if retry_decision.allowed:
+                        scored_item = self._safe_transition(scored_item, RecoveryStatus.QUEUED)
+                        events.append(self._audit_log.log(
+                            recovery_item_id=scored_item.id,
+                            actor="system",
+                            action="retry_scheduled",
+                            reason=retry_decision.reason,
+                            metadata={
+                                "attempt_number": retry_decision.attempt_number,
+                                "next_attempt_at": retry_decision.next_attempt_at.isoformat() if retry_decision.next_attempt_at else None,
+                            },
+                        ))
+                    else:
+                        scored_item = self._safe_transition(scored_item, RecoveryStatus.ESCALATED)
+                        escalation = Escalation(
+                            reason=EscalationReason.RETRY_EXHAUSTED,
+                            message=f"Retry exhausted for {scored_item.id}",
+                            item_id=scored_item.id,
+                        )
+                        events.append(self._audit_log.log(
+                            recovery_item_id=scored_item.id,
+                            actor="system",
+                            action="retry_exhausted",
+                            reason=escalation.message,
+                            metadata={"reason": escalation.reason.value},
+                        ))
+            else:
+                scored_item = self._safe_transition(scored_item, RecoveryStatus.ESCALATED)
+                escalation = self._create_escalation(result, scored_item)
+                events.append(self._audit_log.log(
+                    recovery_item_id=scored_item.id,
+                    actor="system",
+                    action="execution_denied",
+                    reason=escalation.message,
+                    metadata={
+                        "reason": escalation.reason.value,
+                        "policy_rule": result.policy_decision.policy_rule,
+                    },
+                ))
 
         # Stage 9: Persist the decision
         final_action = execution_result.action if execution_result and execution_result.success else None
@@ -296,11 +481,28 @@ class RazorpayWebhookService:
                 final_action=final_action,
             )
 
-        # Persist final item state
         if self._recovery_items is not None:
             self._recovery_items.save(scored_item)
 
-        # Attach results for response
+        # Stage 10: mark provider event as processed, linking to recovery item
+        if self._provider_events is not None and is_new_event:
+            self._provider_events.mark_processed(
+                provider=provider,
+                provider_event_id=provider_event_id,
+                recovery_item_id=scored_item.id,
+            )
+            events.append(self._audit_log.log(
+                recovery_item_id=scored_item.id,
+                actor="system",
+                action="provider_event_linked",
+                reason="Provider event linked to recovery item",
+                metadata={
+                    "provider": provider,
+                    "provider_event_id": provider_event_id,
+                    "recovery_item_id": scored_item.id,
+                },
+            ))
+
         self._last_proposal = result.proposal
         self._last_decision = result.policy_decision
         self._last_execution = execution_result
@@ -308,6 +510,184 @@ class RazorpayWebhookService:
         self._last_retry = retry_decision
 
         return scored_item, events, "processed"
+
+    @property
+    def last_proposal(self):
+        return getattr(self, "_last_proposal", None)
+
+    @property
+    def last_decision(self):
+        return getattr(self, "_last_decision", None)
+
+    @property
+    def last_execution(self):
+        return getattr(self, "_last_execution", None)
+
+    @property
+    def last_escalation(self):
+        return getattr(self, "_last_escalation", None)
+
+    @property
+    def last_retry(self):
+        return getattr(self, "_last_retry", None)
+
+    def _execute(self, item: RecoveryItem, action: str, events: list[AuditEvent]) -> ExecutionResult:
+        attempt_number = int(item.metadata.get("attempt_count", 0)) + 1
+        events.append(self._audit_log.log(
+            recovery_item_id=item.id,
+            actor="system",
+            action="execution_requested",
+            reason=f"Executing {action} (attempt {attempt_number})",
+            metadata={"action": action, "attempt_number": attempt_number},
+        ))
+
+        result = self._executor.execute(
+            item, action, attempt_number=attempt_number,
+        )
+
+        if self._attempts is not None:
+            self._attempts.record(AttemptRecord(
+                recovery_item_id=item.id,
+                attempt_number=attempt_number,
+                action=action,
+                executed_at=datetime.now(timezone.utc),
+                outcome="success" if result.success else "failed",
+                failure_reason=result.reason if not result.success else None,
+                metadata={
+                    "retry_eligible": result.retry_eligible,
+                    "error_code": result.error_code,
+                },
+            ))
+
+        if result.success:
+            events.append(self._audit_log.log(
+                recovery_item_id=item.id,
+                actor="system",
+                action="execution_succeeded",
+                reason=result.reason,
+                metadata={"action": action, "attempt_number": attempt_number},
+            ))
+        else:
+            events.append(self._audit_log.log(
+                recovery_item_id=item.id,
+                actor="system",
+                action="execution_failed",
+                reason=result.reason,
+                metadata={
+                    "action": action,
+                    "attempt_number": attempt_number,
+                    "retry_eligible": result.retry_eligible,
+                },
+            ))
+
+        return result
+
+    def _create_escalation(self, result, item: RecoveryItem) -> Escalation:
+        category = item.root_cause
+        if category == "fraud":
+            reason = EscalationReason.FRAUD_DETECTED
+            message = f"Fraud-related failure for {item.id}; escalated to human review"
+        elif category == "hard":
+            reason = EscalationReason.HARD_FAILURE
+            message = f"Hard failure for {item.id}; escalated to human review"
+        elif category == "authentication_required":
+            reason = EscalationReason.AUTHENTICATION_REQUIRED
+            message = f"Authentication required for {item.id}; escalated to human review"
+        else:
+            reason = EscalationReason.POLICY_DENIED
+            message = f"Action {result.proposal.action.value} denied by policy for {item.id}"
+        return Escalation(reason=reason, message=message, item_id=item.id)
+
+    def _safe_transition(self, item: RecoveryItem, target: RecoveryStatus) -> RecoveryItem:
+        tr = self._state_machine.transition(item, target)
+        return tr.item
+
+    def _build_recovery_item(
+        self,
+        razorpay_failure: RazorpayPaymentFailure,
+        normalized: NormalizedFailure,
+    ) -> RecoveryItem:
+        return RecoveryItem(
+            id=razorpay_failure.razorpay_payment_id,
+            source_type=SourceType.PAYMENT_FAILURE,
+            external_id=razorpay_failure.razorpay_event_id,
+            customer_id=self._default_customer_id,
+            amount_minor=razorpay_failure.amount_minor,
+            currency=razorpay_failure.currency,
+            created_at=razorpay_failure.occurred_at,
+            status=RecoveryStatus.DETECTED,
+            root_cause=normalized.category.value,
+            recovery_probability=None,
+            metadata={
+                "razorpay_payment_id": razorpay_failure.razorpay_payment_id,
+                "error_code": normalized.code,
+                "error_source": razorpay_failure.error_source,
+                "error_step": razorpay_failure.error_step,
+                "error_reason": razorpay_failure.error_reason,
+                "payment_method": razorpay_failure.payment_method,
+            },
+        )
+
+    def _score(
+        self,
+        item: RecoveryItem,
+        failure_category: str,
+        proposed_action: str,
+        attempt_number: int = 0,
+    ) -> ScoreResult:
+        """Deterministically score a recovery item.
+
+        The LLM never determines this score. It is calculated purely from
+        amount, failure category, proposed action, and attempt number.
+        """
+        return self._scorer.score(
+            amount_minor=item.amount_minor,
+            failure_category=failure_category,
+            proposed_action=proposed_action,
+            attempt_number=attempt_number + 1,
+            context={
+                "customer_id": item.customer_id,
+                "currency": item.currency,
+                "source_type": item.source_type.value,
+            },
+        )
+
+    def _apply_score(self, item: RecoveryItem, score_result: ScoreResult) -> RecoveryItem:
+        """Apply scoring results to a RecoveryItem."""
+        return item.__class__(
+            id=item.id,
+            source_type=item.source_type,
+            external_id=item.external_id,
+            customer_id=item.customer_id,
+            amount_minor=item.amount_minor,
+            currency=item.currency,
+            created_at=item.created_at,
+            due_at=item.due_at,
+            status=RecoveryStatus.QUEUED,
+            root_cause=item.root_cause,
+            recovery_probability=score_result.recovery_probability,
+            expected_recovery_value=score_result.expected_recovery_value,
+            intervention_cost=score_result.intervention_cost,
+            failure_category=item.failure_category,
+            provider=item.provider,
+            provider_event_id=item.provider_event_id,
+            actual_recovery_value=item.actual_recovery_value,
+            recovery_status=item.recovery_status,
+            score_version=score_result.score_version,
+            scoring_reason=score_result.scoring_reason,
+            priority=score_result.priority,
+            metadata=item.metadata,
+        )
+
+    def _default_probability(self, root_cause: str | None) -> float:
+        mapping = {
+            "soft": 0.35,
+            "hard": 0.05,
+            "fraud": 0.0,
+            "authentication_required": 0.1,
+            "unknown": 0.0,
+        }
+        return mapping.get(root_cause or "unknown", 0.0)
 
     @property
     def last_proposal(self):
@@ -428,40 +808,6 @@ class RazorpayWebhookService:
                 "error_reason": razorpay_failure.error_reason,
                 "payment_method": razorpay_failure.payment_method,
             },
-        )
-
-    def _score(self, item: RecoveryItem) -> RecoveryItem:
-        probability = self._default_probability(item.root_cause)
-        value = self._scorer.score(
-            RecoveryItem(
-                id=item.id,
-                source_type=item.source_type,
-                external_id=item.external_id,
-                customer_id=item.customer_id,
-                amount_minor=item.amount_minor,
-                currency=item.currency,
-                created_at=item.created_at,
-                due_at=item.due_at,
-                status=item.status,
-                root_cause=item.root_cause,
-                recovery_probability=probability,
-                metadata=item.metadata,
-            )
-        )
-        return item.__class__(
-            id=item.id,
-            source_type=item.source_type,
-            external_id=item.external_id,
-            customer_id=item.customer_id,
-            amount_minor=item.amount_minor,
-            currency=item.currency,
-            created_at=item.created_at,
-            due_at=item.due_at,
-            status=RecoveryStatus.QUEUED,
-            root_cause=item.root_cause,
-            recovery_probability=probability,
-            expected_recovery_value=value,
-            metadata=item.metadata,
         )
 
     def _default_probability(self, root_cause: str | None) -> float:

@@ -134,10 +134,11 @@ def test_detected_to_recovered_raises(utcnow):
         sm.transition(base_item(utcnow), RecoveryStatus.RECOVERED)
 
 
-def test_queued_to_recovered_raises(utcnow):
+def test_queued_to_recovered_allowed_for_payment_success(utcnow):
     sm = DefaultStateMachine()
-    with pytest.raises(InvalidTransitionError):
-        sm.transition(base_item(utcnow, RecoveryStatus.QUEUED), RecoveryStatus.RECOVERED)
+    result = sm.transition(base_item(utcnow, RecoveryStatus.QUEUED), RecoveryStatus.RECOVERED)
+    assert result.applied is True
+    assert result.item.status == RecoveryStatus.RECOVERED
 
 
 def test_is_terminal_true_for_recovered(utcnow):

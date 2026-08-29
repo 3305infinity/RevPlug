@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { api, BatchSimulationResult } from "@/lib/api";
 
@@ -27,7 +27,7 @@ export default function BatchRecovery() {
     try {
       setStatus("loading");
       setError(null);
-      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, 200));
       setStatus("ready");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
@@ -71,12 +71,22 @@ export default function BatchRecovery() {
     );
   }
 
+  const stoppedReasons = useMemo(() => {
+    const map = new Map<string, number>();
+    result?.results?.forEach((r) => {
+      if (r.recovery_status === "stopped" && r.stopped_reason) {
+        map.set(r.stopped_reason, (map.get(r.stopped_reason) || 0) + 1);
+      }
+    });
+    return Array.from(map.entries()).map(([reason, count]) => ({ reason, count }));
+  }, [result]);
+
   return (
     <div>
       <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em" }}>Batch Recovery</h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>
-          Run a batch of recovery cases and measure the total revenue recovered.
+        <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em", marginBottom: "0.5rem" }}>Batch Recovery</h1>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem" }}>
+          Run a recovery program across a portfolio of revenue-risk events.
         </p>
       </div>
 
@@ -135,7 +145,7 @@ export default function BatchRecovery() {
             className="btn-primary"
             style={{ fontSize: "0.8125rem", padding: "0.75rem 1.5rem" }}
           >
-            {status === "running" ? "Processing batch..." : "Run batch"}
+            {status === "running" ? "Processing batch..." : "Run Batch Recovery"}
           </button>
           {status === "running" && (
             <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
@@ -145,79 +155,51 @@ export default function BatchRecovery() {
         </div>
       </div>
 
-      {error && (
-        <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.25rem", background: "var(--danger-subtle)", borderColor: "rgba(239, 68, 68, 0.2)" }}>
+      {error && status !== "running" && (
+        <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.25rem", background: "var(--danger-subtle)", border: "1px solid rgba(239,68,68,0.2)" }}>
           <div style={{ color: "var(--danger)", fontSize: "0.8125rem" }}>{error}</div>
         </div>
       )}
 
       {summary && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
-            <div className="metric-card" style={{ borderLeft: "3px solid var(--danger)" }}>
-              <div className="metric-label">Revenue at Risk</div>
-              <div className="metric-value" style={{ color: "var(--danger)" }}>
-                {fmt(summary.total_cases * baseAmount)}
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                {summary.total_cases} cases · avg {fmt(baseAmount)}
-              </div>
-            </div>
-            <div className="metric-card" style={{ borderLeft: "3px solid var(--success)" }}>
-              <div className="metric-label">Recovered</div>
-              <div className="metric-value" style={{ color: "var(--success)" }}>
-                {fmt(summary.recovered_amount_minor)}
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                {summary.recovered_count} cases
-              </div>
-            </div>
-            <div className="metric-card" style={{ borderLeft: "3px solid var(--accent)" }}>
-              <div className="metric-label">Recovery Rate</div>
-              <div className="metric-value" style={{ color: "var(--accent)" }}>
-                {(summary.recovery_rate * 100).toFixed(1)}%
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                of eligible cases
-              </div>
-            </div>
-            <div className="metric-card" style={{ borderLeft: "3px solid var(--warning)" }}>
-              <div className="metric-label">Escalated</div>
-              <div className="metric-value" style={{ color: "var(--warning)" }}>
-                {summary.escalated_count}
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                needs human review
-              </div>
-            </div>
-            <div className="metric-card" style={{ borderLeft: "3px solid var(--text-muted)" }}>
-              <div className="metric-label">Stopped</div>
-              <div className="metric-value" style={{ color: "var(--text-muted)" }}>
-                {summary.stopped_count}
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                policy blocked
-              </div>
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
+            <Metric label="Revenue at Risk" value={fmt(summary.total_cases * baseAmount)} sub={`${summary.total_cases} cases`} accent="var(--danger)" />
+            <Metric label="Actually Recovered" value={fmt(summary.recovered_amount_minor)} sub={`${summary.recovered_count} cases`} accent="var(--success)" />
+            <Metric label="Recovery Rate" value={`${(summary.recovery_rate * 100).toFixed(1)}%`} sub="of eligible cases" accent="var(--accent)" />
+            <Metric label="Escalated" value={String(summary.escalated_count)} sub="needs human review" accent="var(--warning)" />
+            <Metric label="Stopped" value={String(summary.stopped_count)} sub="policy blocked" accent="var(--text-muted)" />
           </div>
 
           {summary.recovered_amount_minor > 0 && (
-            <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem", background: "linear-gradient(135deg, var(--bg-card), var(--bg-elevated))", borderColor: "var(--success)", border: "1px solid rgba(16,185,129,0.3)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
-                <div>
-                  <div style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--success)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.35rem" }}>
-                    Total Recovered
+            <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem", borderLeft: `3px solid var(--success)` }}>
+              <div style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--success)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
+                Total Recovered
+              </div>
+              <div style={{ fontSize: "2.25rem", fontWeight: 700, color: "var(--success)", fontFamily: "monospace", letterSpacing: "-0.03em", lineHeight: 1.2 }}>
+                {fmt(summary.recovered_amount_minor)}
+              </div>
+              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.5rem" }}>
+                {summary.recovered_count} of {summary.total_cases} cases recovered · vs {fmt(summary.total_cases * baseAmount)} at risk
+              </div>
+            </div>
+          )}
+
+          {stoppedReasons.length > 0 && (
+            <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
+              <h3 style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "1rem" }}>
+                Why Recovery Stopped
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "0.75rem" }}>
+                {stoppedReasons.map((r) => (
+                  <div key={r.reason} style={{ padding: "0.75rem 1rem", background: "var(--bg-tertiary)", borderRadius: 8 }}>
+                    <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)", textTransform: "capitalize", marginBottom: "0.25rem" }}>
+                      {r.reason.replace(/_/g, " ")}
+                    </div>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--danger)", fontFamily: "monospace" }}>{r.count}</div>
+                    <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>cases stopped</div>
                   </div>
-                  <div style={{ fontSize: "2.5rem", fontWeight: 700, color: "var(--success)", fontFamily: "monospace", letterSpacing: "-0.03em" }}>
-                    {fmt(summary.recovered_amount_minor)}
-                  </div>
-                </div>
-                <div style={{ borderLeft: "1px solid var(--border)", paddingLeft: "1.5rem" }}>
-                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>vs {fmt(summary.total_cases * baseAmount)} at risk</div>
-                  <div style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--text-primary)" }}>
-                    {(summary.recovery_rate * 100).toFixed(1)}% recovery rate · {summary.recovered_count} of {summary.total_cases} cases
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           )}
@@ -242,7 +224,7 @@ export default function BatchRecovery() {
                 </thead>
                 <tbody>
                   {result.results.map((r) => (
-                    <tr key={r.recovery_item_id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                    <tr key={r.recovery_item_id || Math.random()} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                       <Td>
                         {r.recovery_item_id ? (
                           <Link href={`/recovery/${r.recovery_item_id}`} style={{ color: "var(--accent)", textDecoration: "none", fontFamily: "monospace", fontSize: "0.75rem" }}>
@@ -301,6 +283,16 @@ export default function BatchRecovery() {
           <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Processing {count} recovery cases...</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function Metric({ label, value, sub, accent }: { label: string; value: string; sub: string; accent: string }) {
+  return (
+    <div className="metric-card" style={{ borderLeft: `3px solid ${accent}` }}>
+      <div className="metric-label">{label}</div>
+      <div className="metric-value" style={{ color: accent, marginTop: 4 }}>{value}</div>
+      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{sub}</div>
     </div>
   );
 }

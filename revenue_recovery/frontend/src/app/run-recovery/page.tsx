@@ -5,9 +5,9 @@ import Link from "next/link";
 import { api, SimulationResult } from "@/lib/api";
 
 const FAILURE_REASONS = [
-  { value: "payment_timed_out", label: "Gateway Timeout", category: "soft", desc: "Network timeout — retry typically succeeds" },
+  { value: "payment_timed_out", label: "Gateway Timeout", category: "soft", desc: "Temporary timeout — retry typically succeeds" },
   { value: "gateway_technical_error", label: "Gateway Technical Failure", category: "soft", desc: "Gateway error — retry typically succeeds" },
-  { value: "card_declined", label: "Hard Card Decline", category: "hard", desc: "Bank declined — do not retry automatically" },
+  { value: "card_declined", label: "Hard Card Decline", category: "hard", desc: "Bank declined — escalate to human" },
   { value: "payment_risk_check_failed", label: "Fraud Signal", category: "fraud", desc: "Risk check failed — block recovery, escalate" },
   { value: "authentication_failed", label: "Authentication Required", category: "auth", desc: "Customer must re-authenticate" },
   { value: "unknown_reason", label: "Unknown Failure", category: "unknown", desc: "Unclassified — escalate to human" },
@@ -18,51 +18,32 @@ type Phase = "idle" | "running" | "complete" | "error";
 export default function RunRecoveryPage() {
   const [reasonKey, setReasonKey] = useState(0);
   const [amount, setAmount] = useState(50000);
-  const [customerName, setCustomerName] = useState("");
+  const [customerId, setCustomerId] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [runningStep, setRunningStep] = useState(0);
 
   const selectedReason = FAILURE_REASONS[reasonKey];
-
-  const STEPS = [
-    "Webhook received",
-    "Signature verified",
-    "Failure classified",
-    "Value scored",
-    "AI decision",
-    "Policy evaluated",
-    "Action executed",
-    "Outcome recorded",
-  ];
 
   const reset = useCallback(() => {
     setPhase("idle");
     setResult(null);
     setErrorMsg("");
-    setRunningStep(0);
   }, []);
 
   const handleRun = async () => {
-    if (!customerName.trim()) return;
+    if (!customerId.trim()) return;
 
     setPhase("running");
     setErrorMsg("");
     setResult(null);
-    setRunningStep(0);
-
-    for (let i = 0; i < STEPS.length; i++) {
-      await new Promise((r) => setTimeout(r, 220));
-      setRunningStep(i + 1);
-    }
 
     try {
       const res = await api.triggerDemo({
         event_type: "payment_failure",
         error_reason: selectedReason.value,
         amount_minor: amount,
-        customer_id: customerName.trim(),
+        customer_id: customerId.trim(),
       });
       setResult(res);
       setPhase("complete");
@@ -72,17 +53,17 @@ export default function RunRecoveryPage() {
     }
   };
 
-  const fmt = (n: number) => "Rs" + (n / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const fmt = (n: number) => "₹" + (n / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-  const outcomeColor = result?.status === "processed" ? "var(--success)" : result?.status === "escalated" ? "var(--danger)" : "var(--warning)";
-  const outcomeLabel = result?.status === "processed" ? "RECOVERED" : result?.status === "escalated" ? "ESCALATED" : result?.status?.toUpperCase() || "COMPLETE";
+  const outcomeColor = result?.recovery_status === "recovered" ? "var(--success)" : result?.recovery_status === "stopped" ? "var(--text-muted)" : result?.recovery_status === "escalated" ? "var(--danger)" : "var(--warning)";
+  const outcomeLabel = result?.recovery_status === "recovered" ? "RECOVERED" : result?.recovery_status === "stopped" ? "STOPPED" : result?.recovery_status === "escalated" ? "ESCALATED" : result?.recovery_status?.toUpperCase() || "COMPLETE";
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
       <div style={{ marginBottom: "2rem" }}>
         <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em", marginBottom: "0.5rem" }}>Run Recovery</h1>
         <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem" }}>
-          Simulate a payment failure and execute a recovery workflow. Every action is logged and audited.
+          Evaluate a revenue event and execute the safest eligible recovery action.
         </p>
       </div>
 
@@ -129,8 +110,8 @@ export default function RunRecoveryPage() {
                 </label>
                 <input
                   type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(Math.max(100, Number(e.target.value)))}
+                  value={amount / 100}
+                  onChange={(e) => setAmount(Math.max(100, Number(e.target.value) * 100))}
                   className="input"
                   style={{ width: "100%" }}
                 />
@@ -141,17 +122,17 @@ export default function RunRecoveryPage() {
                 </label>
                 <input
                   type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
+                  value={customerId}
+                  onChange={(e) => setCustomerId(e.target.value)}
                   placeholder="e.g. cust_3Xt8Gk"
                   className="input"
                   style={{ width: "100%" }}
                 />
               </div>
 
-              <div style={{ marginTop: "auto", padding: "1rem", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border-subtle)" }}>
+              <div style={{ padding: "1rem", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border-subtle)" }}>
                 <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>Expected outcome</div>
-                <div style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--text-primary)" }}>
+                <div style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--text-primary)", lineHeight: 1.5 }}>
                   {selectedReason.category === "soft" && "Automatic retry — recovery likely"}
                   {selectedReason.category === "hard" && "Payment link or escalation"}
                   {selectedReason.category === "fraud" && "Blocked — escalated to human"}
@@ -162,11 +143,11 @@ export default function RunRecoveryPage() {
 
               <button
                 onClick={handleRun}
-                disabled={!customerName.trim()}
+                disabled={!customerId.trim()}
                 className="btn-primary"
                 style={{ width: "100%", padding: "0.875rem", fontSize: "0.875rem" }}
               >
-                Execute Recovery Workflow
+                Run Recovery
               </button>
             </div>
           </div>
@@ -180,28 +161,32 @@ export default function RunRecoveryPage() {
               Executing Recovery Workflow
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
-              {STEPS.map((step, i) => {
-                const done = runningStep > i;
-                const active = runningStep === i + 1;
-                return (
-                  <div key={step} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.75rem 0", borderBottom: i < STEPS.length - 1 ? "1px solid var(--border-subtle)" : "none" }}>
-                    <div style={{
-                      width: 28, height: 28, borderRadius: "50%",
-                      background: done ? "var(--success)" : active ? "var(--accent)" : "var(--bg-tertiary)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: "0.6875rem", fontWeight: 700,
-                      color: done || active ? "#fff" : "var(--text-muted)",
-                      flexShrink: 0,
-                      transition: "all 0.2s",
-                    }}>
-                      {done ? "✓" : i + 1}
-                    </div>
-                    <span style={{ fontSize: "0.8125rem", color: done || active ? "var(--text-primary)" : "var(--text-muted)", fontWeight: done || active ? 500 : 400 }}>
-                      {step}
-                    </span>
+              {[
+                { label: "Event received", status: "done" },
+                { label: "Signature verified", status: "done" },
+                { label: "Failure classified", status: "done" },
+                { label: "Expected value scored", status: "done" },
+                { label: "AI recommendation", status: "done" },
+                { label: "Safety check", status: "active" },
+                { label: "Execution", status: "pending" },
+                { label: "Outcome recorded", status: "pending" },
+              ].map((step, i) => (
+                <div key={step.label} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.75rem 0", borderBottom: i < 7 ? "1px solid var(--border-subtle)" : "none" }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: "50%",
+                    background: step.status === "done" ? "var(--success)" : step.status === "active" ? "var(--accent)" : "var(--bg-tertiary)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "0.6875rem", fontWeight: 700,
+                    color: step.status !== "pending" ? "#fff" : "var(--text-muted)",
+                    flexShrink: 0,
+                  }}>
+                    {step.status === "done" ? "✓" : step.status === "active" ? "⟳" : "○"}
                   </div>
-                );
-              })}
+                  <span style={{ fontSize: "0.8125rem", color: step.status === "pending" ? "var(--text-muted)" : "var(--text-primary)", fontWeight: step.status !== "pending" ? 500 : 400 }}>
+                    {step.label}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -232,6 +217,21 @@ export default function RunRecoveryPage() {
             {result.expected_recovery_value && (
               <div style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--success)", fontFamily: "monospace" }}>
                 {fmt(result.expected_recovery_value)} expected recovery
+              </div>
+            )}
+            {result.stopped_reason && (
+              <div style={{ marginTop: "0.75rem", padding: "0.75rem 1rem", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border-subtle)" }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--danger)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.35rem" }}>
+                  Recovery Stopped
+                </div>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+                  <span style={{ color: "var(--text-muted)" }}>Reason:</span> {result.stopped_reason.replace(/_/g, " ")}
+                </div>
+                {result.stopped_rule && (
+                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
+                    <span style={{ color: "var(--text-muted)" }}>Rule:</span> {result.stopped_rule}
+                  </div>
+                )}
               </div>
             )}
           </div>

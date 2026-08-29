@@ -13,6 +13,19 @@ class PolicyDecision:
     reason: str
     policy_rule: str
     action: str
+    reason_code: str = ""
+    decision_type: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.reason_code:
+            object.__setattr__(self, "reason_code", self.policy_rule)
+        if not self.decision_type:
+            if not self.allowed:
+                object.__setattr__(self, "decision_type", "DENY")
+            elif self.requires_human_approval:
+                object.__setattr__(self, "decision_type", "ESCALATE")
+            else:
+                object.__setattr__(self, "decision_type", "ALLOWED")
 
 
 class PolicyEngine(Protocol):
@@ -56,6 +69,7 @@ class InterventionPolicy:
                 reason="Customer has opted out of automated communication",
                 policy_rule="opt_out_block",
                 action=proposed_action,
+                reason_code="customer_opted_out",
             )
 
         if proposed_action == "retry_payment":
@@ -71,6 +85,7 @@ class InterventionPolicy:
                 reason="Stopping recovery is always permitted",
                 policy_rule="allow_stop",
                 action=proposed_action,
+                reason_code="policy_allowed",
             )
 
         return PolicyDecision(
@@ -79,6 +94,7 @@ class InterventionPolicy:
             reason=f"Unknown or unsafe action: {proposed_action}",
             policy_rule="default_deny",
             action=proposed_action,
+            reason_code="policy_blocked",
         )
 
     def _evaluate_retry(self, item: RecoveryItem) -> PolicyDecision:
@@ -90,6 +106,7 @@ class InterventionPolicy:
                 reason=f"Retry budget exhausted ({attempt_count}/{self._max_retry_attempts})",
                 policy_rule="retry_limit",
                 action="retry_payment",
+                reason_code="retry_budget_exhausted",
             )
 
         root_cause = (item.root_cause or "").lower()
@@ -101,6 +118,7 @@ class InterventionPolicy:
                 reason=f"Root cause '{item.root_cause}' blocks automatic retry",
                 policy_rule="block_hard_failure",
                 action="retry_payment",
+                reason_code="fraud_detected" if root_cause in {"fraud", "security_or_fraud"} else "policy_blocked",
             )
 
         return PolicyDecision(
@@ -120,6 +138,7 @@ class InterventionPolicy:
                 reason=f"Discount {discount_minor} exceeds autonomous limit {self._autonomous_discount_minor}",
                 policy_rule="discount_ceiling",
                 action="send_discount",
+                reason_code="policy_blocked",
             )
         return PolicyDecision(
             allowed=True,
@@ -127,6 +146,7 @@ class InterventionPolicy:
             reason="Discount is within autonomous limit",
             policy_rule="allow_discount",
             action="send_discount",
+            reason_code="policy_allowed",
         )
 
     def _evaluate_outbound(self, item: RecoveryItem, proposed_action: str) -> PolicyDecision:
@@ -139,6 +159,7 @@ class InterventionPolicy:
                 reason=f"Contact budget exhausted ({attempt_count}/{max_contacts})",
                 policy_rule="contact_limit",
                 action=proposed_action,
+                reason_code="retry_budget_exhausted",
             )
         return PolicyDecision(
             allowed=True,
@@ -146,4 +167,5 @@ class InterventionPolicy:
             reason="Contact is within budget",
             policy_rule="allow_outbound",
             action=proposed_action,
+            reason_code="policy_allowed",
         )

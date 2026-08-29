@@ -37,6 +37,7 @@ _LEGAL_TRANSITIONS: dict[RecoveryStatus, set[RecoveryStatus]] = {
         RecoveryStatus.INTERVENTION_PENDING,
         RecoveryStatus.STOPPED,
         RecoveryStatus.ESCALATED,
+        RecoveryStatus.RECOVERED,
     },
     RecoveryStatus.INTERVENTION_PENDING: {
         RecoveryStatus.INTERVENTION_EXECUTED,

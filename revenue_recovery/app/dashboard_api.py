@@ -9,7 +9,6 @@ from app.agents.llm_agent import RealRecoveryDecisionAgent
 
 def build_dashboard_summary(container, *, agent=None) -> dict[str, Any]:
     """Build the executive dashboard summary from persisted data."""
-    # Collect all recovery items
     items = []
     if hasattr(container.recovery_items, "_items"):
         items = list(container.recovery_items._items.values())
@@ -21,10 +20,9 @@ def build_dashboard_summary(container, *, agent=None) -> dict[str, Any]:
     executed = [i for i in items if i.status.value in ("intervention_executed", "recovered", "failed")]
 
     total_amount = sum(i.amount_minor for i in items)
-    recovered_amount = sum(i.amount_minor for i in recovered)
+    recovered_amount = sum(i.actual_recovery_value or i.amount_minor for i in recovered)
     expected_value = sum(i.expected_recovery_value or 0 for i in items)
 
-    # Collect attempts
     attempts = []
     if hasattr(container.attempts, "_records"):
         attempts = list(container.attempts._records)
@@ -32,7 +30,6 @@ def build_dashboard_summary(container, *, agent=None) -> dict[str, Any]:
     successful_attempts = [a for a in attempts if a.outcome == "success"]
     failed_attempts = [a for a in attempts if a.outcome == "failed"]
 
-    # Collect decisions
     decisions = []
     if hasattr(container.decisions, "_decisions"):
         decisions = list(container.decisions._decisions)
@@ -41,6 +38,11 @@ def build_dashboard_summary(container, *, agent=None) -> dict[str, Any]:
     policy_denied = [d for d in decisions if d.get("policy_allowed") is False]
 
     recovery_rate = len(recovered) / total if total > 0 else 0.0
+
+    priority_distribution: dict[str, int] = {}
+    for item in items:
+        if item.priority:
+            priority_distribution[item.priority] = priority_distribution.get(item.priority, 0) + 1
 
     return {
         "total_items": total,
@@ -58,16 +60,40 @@ def build_dashboard_summary(container, *, agent=None) -> dict[str, Any]:
         "decisions_total": len(decisions),
         "policy_allowed": len(policy_allowed),
         "policy_denied": len(policy_denied),
+        "priority_distribution": priority_distribution,
     }
 
 
-def build_recovery_items_list(container) -> list[dict[str, Any]]:
-    """Build a list of all recovery items for the queue view."""
+def build_recovery_items_list(container, *, priority: str | None = None) -> list[dict[str, Any]]:
+    """Build a list of all recovery items for the queue view, ranked by priority."""
     items = []
     if hasattr(container.recovery_items, "_items"):
-        for item in container.recovery_items._items.values():
-            items.append(_item_to_dict(item))
-    return sorted(items, key=lambda x: x["created_at"], reverse=True)
+        items = [_item_to_dict(i) for i in container.recovery_items._items.values()]
+    elif hasattr(container.recovery_items, "get"):
+        # PostgreSQL-backed: fall back to empty list (API routes handle DB queries)
+        pass
+
+    # Deterministic ranking: expected_recovery_value DESC, then tie breakers
+    def sort_key(item_dict):
+        expected = item_dict.get("expected_recovery_value") or 0
+        due_at = item_dict.get("due_at") or ""
+        amount = item_dict.get("amount_minor") or 0
+        created = item_dict.get("created_at") or ""
+        item_id = item_dict.get("id") or ""
+        return (
+            -expected,
+            due_at,
+            -amount,
+            created,
+            item_id,
+        )
+
+    items.sort(key=sort_key)
+
+    if priority:
+        items = [i for i in items if i.get("priority") == priority]
+
+    return items
 
 
 def build_case_detail(container, item_id: str) -> dict[str, Any] | None:
@@ -140,6 +166,8 @@ def _item_to_dict(item) -> dict[str, Any]:
         "root_cause": item.root_cause,
         "recovery_probability": item.recovery_probability,
         "expected_recovery_value": item.expected_recovery_value,
+        "stopped_reason": getattr(item, "stopped_reason", None),
+        "stopped_rule": getattr(item, "stopped_rule", None),
         "metadata": item.metadata,
     }
 

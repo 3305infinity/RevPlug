@@ -120,13 +120,15 @@ class TestWebhookDecisionPersistence:
         from app.agents.orchestrator import RecoveryAgentOrchestrator
         from app.agents.validator import ProposalValidator
         from app.audit.models import InMemoryAuditLog
+        from app.db.container import create_persistence_container
         from app.db.decision_repository import InMemoryRecoveryDecisionRepository
         from app.idempotency.store import InMemoryIdempotencyStore
         from app.policies.engine import InterventionPolicy
         from app.scoring.expected_value import ExpectedValueScorer
 
-        decisions = InMemoryRecoveryDecisionRepository()
-        audit = InMemoryAuditLog()
+        container = create_persistence_container("memory")
+        audit = container.audit_log
+        decisions = container.decisions
         agent = MockRecoveryDecisionAgent()
         policy = InterventionPolicy(max_retry_attempts=3)
         orchestrator = RecoveryAgentOrchestrator(
@@ -137,8 +139,11 @@ class TestWebhookDecisionPersistence:
             scorer=ExpectedValueScorer(),
             policy_engine=policy,
             audit_log=audit,
-            idempotency_store=InMemoryIdempotencyStore(),
+            idempotency_store=container.idempotency,
+            provider_events=container.provider_events,
+            recovery_items=container.recovery_items,
             decisions=decisions,
+            attempts=container.attempts,
             agent=agent,
             orchestrator=orchestrator,
         )
@@ -170,13 +175,15 @@ class TestWebhookDecisionPersistence:
         from app.agents.orchestrator import RecoveryAgentOrchestrator
         from app.agents.validator import ProposalValidator
         from app.audit.models import InMemoryAuditLog
+        from app.db.container import create_persistence_container
         from app.db.decision_repository import InMemoryRecoveryDecisionRepository
         from app.idempotency.store import InMemoryIdempotencyStore
         from app.policies.engine import InterventionPolicy
         from app.scoring.expected_value import ExpectedValueScorer
 
-        decisions = InMemoryRecoveryDecisionRepository()
-        audit = InMemoryAuditLog()
+        container = create_persistence_container("memory")
+        audit = container.audit_log
+        decisions = container.decisions
         agent = MockRecoveryDecisionAgent()
         # No retries allowed
         policy = InterventionPolicy(max_retry_attempts=0)
@@ -188,8 +195,11 @@ class TestWebhookDecisionPersistence:
             scorer=ExpectedValueScorer(),
             policy_engine=policy,
             audit_log=audit,
-            idempotency_store=InMemoryIdempotencyStore(),
+            idempotency_store=container.idempotency,
+            provider_events=container.provider_events,
+            recovery_items=container.recovery_items,
             decisions=decisions,
+            attempts=container.attempts,
             agent=agent,
             orchestrator=orchestrator,
         )

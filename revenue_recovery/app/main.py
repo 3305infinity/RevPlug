@@ -26,7 +26,9 @@ from app.idempotency.store import InMemoryIdempotencyStore
 from app.interventions.executor import SimulatedRecoveryExecutor
 from app.ledger.attempts import InMemoryAttemptLedger
 from app.policies.engine import InterventionPolicy
+from app.policies.guard import DefaultRecoveryGuard
 from app.policies.retry import DefaultRetryPolicy
+from app.policies.stopping_rules import StoppingRules
 from app.scoring.expected_value import ExpectedValueScorer
 
 
@@ -66,13 +68,21 @@ def _build_webhook_service(
             audit_log=InMemoryAuditLog(),
             attempts=InMemoryAttemptLedger(),
             decisions=InMemoryRecoveryDecisionRepository(),
+            outcomes=_InMemoryRecoveryOutcomeRepository(),
+            promises=_InMemoryPromiseRepository(),
+            provider_events=_InMemoryProviderEventRepository(),
         )
     agent = _build_agent()
+    stopping_rules = StoppingRules(max_attempts=3)
     orchestrator = RecoveryAgentOrchestrator(
         agent=agent,
         policy_engine=InterventionPolicy(max_retry_attempts=3),
         audit_log=container.audit_log,
         validator=ProposalValidator(),
+    )
+    guard = DefaultRecoveryGuard(
+        stopping_rules=stopping_rules,
+        policy_engine=InterventionPolicy(max_retry_attempts=3),
     )
     return RazorpayWebhookService(
         webhook_secret=secret,
@@ -80,6 +90,7 @@ def _build_webhook_service(
         policy_engine=InterventionPolicy(max_retry_attempts=3),
         audit_log=container.audit_log,
         idempotency_store=container.idempotency,
+        provider_events=container.provider_events,
         recovery_items=container.recovery_items,
         decisions=container.decisions,
         attempts=container.attempts,
@@ -88,6 +99,8 @@ def _build_webhook_service(
         executor=SimulatedRecoveryExecutor(),
         retry_policy=DefaultRetryPolicy(max_attempts=3),
         state_machine=DefaultStateMachine(),
+        stopping_rules=stopping_rules,
+        guard=guard,
     )
 
 
@@ -128,6 +141,8 @@ def _register_routes(
             response_body["failure_category"] = item.root_cause
             response_body["expected_recovery_value"] = item.expected_recovery_value
             response_body["recovery_status"] = item.status.value
+            response_body["stopped_reason"] = getattr(item, "stopped_reason", None)
+            response_body["stopped_rule"] = getattr(item, "stopped_rule", None)
             # Agent proposal
             proposal = service.last_proposal
             decision = service.last_decision
@@ -245,6 +260,8 @@ def _register_routes(
             response_body["failure_category"] = item.root_cause
             response_body["expected_recovery_value"] = item.expected_recovery_value
             response_body["recovery_status"] = item.status.value
+            response_body["stopped_reason"] = getattr(item, "stopped_reason", None)
+            response_body["stopped_rule"] = getattr(item, "stopped_rule", None)
             proposal = service.last_proposal
             decision = service.last_decision
             if proposal is not None:
@@ -316,6 +333,19 @@ def _register_routes(
             }
             container._program_config = config
         return config
+
+    @target_app.get("/api/controls")
+    def api_controls() -> dict[str, Any]:
+        """Get active recovery controls / safety configuration."""
+        return {
+            "max_payment_retries": 3,
+            "customer_opt_out": "Enabled",
+            "fraud_retry_protection": "Enabled",
+            "recovery_deadline": "24h",
+            "promise_expiry_protection": "Enabled",
+            "policy_enforcement": "Mandatory",
+            "human_override": "Disabled",
+        }
 
     @target_app.put("/api/programs/config")
     async def api_update_program_config(request: Request) -> Response:
@@ -451,6 +481,27 @@ def _register_routes(
             events = [_audit_to_dict(e) for e in container.audit_log._events]
         return sorted(events, key=lambda x: x["timestamp"], reverse=True)
 
+    @target_app.get("/api/provider-events/{provider_event_id}")
+    def api_provider_event(provider_event_id: str) -> Response:
+        """Get a provider event by ID for diagnostic purposes."""
+        container = _get_container(target_app)
+        provider_events = getattr(container, "provider_events", None)
+        if provider_events is None:
+            return JSONResponse(status_code=404, content={"error": "Provider events not available"})
+        event = provider_events.get_by_provider_event("razorpay", provider_event_id)
+        if event is None:
+            return JSONResponse(status_code=404, content={"error": "Provider event not found"})
+        return JSONResponse(status_code=200, content={
+            "provider": event.provider,
+            "provider_event_id": event.provider_event_id,
+            "event_type": event.event_type,
+            "processing_status": event.processing_status,
+            "received_at": event.received_at.isoformat() if event.received_at else None,
+            "processed_at": event.processed_at.isoformat() if event.processed_at else None,
+            "recovery_item_id": event.recovery_item_id,
+            "error_message": event.error_message,
+        })
+
     @target_app.post("/api/demo/batch-payment-failures")
     async def api_batch_payment_failures(request: Request) -> Response:
         """Run multiple synthetic payment failures as a batch."""
@@ -511,7 +562,12 @@ def _register_routes(
                 "recovery_item_id": item.id if item else None,
                 "status": status,
                 "failure_category": item.root_cause if item else None,
+                "amount_minor": item.amount_minor if item else None,
                 "expected_recovery_value": item.expected_recovery_value if item else None,
+                "intervention_cost": item.intervention_cost if item else None,
+                "recovery_probability": item.recovery_probability if item else None,
+                "priority": item.priority if item else None,
+                "scoring_reason": item.scoring_reason if item else None,
                 "recovery_status": item.status.value if item else None,
                 "proposed_action": service.last_proposal.action.value if service.last_proposal else None,
                 "agent_confidence": service.last_proposal.confidence if service.last_proposal else None,
@@ -536,6 +592,27 @@ def _register_routes(
             "escalated_count": escalated_count,
             "stopped_count": stopped_count,
             "recovery_rate": recovered_count / count if count > 0 else 0,
+            "priority_distribution": {
+                "CRITICAL": sum(1 for r in results if r.get("priority") == "CRITICAL"),
+                "HIGH": sum(1 for r in results if r.get("priority") == "HIGH"),
+                "MEDIUM": sum(1 for r in results if r.get("priority") == "MEDIUM"),
+                "LOW": sum(1 for r in results if r.get("priority") == "LOW"),
+            },
+            "ranked_cases": sorted(
+                [
+                    {
+                        "recovery_item_id": r.get("recovery_item_id"),
+                        "amount_minor": r.get("amount_minor"),
+                        "expected_recovery_value": r.get("expected_recovery_value"),
+                        "priority": r.get("priority"),
+                        "failure_category": r.get("failure_category"),
+                        "proposed_action": r.get("proposed_action"),
+                    }
+                    for r in results
+                    if r.get("recovery_item_id")
+                ],
+                key=lambda x: -(x.get("expected_recovery_value") or 0),
+            ),
         }
         return JSONResponse(status_code=200, content={"results": results, "summary": summary})
 
@@ -636,3 +713,50 @@ app.add_middleware(
 app.state.container = _container
 app.state.webhook_secret = _default_secret
 _register_routes(app, _build_webhook_service(_default_secret, _container))
+
+
+# ---------------------------------------------------------------------------
+# In-memory implementations for new canonical repositories (used in main.py)
+# ---------------------------------------------------------------------------
+
+class _InMemoryRecoveryOutcomeRepository:
+    def __init__(self) -> None:
+        self._outcomes: dict[str, dict] = {}
+
+    def save(self, outcome) -> None:
+        self._outcomes[outcome.recovery_item_id] = outcome
+
+    def get_for_item(self, recovery_item_id: str):
+        return self._outcomes.get(recovery_item_id)
+
+
+class _InMemoryPromiseRepository:
+    def __init__(self) -> None:
+        self._promises: dict[str, dict] = {}
+
+    def save(self, promise) -> None:
+        self._promises[promise.recovery_item_id] = promise
+
+    def get_for_item(self, recovery_item_id: str):
+        return self._promises.get(recovery_item_id)
+
+
+class _InMemoryProviderEventRepository:
+    def __init__(self) -> None:
+        self._events: dict[str, dict] = {}
+
+    def save(self, event) -> None:
+        key = (event.provider, event.provider_event_id)
+        if key not in self._events:
+            self._events[f"{key[0]}:{key[1]}"] = event
+
+    def get_by_provider_event(self, provider: str, provider_event_id: str):
+        return self._events.get(f"{provider}:{provider_event_id}")
+
+    def mark_processed(self, provider: str, provider_event_id: str, recovery_item_id: str | None = None) -> None:
+        key = f"{provider}:{provider_event_id}"
+        event = self._events.get(key)
+        if event:
+            event.processing_status = "processed"
+            event.processed_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+            event.recovery_item_id = recovery_item_id

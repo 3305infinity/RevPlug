@@ -30,10 +30,14 @@ export interface RecoveryItem {
   root_cause: string | null;
   recovery_probability: number | null;
   expected_recovery_value: number | null;
+  actual_recovery_value: number | null;
+  stopped_reason: string | null;
+  stopped_rule: string | null;
   metadata: Record<string, unknown>;
 }
 
 export interface CaseDetail extends RecoveryItem {
+  actual_recovery_value: number | null;
   decisions: Array<Record<string, unknown>>;
   attempts: Array<{
     recovery_item_id: string;
@@ -87,6 +91,8 @@ export interface SimulationResult {
   retry_scheduled?: boolean;
   escalation_reason?: string;
   recovery_status?: string;
+  stopped_reason?: string;
+  stopped_rule?: string;
 }
 
 export async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
@@ -123,6 +129,7 @@ export interface BatchSimulationResult {
     policy_allowed: boolean | null;
     policy_rule: string | null;
     execution_status: string | null;
+    stopped_reason?: string | null;
   }>;
   summary: {
     total_cases: number;
