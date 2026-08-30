@@ -110,7 +110,7 @@ class InterventionPolicy:
             )
 
         root_cause = (item.root_cause or "").lower()
-        blocked_causes = {"hard_decline", "fraud", "authentication_required", "security_or_fraud"}
+        blocked_causes = {"hard", "hard_decline", "fraud", "authentication_required", "security_or_fraud"}
         if root_cause in blocked_causes:
             return PolicyDecision(
                 allowed=False,

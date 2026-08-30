@@ -256,6 +256,9 @@ class _InMemoryRecoveryOutcomeRepository:
     def get_for_item(self, recovery_item_id: str):
         return self._outcomes.get(recovery_item_id)
 
+    def list_all() -> list:
+        return list(self._outcomes.values())
+
 
 class _InMemoryPromiseRepository:
     def __init__(self) -> None:

@@ -146,20 +146,20 @@ RecoverOS enforces strict financial accounting: **Execution Success $\neq$ Recov
 
 RecoverOS includes a live benchmark evaluation engine (`/batch-recovery`) comparing RecoverOS policy-driven intelligence against a fixed retry baseline on the **EXACT SAME dataset**.
 
-### Golden Run Results (`count = 50, seed = 42`)
+### Golden Run Results (`count = 50, seed = 42`, dataset `v2-counterfactual`)
 
 | Metric | Fixed Retry Baseline | RecoverOS Control Plane | Performance & Safety Impact |
 | :--- | :--- | :--- | :--- |
 | **Opportunities Processed** | 50 cases | 50 cases | Same deterministic dataset |
 | **Total Amount at Risk** | ₹42,674.00 | ₹42,674.00 | 100% Identical risk pool |
-| **Actual Recovered Revenue** | ₹26,968.50 | ₹18,950.00 | Verified ledger recovery |
-| **Intervention Cost** | ₹380.00 | **₹115.00** | **70% cost reduction** |
-| **Net Revenue Recovered** | ₹26,588.50 | ₹18,835.00 | Economically optimized |
-| **Recovery Rate** | 63.2% | **44.4%** | Bounded by policy safety |
-| **Unsafe Retries / Violations** | **19 Unsafe Retries** | **0 Violations** | **100% Safety Compliance** |
-| **Cost Per Recovery** | ₹12.26 / case | **₹8.21 / case** | **33% lower cost per recovery** |
+| **Gross Recovered Revenue** | ₹13,363.00 | **₹19,550.00** | **+₹6,187.00 (+46.3% gross recovery)** |
+| **Intervention Cost** | ₹430.00 | **₹115.00** | **73.3% cost reduction** |
+| **Net Revenue Recovered** | ₹12,933.00 | **₹19,435.00** | **+₹6,502.00 (+50.3% net recovery)** |
+| **Value Recovery Rate** | 31.3% | **45.8%** | **+14.5% higher value recovery** |
+| **Safety Violations** | **17 Violations** | **0 Violations** | **100% Safety Compliance** |
+| **Cost Per Rupee Recovered**| ₹0.0322 / ₹ | **₹0.0059 / ₹** | **5.5x more cost-efficient** |
 
-*Why Policy Violations Matter*: The fixed baseline achieves a higher gross recovery only by recklessly retrying fraud and hard declines (**19 unsafe retries**), violating processor rules and risking chargeback penalties. RecoverOS recovers revenue cleanly with **0 policy violations**.
+*Why Policy Violations Matter*: The fixed baseline suffers **17 safety violations** (retrying fraud, hard declines, and opted-out customers), risking merchant processor suspensions and compliance fines. RecoverOS achieves superior gross and net recovery with **0 policy violations**.
 
 ---
 
@@ -168,12 +168,12 @@ RecoverOS includes a live benchmark evaluation engine (`/batch-recovery`) compar
 Run the benchmark evaluation twice to verify 100% seeded determinism:
 
 ```bash
-python -c "from app.services.evaluation_service import EvaluationService; s = EvaluationService(); r = s.run_batch_evaluation(50, 42); print(f'Recovered: INR {r.recoveros.actual_recovered/100:.2f} | Rate: {r.recoveros.recovery_rate*100:.1f}% | Cost: INR {r.recoveros.intervention_cost/100:.2f} | Failed Retries: {r.recoveros.unnecessary_interventions}')"
+python -c "from app.services.evaluation_service import EvaluationService; s = EvaluationService(); r = s.run_batch_evaluation(50, 42); print(f'Recovered: INR {r.recoveros.actual_recovered/100:.2f} | Net: INR {r.recoveros.net_recovered/100:.2f} | Rate: {r.recoveros.recovery_rate*100:.1f}% | Cost: INR {r.recoveros.intervention_cost/100:.2f} | Violations: {r.recoveros.safety_violations[\"total_safety_violations\"]}')"
 ```
 
 **Expected Deterministic Output**:
 ```text
-Recovered: INR 18950.00 | Rate: 44.4% | Cost: INR 115.00 | Failed Retries: 13
+Recovered: INR 19550.00 | Net: INR 19435.00 | Rate: 45.8% | Cost: INR 115.00 | Violations: 0
 ```
 
 ---

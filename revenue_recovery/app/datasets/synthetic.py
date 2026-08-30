@@ -17,6 +17,7 @@ Datasets:
 from __future__ import annotations
 
 import hashlib
+import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -27,6 +28,7 @@ from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
 # Metadata key that marks items as synthetic — checked before any outcome recording
 SYNTHETIC_MARKER = "is_synthetic"
 SYNTHETIC_VALUE = True
+EVALUATION_DATASET_VERSION = "v2-counterfactual"
 
 
 def _stable_id(prefix: str, n: int) -> str:
@@ -543,7 +545,11 @@ def generate_evaluation_dataset(count: int = 50, seed: int = 42) -> list[Recover
                 gt_correct_action = "send_payment_link"
                 gt_acceptable_actions = ["send_payment_link"]
 
+        gt_rng = random.Random(f"counterfactual_{seed}_{item_id}_{amount_minor}")
+        action_outcomes = _generate_counterfactual_outcomes(gt_rng, amount_minor, root_cause, gt_recoverable)
+
         ground_truth = {
+            "dataset_version": EVALUATION_DATASET_VERSION,
             "true_root_cause": gt_true_root_cause,
             "correct_action": gt_correct_action,
             "acceptable_actions": gt_acceptable_actions,
@@ -552,6 +558,7 @@ def generate_evaluation_dataset(count: int = 50, seed: int = 42) -> list[Recover
             "acceptable_contact": gt_acceptable_contact,
             "should_escalate": gt_should_escalate,
             "should_stop": gt_should_stop,
+            "action_outcomes": action_outcomes,
         }
 
         items.append(_make_item(
@@ -567,17 +574,293 @@ def generate_evaluation_dataset(count: int = 50, seed: int = 42) -> list[Recover
             customer_id=cust_id,
             dataset_label=f"eval_seed{seed}",
             extra_metadata={
+                **extra,
                 "customer_opted_out": root_cause == "soft_optout",
                 "eval_seed": seed,
                 "eval_index": i,
                 "original_category": root_cause,
                 "source_type": source_type.value,
                 "ground_truth": ground_truth,
-                **extra,
             },
         ))
 
     return items
+
+
+def _generate_counterfactual_outcomes(
+    gt_rng: Any,
+    amount_minor: int,
+    root_cause: str,
+    gt_recoverable: bool,
+) -> dict[str, Any]:
+    """Generate a deterministic, pre-rolled counterfactual action-outcome table.
+    
+    This table models the underlying environment ONCE per case so that both
+    Baseline and RecoverOS evaluate against the EXACT SAME ground truth.
+    """
+    is_safe = gt_recoverable and root_cause not in ("fraud", "soft_optout", "soft_promise_active")
+
+    r1_succ = (gt_rng.random() < 0.70) if (is_safe and root_cause == "soft") else ((gt_rng.random() < 0.10) if (is_safe and root_cause == "authentication_required") else False)
+    r2_succ = (gt_rng.random() < 0.50) if (is_safe and root_cause == "soft") else False
+    r3_succ = (gt_rng.random() < 0.30) if (is_safe and root_cause == "soft") else False
+
+    link_succ = (gt_rng.random() < 0.85) if is_safe else False
+    rem_succ = (gt_rng.random() < 0.40) if (is_safe and root_cause == "overdue_receivable") else False
+    alt_succ = (gt_rng.random() < 0.75) if (is_safe and root_cause in ("overdue_receivable", "authentication_required")) else False
+    msg_succ = (gt_rng.random() < 0.60) if is_safe else False
+    disc_succ = (gt_rng.random() < 0.80) if is_safe else False
+
+    return {
+        "retry_payment": {
+            "attempts": {
+                "1": {"success": r1_succ, "actual_recovery_minor": amount_minor if r1_succ else 0, "cost_minor": 500},
+                "2": {"success": r2_succ, "actual_recovery_minor": amount_minor if r2_succ else 0, "cost_minor": 500},
+                "3": {"success": r3_succ, "actual_recovery_minor": amount_minor if r3_succ else 0, "cost_minor": 500},
+            }
+        },
+        "send_payment_link": {
+            "success": link_succ,
+            "actual_recovery_minor": amount_minor if link_succ else 0,
+            "cost_minor": 200,
+        },
+        "send_reminder": {
+            "success": rem_succ,
+            "actual_recovery_minor": amount_minor if rem_succ else 0,
+            "cost_minor": 100,
+        },
+        "alternate_channel": {
+            "success": alt_succ,
+            "actual_recovery_minor": amount_minor if alt_succ else 0,
+            "cost_minor": 300,
+        },
+        "send_customer_message": {
+            "success": msg_succ,
+            "actual_recovery_minor": amount_minor if msg_succ else 0,
+            "cost_minor": 150,
+        },
+        "offer_discount": {
+            "success": disc_succ,
+            "actual_recovery_minor": int(amount_minor * 0.9) if disc_succ else 0,
+            "cost_minor": 500,
+        },
+        "stop_recovery": {
+            "success": False,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0,
+        },
+        "escalate_human": {
+            "success": False,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000,
+        },
+    }
+
+
+def lookup_counterfactual_outcome(
+    ground_truth: dict[str, Any],
+    action: str,
+    attempt_number: int = 1,
+) -> tuple[bool, int, int]:
+    """Lookup the counterfactual outcome for an action from the shared ground truth table.
+
+    Returns:
+        (success, actual_recovery_minor, cost_minor)
+    """
+    outcomes_table = ground_truth.get("action_outcomes", {})
+    if action == "retry_payment":
+        retry_info = outcomes_table.get("retry_payment", {}).get("attempts", {})
+        att_str = str(min(attempt_number, 3))
+        res = retry_info.get(att_str, {"success": False, "actual_recovery_minor": 0, "cost_minor": 500})
+        return bool(res["success"]), int(res["actual_recovery_minor"]), int(res["cost_minor"])
+    
+    act_res = outcomes_table.get(action)
+    if isinstance(act_res, dict):
+        return bool(act_res.get("success", False)), int(act_res.get("actual_recovery_minor", 0)), int(act_res.get("cost_minor", 0))
+    
+    return False, 0, 0
+
+
+def get_golden_evaluation_dataset() -> list[RecoveryItem]:
+    """Create a tiny hand-verifiable golden benchmark dataset (5 canonical cases)."""
+    cases = []
+    # Case 1: ₹1,000 soft failure -> retry_1 succeeds
+    gt1 = {
+        "dataset_version": EVALUATION_DATASET_VERSION,
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": ["retry_payment"],
+        "recoverable": True,
+        "action_outcomes": {
+            "retry_payment": {
+                "attempts": {
+                    "1": {"success": True, "actual_recovery_minor": 100000, "cost_minor": 500},
+                    "2": {"success": True, "actual_recovery_minor": 100000, "cost_minor": 500},
+                    "3": {"success": True, "actual_recovery_minor": 100000, "cost_minor": 500},
+                }
+            },
+            "send_payment_link": {"success": True, "actual_recovery_minor": 100000, "cost_minor": 200},
+            "stop_recovery": {"success": False, "actual_recovery_minor": 0, "cost_minor": 0},
+            "escalate_human": {"success": False, "actual_recovery_minor": 0, "cost_minor": 1000},
+        }
+    }
+    cases.append(_make_item(
+        item_id="eval_golden_0001",
+        source_type=SourceType.PAYMENT_FAILURE,
+        amount_minor=100000,
+        root_cause="soft",
+        status=RecoveryStatus.DETECTED,
+        attempt_count=0,
+        recovery_probability=0.7,
+        expected_recovery_value=70000,
+        created_at=_utc(0),
+        customer_id="cust_g1",
+        dataset_label="golden",
+        extra_metadata={"eval_seed": 42, "eval_index": 0, "ground_truth": gt1},
+    ))
+
+    # Case 2: ₹2,000 soft failure -> retry_1 fails, retry_2 fails, payment_link succeeds
+    gt2 = {
+        "dataset_version": EVALUATION_DATASET_VERSION,
+        "true_root_cause": "soft",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": ["send_payment_link"],
+        "recoverable": True,
+        "action_outcomes": {
+            "retry_payment": {
+                "attempts": {
+                    "1": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                    "2": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                    "3": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                }
+            },
+            "send_payment_link": {"success": True, "actual_recovery_minor": 200000, "cost_minor": 200},
+            "stop_recovery": {"success": False, "actual_recovery_minor": 0, "cost_minor": 0},
+            "escalate_human": {"success": False, "actual_recovery_minor": 0, "cost_minor": 1000},
+        }
+    }
+    cases.append(_make_item(
+        item_id="eval_golden_0002",
+        source_type=SourceType.PAYMENT_FAILURE,
+        amount_minor=200000,
+        root_cause="soft",
+        status=RecoveryStatus.DETECTED,
+        attempt_count=0,
+        recovery_probability=0.4,
+        expected_recovery_value=80000,
+        created_at=_utc(0),
+        customer_id="cust_g2",
+        dataset_label="golden",
+        extra_metadata={"eval_seed": 42, "eval_index": 1, "ground_truth": gt2},
+    ))
+
+    # Case 3: ₹500 soft failure -> unrecoverable / all actions fail
+    gt3 = {
+        "dataset_version": EVALUATION_DATASET_VERSION,
+        "true_root_cause": "soft",
+        "correct_action": "stop_recovery",
+        "acceptable_actions": ["stop_recovery", "no_action"],
+        "recoverable": False,
+        "action_outcomes": {
+            "retry_payment": {
+                "attempts": {
+                    "1": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                    "2": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                    "3": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                }
+            },
+            "send_payment_link": {"success": False, "actual_recovery_minor": 0, "cost_minor": 200},
+            "stop_recovery": {"success": False, "actual_recovery_minor": 0, "cost_minor": 0},
+            "escalate_human": {"success": False, "actual_recovery_minor": 0, "cost_minor": 1000},
+        }
+    }
+    cases.append(_make_item(
+        item_id="eval_golden_0003",
+        source_type=SourceType.PAYMENT_FAILURE,
+        amount_minor=50000,
+        root_cause="soft",
+        status=RecoveryStatus.DETECTED,
+        attempt_count=0,
+        recovery_probability=0.0,
+        expected_recovery_value=0,
+        created_at=_utc(0),
+        customer_id="cust_g3",
+        dataset_label="golden",
+        extra_metadata={"eval_seed": 42, "eval_index": 2, "ground_truth": gt3},
+    ))
+
+    # Case 4: ₹5,000 fraud failure -> must stop (safety rule)
+    gt4 = {
+        "dataset_version": EVALUATION_DATASET_VERSION,
+        "true_root_cause": "fraud",
+        "correct_action": "stop_recovery",
+        "acceptable_actions": ["stop_recovery"],
+        "recoverable": False,
+        "action_outcomes": {
+            "retry_payment": {
+                "attempts": {
+                    "1": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                    "2": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                    "3": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                }
+            },
+            "send_payment_link": {"success": False, "actual_recovery_minor": 0, "cost_minor": 200},
+            "stop_recovery": {"success": False, "actual_recovery_minor": 0, "cost_minor": 0},
+            "escalate_human": {"success": False, "actual_recovery_minor": 0, "cost_minor": 1000},
+        }
+    }
+    cases.append(_make_item(
+        item_id="eval_golden_0004",
+        source_type=SourceType.PAYMENT_FAILURE,
+        amount_minor=500000,
+        root_cause="fraud",
+        status=RecoveryStatus.DETECTED,
+        attempt_count=0,
+        recovery_probability=0.0,
+        expected_recovery_value=0,
+        created_at=_utc(0),
+        customer_id="cust_g4",
+        dataset_label="golden",
+        extra_metadata={"fraud_flag": True, "eval_seed": 42, "eval_index": 3, "ground_truth": gt4},
+    ))
+
+    # Case 5: ₹10,000 active promise -> must stop
+    gt5 = {
+        "dataset_version": EVALUATION_DATASET_VERSION,
+        "true_root_cause": "soft",
+        "correct_action": "stop_recovery",
+        "acceptable_actions": ["stop_recovery"],
+        "recoverable": False,
+        "action_outcomes": {
+            "retry_payment": {
+                "attempts": {
+                    "1": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                    "2": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                    "3": {"success": False, "actual_recovery_minor": 0, "cost_minor": 500},
+                }
+            },
+            "send_payment_link": {"success": False, "actual_recovery_minor": 0, "cost_minor": 200},
+            "stop_recovery": {"success": False, "actual_recovery_minor": 0, "cost_minor": 0},
+            "escalate_human": {"success": False, "actual_recovery_minor": 0, "cost_minor": 1000},
+        }
+    }
+    from datetime import date, timedelta
+    p_date = (date.today() + timedelta(days=5)).isoformat()
+    cases.append(_make_item(
+        item_id="eval_golden_0005",
+        source_type=SourceType.PAYMENT_FAILURE,
+        amount_minor=1000000,
+        root_cause="soft",
+        status=RecoveryStatus.DETECTED,
+        attempt_count=0,
+        recovery_probability=0.0,
+        expected_recovery_value=0,
+        created_at=_utc(0),
+        customer_id="cust_g5",
+        dataset_label="golden",
+        extra_metadata={"promise_date": p_date, "promise_status": "promised", "eval_seed": 42, "eval_index": 4, "ground_truth": gt5},
+    ))
+
+    return cases
 
 
 def get_opted_out_customers(items: list[RecoveryItem]) -> frozenset[str]:

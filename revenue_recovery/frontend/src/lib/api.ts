@@ -14,6 +14,7 @@ export interface DashboardSummary {
   recovery_by_failure_category: Record<string, { total: number; recovered: number; amount_minor: number }>;
   recovery_by_action: Record<string, number>;
   recovered_value_by_day: Array<{ date: string; amount_minor: number; count: number }>;
+  net_recovered?: number;
   // Legacy fields
   total_amount_minor?: number;
   recovered_count?: number;
@@ -164,6 +165,13 @@ export interface EvaluationReport {
 export interface SimulationResult {
   status: string;
   recovery_item_id: string | null;
+  item_id?: string;
+  customer_id?: string;
+  amount_minor?: number;
+  confidence?: number;
+  action_executed?: string;
+  attempt_count?: number;
+  settlement_verified?: boolean;
   audit_event_count: number;
   failure_category?: string;
   expected_recovery_value?: number;

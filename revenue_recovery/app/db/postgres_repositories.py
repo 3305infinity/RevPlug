@@ -428,23 +428,41 @@ class PostgresAuditLog:
         action: str,
         reason: str | None = None,
         metadata: dict | None = None,
+        event_type: str = "",
+        source: str = "",
+        reason_code: str = "",
+        context_hash: str = "",
+        correlation_id: str = "",
     ) -> AuditEvent:
+        meta = metadata or {}
+        if event_type: meta["event_type"] = event_type
+        if source: meta["source"] = source
+        if reason_code: meta["reason_code"] = reason_code
+        if context_hash: meta["context_hash"] = context_hash
+        if correlation_id: meta["correlation_id"] = correlation_id
+
         row = self._conn.fetchone(
             """
             INSERT INTO audit_log (recovery_item_id, actor, action, reasoning, metadata)
             VALUES (%s, %s, %s, %s, %s)
             RETURNING id, recovery_item_id, actor, action, reasoning, metadata, timestamp
             """,
-            (recovery_item_id, actor, action, reason, json.dumps(metadata or {})),
+            (recovery_item_id, actor, action, reason, json.dumps(meta)),
         )
+        parsed_meta = row["metadata"] if isinstance(row["metadata"], dict) else json.loads(row["metadata"])
         return AuditEvent(
             id=str(row["id"]),
             recovery_item_id=str(row["recovery_item_id"]) if row.get("recovery_item_id") else "",
             actor=row["actor"],
             action=row["action"],
             reason=row["reasoning"],
-            metadata=row["metadata"] if isinstance(row["metadata"], dict) else json.loads(row["metadata"]),
+            metadata=parsed_meta,
             timestamp=row["timestamp"],
+            event_type=parsed_meta.get("event_type", ""),
+            source=parsed_meta.get("source", ""),
+            reason_code=parsed_meta.get("reason_code", ""),
+            context_hash=parsed_meta.get("context_hash", ""),
+            correlation_id=parsed_meta.get("correlation_id", ""),
         )
 
     def events_for(self, recovery_item_id: str) -> list[AuditEvent]:
@@ -452,18 +470,24 @@ class PostgresAuditLog:
             "SELECT * FROM audit_log WHERE recovery_item_id = %s ORDER BY timestamp",
             (recovery_item_id,),
         )
-        return [
-            AuditEvent(
+        res = []
+        for r in rows:
+            meta = r["metadata"] if isinstance(r["metadata"], dict) else json.loads(r["metadata"])
+            res.append(AuditEvent(
                 id=str(r["id"]),
-                recovery_item_id=str(r["recovery_item_id"]) if r.get("recovery_item_id") else None,
+                recovery_item_id=str(r["recovery_item_id"]) if r.get("recovery_item_id") else "",
                 actor=r["actor"],
                 action=r["action"],
                 reason=r["reasoning"],
-                metadata=r["metadata"] if isinstance(r["metadata"], dict) else json.loads(r["metadata"]),
+                metadata=meta,
                 timestamp=r["timestamp"],
-            )
-            for r in rows
-        ]
+                event_type=meta.get("event_type", ""),
+                source=meta.get("source", ""),
+                reason_code=meta.get("reason_code", ""),
+                context_hash=meta.get("context_hash", ""),
+                correlation_id=meta.get("correlation_id", ""),
+            ))
+        return res
 
 
 class PostgresAttemptLedger:

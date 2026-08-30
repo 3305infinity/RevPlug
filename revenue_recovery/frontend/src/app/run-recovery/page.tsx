@@ -21,12 +21,65 @@ const FAILURE_REASONS = [
   { value: "unknown_reason", label: "Unknown Failure", category: "unknown", desc: "Unclassified — escalate to human" },
 ];
 
+const CANONICAL_PRESETS = [
+  {
+    id: "preset_1",
+    label: "Scenario 1: Successful Recovery (Soft Timeout)",
+    sourceType: "payment_failure",
+    reasonIndex: 0, // payment_timed_out
+    amount: 2500000,
+    customerId: "cust_soft_timeout",
+    badge: "HAPPY PATH",
+    badgeType: "success",
+  },
+  {
+    id: "preset_2",
+    label: "Scenario 2: Smart Stop (Hard Decline / Fraud)",
+    sourceType: "payment_failure",
+    reasonIndex: 3, // payment_risk_check_failed
+    amount: 1500000,
+    customerId: "cust_fraud_risk",
+    badge: "SMART STOP",
+    badgeType: "danger",
+  },
+  {
+    id: "preset_3",
+    label: "Scenario 3: Customer Opt-Out Protection",
+    sourceType: "subscription_failure",
+    reasonIndex: 1, // gateway_technical_error
+    amount: 500000,
+    customerId: "cust_opted_out",
+    badge: "CONSENT BLOCK",
+    badgeType: "warning",
+  },
+  {
+    id: "preset_4",
+    label: "Scenario 4: AI Failure & Safe Fallback",
+    sourceType: "mandate_failure",
+    reasonIndex: 5, // unknown_reason
+    amount: 1200000,
+    customerId: "cust_ai_fallback",
+    badge: "FALLBACK",
+    badgeType: "accent",
+  },
+  {
+    id: "preset_5",
+    label: "Scenario 5: Provider Timeout & Reconciliation",
+    sourceType: "overdue_receivable",
+    reasonIndex: 0, // payment_timed_out
+    amount: 4500000,
+    customerId: "cust_reconcile",
+    badge: "IDEMPOTENT",
+    badgeType: "purple",
+  },
+];
+
 type Phase = "idle" | "running" | "complete" | "error";
 
 export default function RunRecoveryPage() {
   const [sourceType, setSourceType] = useState("payment_failure");
   const [reasonKey, setReasonKey] = useState(0);
-  const [amount, setAmount] = useState(50000);
+  const [amount, setAmount] = useState(2500000);
   const [customerId, setCustomerId] = useState("cust_demo_101");
   const [daysOverdue, setDaysOverdue] = useState(3);
   const [mandateId, setMandateId] = useState("man_9021");
@@ -35,6 +88,15 @@ export default function RunRecoveryPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const selectedReason = FAILURE_REASONS[reasonKey];
+
+  const applyPreset = (preset: typeof CANONICAL_PRESETS[0]) => {
+    setSourceType(preset.sourceType);
+    setReasonKey(preset.reasonIndex);
+    setAmount(preset.amount);
+    setCustomerId(preset.customerId);
+    setPhase("idle");
+    setResult(null);
+  };
 
   const reset = useCallback(() => {
     setPhase("idle");
@@ -83,12 +145,37 @@ export default function RunRecoveryPage() {
   const outcomeLabel = result?.recovery_status === "recovered" ? "RECOVERED" : result?.recovery_status === "stopped" ? "STOPPED" : result?.recovery_status === "escalated" ? "ESCALATED" : result?.recovery_status?.toUpperCase() || "COMPLETE";
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em", marginBottom: "0.5rem" }}>Run Recovery</h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem" }}>
-          Evaluate a revenue event across canonical surfaces and execute the safest eligible recovery action.
+    <div style={{ maxWidth: 900, margin: "0 auto" }}>
+      {/* Header */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em", marginBottom: "0.5rem" }}>
+          Interactive Recovery Demo & Control Plane
+        </h1>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", maxWidth: 750 }}>
+          Watch RecoverOS evaluate revenue risk, consult AI diagnosis, enforce non-bypassable policy rules, execute bounded recovery actions, and verify settlement.
         </p>
+      </div>
+
+      {/* Canonical Judge Demo Presets */}
+      <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem", background: "rgba(99, 102, 241, 0.03)", border: "1px solid rgba(99, 102, 241, 0.2)" }}>
+        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
+          ⚡ 5 Canonical Judge Demo Presets
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+          {CANONICAL_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              onClick={() => applyPreset(preset)}
+              className="btn-secondary"
+              style={{ fontSize: "0.75rem", padding: "0.375rem 0.75rem", display: "flex", alignItems: "center", gap: "0.375rem" }}
+            >
+              <span className={`badge badge-${preset.badgeType}`} style={{ fontSize: "0.625rem", padding: "0.125rem 0.35rem" }}>
+                {preset.badge}
+              </span>
+              <span>{preset.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {phase === "idle" && (
@@ -98,259 +185,187 @@ export default function RunRecoveryPage() {
             <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.5rem" }}>
               1. Opportunity Type / Surface
             </label>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "0.5rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.75rem" }}>
               {RECOVERY_TYPES.map((t) => (
-                <button
+                <div
                   key={t.value}
                   onClick={() => setSourceType(t.value)}
                   style={{
-                    padding: "0.65rem 0.85rem",
-                    borderRadius: 4,
-                    border: `1px solid ${sourceType === t.value ? "var(--orange)" : "var(--border)"}`,
-                    background: sourceType === t.value ? "rgba(249, 115, 22, 0.1)" : "#0b0f17",
-                    color: sourceType === t.value ? "var(--orange)" : "var(--text-primary)",
-                    fontWeight: sourceType === t.value ? 600 : 400,
+                    padding: "0.875rem 1rem",
+                    borderRadius: 6,
+                    border: `1px solid ${sourceType === t.value ? "var(--accent)" : "var(--border)"}`,
+                    background: sourceType === t.value ? "rgba(99, 102, 241, 0.08)" : "transparent",
                     cursor: "pointer",
-                    fontSize: "0.78125rem",
-                    textAlign: "left",
                   }}
                 >
-                  {t.label}
-                </button>
+                  <div style={{ fontSize: "0.875rem", fontWeight: 600, color: sourceType === t.value ? "var(--accent)" : "var(--text-primary)" }}>{t.label}</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>{t.desc}</div>
+                </div>
               ))}
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+          {/* Failure Cause Selector */}
+          <div style={{ marginBottom: "1.75rem" }}>
+            <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.5rem" }}>
+              2. Simulated Failure Cause
+            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
+              {FAILURE_REASONS.map((r, idx) => (
+                <div
+                  key={r.value}
+                  onClick={() => setReasonKey(idx)}
+                  style={{
+                    padding: "0.75rem 0.875rem",
+                    borderRadius: 6,
+                    border: `1px solid ${reasonKey === idx ? "var(--accent)" : "var(--border)"}`,
+                    background: reasonKey === idx ? "rgba(99, 102, 241, 0.08)" : "transparent",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: reasonKey === idx ? "var(--accent)" : "var(--text-primary)" }}>{r.label}</div>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>{r.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Customer & Amount */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "2rem" }}>
             <div>
-              <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.5rem" }}>
-                2. Failure / Reason Code
+              <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.35rem" }}>
+                Amount at Risk (INR)
               </label>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-                {FAILURE_REASONS.map((r, i) => (
-                  <button
-                    key={r.value}
-                    onClick={() => setReasonKey(i)}
-                    style={{
-                      padding: "0.65rem 0.85rem",
-                      borderRadius: 4,
-                      border: `1px solid ${reasonKey === i ? "var(--orange)" : "var(--border)"}`,
-                      background: reasonKey === i ? "rgba(249, 115, 22, 0.1)" : "#0b0f17",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.2rem" }}>
-                      <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: reasonKey === i ? "var(--orange)" : "var(--text-primary)" }}>
-                        {r.label}
-                      </span>
-                      <span style={{ fontSize: "0.625rem", fontWeight: 600, padding: "0.15rem 0.5rem", borderRadius: 4, background: categoryColor(r.category), color: "#fff", textTransform: "uppercase" }}>
-                        {r.category}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>{r.desc}</div>
-                  </button>
-                ))}
-              </div>
+              <input
+                type="number"
+                value={amount / 100}
+                onChange={(e) => setAmount(Math.max(1, Number(e.target.value)) * 100)}
+                className="input"
+                style={{ width: "100%" }}
+              />
             </div>
 
             <div>
-              <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.5rem" }}>
-                3. Opportunity Details
+              <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.35rem" }}>
+                Customer ID
               </label>
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
-                    Amount at Risk (₹)
-                  </div>
-                  <input
-                    type="number"
-                    value={amount / 100}
-                    onChange={(e) => setAmount(Math.max(0, Math.round(Number(e.target.value) * 100)))}
-                    style={{
-                      width: "100%",
-                      padding: "0.625rem 0.875rem",
-                      borderRadius: 4,
-                      border: "1px solid var(--border)",
-                      background: "#080c14",
-                      color: "#fff",
-                      fontSize: "0.875rem",
-                    }}
-                  />
-                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                    {fmt(amount)} minor units
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
-                    Customer Identifier
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="e.g. cust_razorpay_99"
-                    value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "0.625rem 0.875rem",
-                      borderRadius: 4,
-                      border: "1px solid var(--border)",
-                      background: "#080c14",
-                      color: "#fff",
-                      fontSize: "0.875rem",
-                    }}
-                  />
-                </div>
-
-                {sourceType === "overdue_receivable" && (
-                  <div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
-                      Days Overdue (Ladder Day 1/3/7/14)
-                    </div>
-                    <select
-                      value={daysOverdue}
-                      onChange={(e) => setDaysOverdue(Number(e.target.value))}
-                      style={{
-                        width: "100%",
-                        padding: "0.625rem 0.875rem",
-                        borderRadius: 4,
-                        border: "1px solid var(--border)",
-                        background: "#080c14",
-                        color: "#fff",
-                        fontSize: "0.875rem",
-                      }}
-                    >
-                      <option value={1}>Day 1 — Gentle Reminder</option>
-                      <option value={3}>Day 3 — Strong Reminder + Payment Link</option>
-                      <option value={7}>Day 7 — Alternate Channel Notice</option>
-                      <option value={14}>Day 14 — Escalate to Human Operator</option>
-                    </select>
-                  </div>
-                )}
-
-                {sourceType === "mandate_failure" && (
-                  <div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
-                      Mandate ID
-                    </div>
-                    <input
-                      type="text"
-                      value={mandateId}
-                      onChange={(e) => setMandateId(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "0.625rem 0.875rem",
-                        borderRadius: 4,
-                        border: "1px solid var(--border)",
-                        background: "#080c14",
-                        color: "#fff",
-                        fontSize: "0.875rem",
-                      }}
-                    />
-                  </div>
-                )}
-
-                <div style={{ marginTop: "1rem" }}>
-                  <button
-                    onClick={handleRun}
-                    disabled={!customerId.trim()}
-                    style={{
-                      width: "100%",
-                      padding: "0.75rem 1rem",
-                      borderRadius: 4,
-                      background: "var(--orange)",
-                      color: "#fff",
-                      fontWeight: 600,
-                      border: "none",
-                      cursor: customerId.trim() ? "pointer" : "not-allowed",
-                      fontSize: "0.875rem",
-                    }}
-                  >
-                    Evaluate & Execute Recovery →
-                  </button>
-                </div>
-              </div>
+              <input
+                type="text"
+                value={customerId}
+                onChange={(e) => setCustomerId(e.target.value)}
+                className="input"
+                style={{ width: "100%" }}
+              />
             </div>
           </div>
-        </div>
-      )}
 
-      {phase === "running" && (
-        <div className="card" style={{ padding: "3rem", textAlign: "center" }}>
-          <div style={{ fontSize: "1.25rem", fontWeight: 600, color: "#fff", marginBottom: "1rem" }}>
-            Running Recovery Control Pipeline...
-          </div>
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontFamily: "monospace" }}>
-            [Detecting → EV Scoring → Safety Policy Check → Bounded Dispatch]
-          </div>
-        </div>
-      )}
-
-      {phase === "error" && (
-        <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
-          <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>⚠️</div>
-          <div style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--danger)", marginBottom: "0.5rem" }}>Execution Failed</div>
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "1.5rem" }}>{errorMsg}</div>
-          <button onClick={reset} style={{ padding: "0.5rem 1rem", background: "var(--bg-tertiary)", border: "1px solid var(--border)", color: "#fff", borderRadius: 4, cursor: "pointer" }}>
-            Try Again
+          <button onClick={handleRun} className="btn-primary" style={{ width: "100%", padding: "0.875rem", fontSize: "0.9375rem" }}>
+            ⚡ Run Recovery Scenario
           </button>
         </div>
       )}
 
+      {/* Running Spinner */}
+      {phase === "running" && (
+        <div className="card" style={{ padding: "4rem 2rem", textAlign: "center" }}>
+          <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>⚡</div>
+          <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.5rem" }}>Evaluating Scenario...</h2>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
+            Assembling context $\to$ Consulting AI Diagnosis $\to$ Checking Deterministic Policy $\to$ Verifying Settlement
+          </p>
+        </div>
+      )}
+
+      {/* Result Display — Signature AI Proposed -> Policy Decided Flow */}
       {phase === "complete" && result && (
         <div>
-          <div className="card" style={{ padding: "1.75rem", marginBottom: "1.5rem" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-              <span style={{ fontSize: "0.6875rem", fontWeight: 700, fontFamily: "monospace", color: "var(--text-muted)", textTransform: "uppercase" }}>
-                PIPELINE EXECUTION OUTCOME
-              </span>
-              <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "monospace", padding: "0.25rem 0.6rem", borderRadius: 4, background: outcomeColor + "20", color: outcomeColor, border: `1px solid ${outcomeColor}40` }}>
-                {outcomeLabel}
-              </span>
+          {/* Header Outcome Banner */}
+          <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem", borderLeft: `4px solid ${outcomeColor}`, background: "var(--bg-card)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <span className="badge" style={{ background: outcomeColor, color: "#fff", fontWeight: 700, marginBottom: "0.5rem" }}>
+                  {outcomeLabel}
+                </span>
+                <h2 style={{ fontSize: "1.5rem", fontWeight: 800, marginTop: 4 }}>
+                  Case {result.item_id || result.recovery_item_id || "DEMO"}
+                </h2>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: 2 }}>
+                  Customer: {result.customer_id || customerId} • Value at risk: {fmt(result.amount_minor || amount)}
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Verified Settlement</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 800, color: outcomeColor }}>
+                  {result.recovery_status === "recovered" ? fmt(result.actual_recovery_value || result.amount_minor || amount) : "₹0 (Unsettled)"}
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem" }}>
-              <div>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>ITEM ID</div>
-                <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#fff", fontFamily: "monospace" }}>{result.recovery_item_id}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>RECOVERED VALUE</div>
-                <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--success)" }}>{fmt(result.actual_recovery_value || 0)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>EXECUTED ACTION</div>
-                <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--orange)", fontFamily: "monospace" }}>{result.proposed_action || "none"}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>POLICY RULE</div>
-                <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "monospace" }}>{result.policy_rule || "n/a"}</div>
-              </div>
-            </div>
+          {/* AI Proposed -> Policy Decided Visual Sequence */}
+          <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
+            <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1.25rem", color: "var(--text-primary)" }}>
+              🤖 AI Proposed → 🛡️ Policy Decided Execution Flow
+            </h3>
 
-            <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem" }}>
-              <Link href={`/recovery/${result.recovery_item_id}`} style={{ padding: "0.5rem 1rem", background: "var(--orange)", color: "#fff", borderRadius: 4, textDecoration: "none", fontSize: "0.8125rem", fontWeight: 600 }}>
-                Open Case Workspace →
-              </Link>
-              <button onClick={reset} style={{ padding: "0.5rem 1rem", background: "#0b0f17", border: "1px solid var(--border)", color: "#fff", borderRadius: 4, cursor: "pointer", fontSize: "0.8125rem" }}>
-                Run Another Evaluation
-              </button>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "1rem" }}>
+              {/* Step 1: AI Proposal */}
+              <div style={{ padding: "1rem", background: "rgba(99, 102, 241, 0.06)", borderRadius: 6, border: "1px solid rgba(99, 102, 241, 0.2)" }}>
+                <div style={{ fontSize: "0.6875rem", color: "var(--accent)", fontWeight: 700, textTransform: "uppercase" }}>1. AI Diagnosis</div>
+                <div style={{ fontSize: "0.875rem", fontWeight: 700, marginTop: 4, textTransform: "capitalize" }}>
+                  {result.proposed_action ? result.proposed_action.replace(/_/g, " ") : "Rule Fallback"}
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+                  Confidence: {((result.confidence || 0.85) * 100).toFixed(0)}%
+                </div>
+              </div>
+
+              {/* Step 2: Policy Check */}
+              <div style={{ padding: "1rem", background: "rgba(16, 185, 129, 0.06)", borderRadius: 6, border: "1px solid rgba(16, 185, 129, 0.2)" }}>
+                <div style={{ fontSize: "0.6875rem", color: "var(--success)", fontWeight: 700, textTransform: "uppercase" }}>2. Policy Check</div>
+                <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--success)", marginTop: 4 }}>
+                  {result.policy_allowed ? "✓ ALLOWED" : "🛑 BLOCKED"}
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+                  Rule: {result.policy_rule || "stopping_rules_pass"}
+                </div>
+              </div>
+
+              {/* Step 3: Execution */}
+              <div style={{ padding: "1rem", background: "rgba(245, 158, 11, 0.06)", borderRadius: 6, border: "1px solid rgba(245, 158, 11, 0.2)" }}>
+                <div style={{ fontSize: "0.6875rem", color: "var(--warning)", fontWeight: 700, textTransform: "uppercase" }}>3. Action Executed</div>
+                <div style={{ fontSize: "0.875rem", fontWeight: 700, marginTop: 4, textTransform: "capitalize" }}>
+                  {result.action_executed ? result.action_executed.replace(/_/g, " ") : "None (Stopped)"}
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+                  Attempts: {result.attempt_count || 1} / 3
+                </div>
+              </div>
+
+              {/* Step 4: Settlement */}
+              <div style={{ padding: "1rem", background: "rgba(59, 130, 246, 0.06)", borderRadius: 6, border: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                <div style={{ fontSize: "0.6875rem", color: "#60a5fa", fontWeight: 700, textTransform: "uppercase" }}>4. Verified Settlement</div>
+                <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#60a5fa", marginTop: 4 }}>
+                  {result.recovery_status === "recovered" ? "✓ VERIFIED" : "🛑 UNSETTLED"}
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+                  Evidence: {result.settlement_verified ? "Razorpay Webhook" : "None"}
+                </div>
+              </div>
             </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "1rem", marginTop: "1.5rem" }}>
+            <button onClick={reset} className="btn-primary" style={{ fontSize: "0.8125rem" }}>
+              ← Try Another Scenario
+            </button>
+
+            <Link href={`/recovery/${result.item_id || result.recovery_item_id || "demo"}`} className="btn-secondary" style={{ fontSize: "0.8125rem" }}>
+              Inspect Case Decision Trace →
+            </Link>
           </div>
         </div>
       )}
     </div>
   );
-}
-
-function categoryColor(cat: string) {
-  switch (cat) {
-    case "soft": return "var(--orange)";
-    case "hard": return "var(--danger)";
-    case "fraud": return "var(--danger)";
-    case "auth": return "var(--warning)";
-    default: return "var(--text-muted)";
-  }
 }

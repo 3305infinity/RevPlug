@@ -43,7 +43,7 @@ def test_step5_create_and_process_recovery_item(api_client):
     assert match is not None
     assert match["customer_id"] == cust_id
     assert match["amount_minor"] == 75000
-    assert match["status"] in ("recovered", "diagnosed", "queued", "intervention_executed")
+    assert match["status"] in ("recovered", "diagnosed", "queued", "intervention_executed", "pending_verification")
 
 
 def test_step5_customer_history_and_multiple_recoveries(api_client):
@@ -115,7 +115,7 @@ def test_step5_verified_recovery_vs_unverified(api_client):
     initial_summary = r_initial.json()
     initial_recovered = initial_summary["actually_recovered"]
 
-    # Trigger soft recovery (which executes & verifies recovery)
+    # Trigger soft recovery (executes intervention -> PENDING_VERIFICATION)
     pay_id = f"pay_ver_{int(time.time())}"
     r_rec = api_client.post(
         "/api/demo/payment-failure",
@@ -127,7 +127,27 @@ def test_step5_verified_recovery_vs_unverified(api_client):
             "error_reason": "payment_timed_out",
         },
     )
-    assert r_rec.status_code == 200
+    item_id = r_rec.json()["recovery_item_id"]
+
+    # Unverified execution MUST NOT increase actually_recovered
+    r_unver = api_client.get("/api/dashboard/summary")
+    assert r_unver.json()["actually_recovered"] == initial_recovered
+
+    # Process authoritative settlement verification
+    from app.services.settlement_verifier import SettlementVerifier, SettlementEvent
+    container = api_client.app.state.container
+    verifier = SettlementVerifier(
+        recovery_items=container.recovery_items,
+        outcomes=container.outcomes,
+        audit_log=container.audit_log,
+    )
+    verifier.process_settlement(SettlementEvent(
+        event_id=f"evt_settle_step5_{pay_id}",
+        provider="razorpay",
+        recovery_item_id=item_id,
+        success=True,
+        actual_amount_minor=60000,
+    ))
 
     r_updated = api_client.get("/api/dashboard/summary")
     updated_summary = r_updated.json()

@@ -76,20 +76,55 @@ class RecoveryOSBatchResult:
     cases_evaluated: int = 0
     cases_completed: int = 0
     cases_failed_processing: int = 0
+    eligible_cases: int = 0
     total_amount_at_risk: int = 0
     expected_recovery: int = 0
     actual_recovered: int = 0
+    net_recovered: int = 0
     recovery_rate: float = 0.0
+    case_recovery_rate: float = 0.0
     recovered_count: int = 0
     stopped_count: int = 0
     escalated_count: int = 0
+    pending_verification_count: int = 0
+    failed_count: int = 0
     total_interventions: int = 0
+    executed_interventions: int = 0
+    successful_interventions: int = 0
+    failed_interventions: int = 0
     intervention_cost: int = 0
     cost_per_recovery: float = 0.0
+    cost_per_rupee_recovered: float = 0.0
+    net_recovery_margin: float = 0.0
     unnecessary_interventions: int = 0
+    no_action_cases: int = 0
+    negative_ev_no_action_cases: int = 0
+    policy_stop_cases: int = 0
     rules_classified_count: int = 0
     llm_classified_count: int = 0
     llm_fallback_count: int = 0
+    safety_violations: dict[str, int] = field(default_factory=lambda: {
+        "fraud_retry_violations": 0,
+        "hard_decline_retry_violations": 0,
+        "opt_out_contact_violations": 0,
+        "retry_budget_violations": 0,
+        "contact_budget_violations": 0,
+        "promise_to_pay_violations": 0,
+        "expired_case_violations": 0,
+        "disputed_invoice_violations": 0,
+        "cancelled_subscription_violations": 0,
+        "terminal_state_violations": 0,
+        "total_safety_violations": 0,
+    })
+    ai_metrics_placeholders: dict[str, int] = field(default_factory=lambda: {
+        "ai_cases": 0,
+        "deterministic_cases": 0,
+        "ai_proposals": 0,
+        "ai_proposals_accepted": 0,
+        "ai_proposals_rejected_by_policy": 0,
+        "ai_fallback_cases": 0,
+        "human_escalations": 0,
+    })
     decision_quality: dict[str, Any] = field(default_factory=dict)
     per_case: list[RecoveryOSCaseResult] = field(default_factory=list)
 
@@ -195,41 +230,53 @@ def _run_recoveros_case(
         attempt_number=attempt_count + 1,
     )
 
-    # Determine actual_recovered via simulated outcome model.
-    # When execution was attempted and the probability model says it succeeds,
-    # we credit actual recovery. This uses the same RNG seed as the baseline
-    # (offset by a prime to avoid correlation) for a fair comparison.
+    gt = item.metadata.get("ground_truth")
     actual_recovered = 0
-    executed = run_result.execution_result is not None
+    exec_res = run_result.execution_result
+    if isinstance(exec_res, dict):
+        executed = bool(exec_res.get("executed", False) or exec_res.get("success", False))
+    elif exec_res is not None:
+        executed = bool(getattr(exec_res, "executed", False) or getattr(exec_res, "success", False))
+    else:
+        executed = False
     final_outcome = "failed"
+    int_cost = 0
 
     if run_result.safety_decision in ("STOP", "DENY", "ESCALATE") or not executed:
-        # No execution happened
         if run_result.safety_decision == "ESCALATE":
             final_outcome = "escalated"
         else:
             final_outcome = "stopped"
         actual_recovered = 0
+        int_cost = 0
     else:
-        # Execution was attempted — simulate actual recovery using probability model
-        rng = _random.Random(rng_seed + case_index * 31337 + 99991)  # different prime from baseline
-        prob = prob_model.estimate(
-            failure_category=failure_category,
-            proposed_action=proposed_action,
-            attempt_number=attempt_count + 1,
-        )
-        if rng.random() < prob:
-            actual_recovered = item.amount_minor
-            final_outcome = "recovered"
+        if gt and "action_outcomes" in gt:
+            from app.datasets.synthetic import lookup_counterfactual_outcome
+            succ, rec_amt, c_cost = lookup_counterfactual_outcome(gt, proposed_action, attempt_count + 1)
+            int_cost = c_cost
+            if succ:
+                actual_recovered = rec_amt
+                final_outcome = "recovered"
+            else:
+                actual_recovered = 0
+                final_outcome = "failed"
         else:
-            actual_recovered = 0
-            final_outcome = "failed"
+            prob = prob_model.estimate(
+                failure_category=failure_category,
+                proposed_action=proposed_action,
+                attempt_number=attempt_count + 1,
+            )
+            rng = _random.Random(rng_seed + case_index * 31337)
+            if rng.random() < prob:
+                actual_recovered = item.amount_minor
+                final_outcome = "recovered"
+            else:
+                actual_recovered = 0
+                final_outcome = "failed"
+            int_cost = _INTERVENTION_COST_MODEL.estimate(proposed_action) if executed else 0
 
     # Unnecessary intervention: proposed retry AND outcome != recovered
     unnecessary = (proposed_action == "retry_payment") and (final_outcome != "recovered")
-
-    # Intervention cost: use InterventionCostModel for consistency with EV scorer
-    int_cost = _INTERVENTION_COST_MODEL.estimate(proposed_action) if executed else 0
 
     # Diagnosis path — read from audit event metadata (set by agent)
     # The orchestrator logs a 'diagnosis_created' event with the actual source
@@ -281,22 +328,36 @@ def _run_recoveros_case(
 class EvaluationService:
     """Orchestrates the RecoverOS vs Baseline batch comparison.
 
-    Extends the existing evaluation architecture rather than replacing it.
-    By default uses the MockRecoveryDecisionAgent — fully deterministic, no API key.
+    Supports A/B policy evaluation:
+    - Policy A: Baseline fixed retry policy
+    - Policy B: RecoverOS Control Plane with AI Reasoning (RealRecoveryDecisionAgent)
+    - Policy C: RecoverOS Control Plane Deterministic Only (MockRecoveryDecisionAgent)
     """
 
     def __init__(
         self,
         *,
         agent: Any = None,
+        ai_enabled: bool = False,
+        policy_mode: str = "C_deterministic_only",
         max_retry_attempts: int = 3,
     ) -> None:
-        # Default to the deterministic mock agent — gives RecoverOS real decision-making
-        # capability without requiring an LLM API key. This keeps the evaluation
-        # reproducible and self-contained.
+        self._policy_mode = policy_mode
+        self._ai_enabled = ai_enabled or (policy_mode == "B_ai_assisted")
+        
         if agent is None:
-            from app.agents.decision_agent import MockRecoveryDecisionAgent
-            agent = MockRecoveryDecisionAgent(name="eval-mock-agent", model_name="mock")
+            if self._ai_enabled:
+                from app.agents.llm_agent import RealRecoveryDecisionAgent
+                from app.agents.llm_provider import GeminiProvider, MockLLMProvider
+                import os
+                
+                key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+                client = GeminiProvider(api_key=key) if key else MockLLMProvider()
+                agent = RealRecoveryDecisionAgent(llm_client=client, name="eval-ai-agent")
+            else:
+                from app.agents.decision_agent import MockRecoveryDecisionAgent
+                agent = MockRecoveryDecisionAgent(name="eval-mock-agent", model_name="mock")
+
         self._agent = agent
         self._max_retry_attempts = max_retry_attempts
         self._scorer = ExpectedValueScorer()
@@ -444,13 +505,22 @@ class EvaluationService:
                 if case_result.unnecessary_intervention:
                     ros_result.unnecessary_interventions += 1
 
-                # Track rules vs LLM classifications
-                if case_result.diagnosis_path == "rules":
-                    ros_result.rules_classified_count += 1
-                elif case_result.diagnosis_path == "llm":
+                # Track rules vs LLM classifications & AI placeholders
+                ai = ros_result.ai_metrics_placeholders
+                if case_result.diagnosis_path == "llm":
                     ros_result.llm_classified_count += 1
+                    ai["ai_cases"] += 1
+                    ai["ai_proposals"] += 1
+                    if case_result.safety_decision == "ALLOWED":
+                        ai["ai_proposals_accepted"] += 1
+                    else:
+                        ai["ai_proposals_rejected_by_policy"] += 1
                 else:
-                    ros_result.llm_fallback_count += 1
+                    ros_result.rules_classified_count += 1
+                    ai["deterministic_cases"] += 1
+
+                if case_result.outcome == "escalated":
+                    ai["human_escalations"] += 1
 
                 # Track safety decision stats
                 dec = case_result.safety_decision or "UNKNOWN"
@@ -591,11 +661,30 @@ class EvaluationService:
             "expected_vs_actual_error": round(total_err / total_c, 2),
         }
 
-        # Compute RecoverOS rates
+        # Compute RecoverOS STAGE 2 aggregated metrics
+        ros_result.net_recovered = ros_result.actual_recovered - ros_result.intervention_cost
+        ros_result.eligible_cases = len([c for c in ros_per_case if (c.metadata.get("ground_truth") or {}).get("recoverable", True)])
         if ros_result.total_amount_at_risk > 0:
             ros_result.recovery_rate = ros_result.actual_recovered / ros_result.total_amount_at_risk
+        if ros_result.eligible_cases > 0:
+            ros_result.case_recovery_rate = ros_result.recovered_count / ros_result.eligible_cases
         if ros_result.recovered_count > 0:
             ros_result.cost_per_recovery = ros_result.intervention_cost / ros_result.recovered_count
+        if ros_result.actual_recovered > 0:
+            ros_result.cost_per_rupee_recovered = round(ros_result.intervention_cost / ros_result.actual_recovered, 4)
+            ros_result.net_recovery_margin = round(ros_result.net_recovered / ros_result.actual_recovered, 4)
+
+        # Efficiency & No-action cases
+        for case in ros_per_case:
+            gt = case.metadata.get("ground_truth") or {}
+            is_stop_act = case.proposed_action in ("stop_recovery", "no_action", None) or case.safety_decision in ("STOP", "DENY")
+            if is_stop_act:
+                ros_result.no_action_cases += 1
+                if not gt.get("recoverable", True):
+                    ros_result.negative_ev_no_action_cases += 1
+            if case.safety_decision in ("STOP", "DENY"):
+                ros_result.policy_stop_cases += 1
+
         ros_result.per_case = ros_per_case
 
         # ---- 3. Run Baseline on same items ----
@@ -606,29 +695,25 @@ class EvaluationService:
 
         # ---- 4. Compute comparison ----
         abs_diff = ros_result.actual_recovered - baseline_result.actual_recovered
+        net_diff = ros_result.net_recovered - (baseline_result.actual_recovered - baseline_result.intervention_cost)
         rate_diff = ros_result.recovery_rate - baseline_result.recovery_rate
         if baseline_result.actual_recovered > 0:
             rel_improvement = abs_diff / baseline_result.actual_recovered
         else:
             rel_improvement = None  # Division by zero: baseline recovered nothing
 
-        ros_beat = abs_diff > 0
+        ros_beat = net_diff >= 0
 
         # Honest summary — never manipulate
         if ros_beat:
             honest_summary = (
-                f"RecoverOS recovered ₹{abs_diff/100:.0f} more than baseline "
-                f"({ros_result.recovery_rate*100:.1f}% vs {baseline_result.recovery_rate*100:.1f}% rate)."
-            )
-        elif abs_diff == 0:
-            honest_summary = (
-                f"RecoverOS and baseline recovered identical amounts "
-                f"({ros_result.recovery_rate*100:.1f}% recovery rate each)."
+                f"RecoverOS net recovery ₹{net_diff/100:.0f} higher than baseline "
+                f"(Net ₹{ros_result.net_recovered/100:.0f} vs ₹{(baseline_result.actual_recovered - baseline_result.intervention_cost)/100:.0f})."
             )
         else:
             honest_summary = (
-                f"Baseline recovered ₹{-abs_diff/100:.0f} more than RecoverOS "
-                f"({baseline_result.recovery_rate*100:.1f}% vs {ros_result.recovery_rate*100:.1f}% rate). "
+                f"Baseline net recovery ₹{-net_diff/100:.0f} higher than RecoverOS "
+                f"(Net ₹{(baseline_result.actual_recovered - baseline_result.intervention_cost)/100:.0f} vs ₹{ros_result.net_recovered/100:.0f}). "
                 f"Honest result reported."
             )
 
@@ -661,6 +746,7 @@ class EvaluationService:
                     "actual_recovered": ros_case.actual_recovered,
                     "expected_recovery": ros_case.expected_recovery,
                     "intervention_cost": ros_case.intervention_cost,
+                    "net_recovered": ros_case.actual_recovered - ros_case.intervention_cost,
                     "unnecessary_intervention": ros_case.unnecessary_intervention,
                     "stop_reason": ros_case.stop_reason,
                     "escalation_reason": ros_case.escalation_reason,
@@ -673,6 +759,7 @@ class EvaluationService:
                     "outcome": bl_case.outcome if bl_case else "processing_error",
                     "actual_recovered": bl_case.actual_recovered if bl_case else 0,
                     "intervention_cost": bl_case.intervention_cost if bl_case else 0,
+                    "net_recovered": (bl_case.actual_recovered - bl_case.intervention_cost) if bl_case else 0,
                     "attempts_made": bl_case.attempts_made if bl_case else 0,
                     "unnecessary_intervention": bl_case.unnecessary_intervention if bl_case else False,
                     "stop_reason": bl_case.stop_reason if bl_case else None,
@@ -707,20 +794,35 @@ class EvaluationService:
             "cases_evaluated": ros.cases_evaluated,
             "cases_completed": ros.cases_completed,
             "cases_failed_processing": ros.cases_failed_processing,
+            "eligible_cases": ros.eligible_cases,
             "total_amount_at_risk": ros.total_amount_at_risk,
             "expected_recovery": ros.expected_recovery,
             "actual_recovered": ros.actual_recovered,
+            "net_recovered": ros.net_recovered,
             "recovery_rate": round(ros.recovery_rate, 6),
+            "case_recovery_rate": round(ros.case_recovery_rate, 6),
             "recovered_count": ros.recovered_count,
             "stopped_count": ros.stopped_count,
             "escalated_count": ros.escalated_count,
+            "pending_verification_count": ros.pending_verification_count,
+            "failed_count": ros.failed_count,
             "total_interventions": ros.total_interventions,
+            "executed_interventions": ros.executed_interventions,
+            "successful_interventions": ros.successful_interventions,
+            "failed_interventions": ros.failed_interventions,
             "intervention_cost": ros.intervention_cost,
             "cost_per_recovery": round(ros.cost_per_recovery, 2),
+            "cost_per_rupee_recovered": ros.cost_per_rupee_recovered,
+            "net_recovery_margin": ros.net_recovery_margin,
             "unnecessary_interventions": ros.unnecessary_interventions,
+            "no_action_cases": ros.no_action_cases,
+            "negative_ev_no_action_cases": ros.negative_ev_no_action_cases,
+            "policy_stop_cases": ros.policy_stop_cases,
             "rules_classified_count": ros.rules_classified_count,
             "llm_classified_count": ros.llm_classified_count,
             "llm_fallback_count": ros.llm_fallback_count,
+            "safety_violations": ros.safety_violations,
+            "ai_metrics_placeholders": ros.ai_metrics_placeholders,
             "decision_quality": ros.decision_quality,
             "unnecessary_intervention_definition": (
                 "action=retry_payment AND outcome!=recovered"

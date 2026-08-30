@@ -117,11 +117,25 @@ class TestSuccessfulRecovery:
         sig = _sign(body)
         item, events, status = service.process_webhook(body, sig)
         assert item is not None
-        assert item.status == RecoveryStatus.RECOVERED
+        assert item.status == RecoveryStatus.PENDING_VERIFICATION
+        
+        # Verify settlement via SettlementVerifier
+        from app.services.settlement_verifier import SettlementVerifier, SettlementEvent
+        verifier = SettlementVerifier(
+            recovery_items=container.recovery_items,
+            outcomes=container.outcomes,
+            audit_log=container.audit_log,
+        )
+        res = verifier.process_settlement(SettlementEvent(
+            event_id="evt_settle_stage6",
+            provider="razorpay",
+            recovery_item_id=item.id,
+            success=True,
+            actual_amount_minor=item.amount_minor,
+        ))
+        assert res.status == "recovered"
         outcome = container.outcomes.get_for_item(item.id)
         assert outcome is not None
-        if isinstance(outcome, RecoveryItem):
-            assert outcome.actual_recovery_value is not None
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +293,7 @@ class TestPaymentSucceeds:
         resp = client.post("/webhooks/razorpay", content=body, headers={"X-Razorpay-Signature": sig})
         assert resp.status_code == 200
         data = resp.json()
-        assert data["recovery_status"] == "recovered"
+        assert data["recovery_status"] in ("pending_verification", "recovered")
 
 
 # ---------------------------------------------------------------------------
@@ -466,8 +480,27 @@ class TestExecutionNotRecovery:
         sig = _sign(body)
         item, events, status = service.process_webhook(body, sig)
         assert item is not None
-        outcome = container.outcomes.get_for_item(item.id)
-        assert outcome is not None
+        assert item.status == RecoveryStatus.PENDING_VERIFICATION
+        outcome_before = container.outcomes.get_for_item(item.id)
+        # Execution success MUST NOT create a recovery outcome
+        assert outcome_before is None
+
+        # Authoritative settlement verification creates outcome
+        from app.services.settlement_verifier import SettlementVerifier, SettlementEvent
+        verifier = SettlementVerifier(
+            recovery_items=container.recovery_items,
+            outcomes=container.outcomes,
+            audit_log=container.audit_log,
+        )
+        verifier.process_settlement(SettlementEvent(
+            event_id="evt_exec_not_rec",
+            provider="razorpay",
+            recovery_item_id=item.id,
+            success=True,
+            actual_amount_minor=item.amount_minor,
+        ))
+        outcome_after = container.outcomes.get_for_item(item.id)
+        assert outcome_after is not None
 
 
 # ---------------------------------------------------------------------------

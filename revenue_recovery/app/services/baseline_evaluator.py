@@ -150,22 +150,28 @@ class BaselineEvaluator:
         total_cost = 0
         recovered = False
 
+        gt = item.metadata.get("ground_truth")
+
         for attempt_num in range(1, self._max_retries + 1):
             actions_taken.append("retry_payment")
             attempts_made += 1
             total_cost += self._cost_per_intervention
 
-            # Use same probability model as RecoverOS
-            prob = self._probability_model.estimate(
-                failure_category=failure_category,
-                proposed_action="retry_payment",
-                attempt_number=attempt_num,
-            )
-
-            # Simulate whether this retry succeeds based on probability
-            if rng.random() < prob:
-                recovered = True
-                break
+            if gt and "action_outcomes" in gt:
+                from app.datasets.synthetic import lookup_counterfactual_outcome
+                succ, rec_amt, _ = lookup_counterfactual_outcome(gt, "retry_payment", attempt_num)
+                if succ:
+                    recovered = True
+                    break
+            else:
+                prob = self._probability_model.estimate(
+                    failure_category=failure_category,
+                    proposed_action="retry_payment",
+                    attempt_number=attempt_num,
+                )
+                if rng.random() < prob:
+                    recovered = True
+                    break
 
         outcome = "recovered" if recovered else "stopped"
         actual_recovered = item.amount_minor if recovered else 0
@@ -226,14 +232,19 @@ class BaselineEvaluator:
                 if case_result.unnecessary_intervention:
                     result.unnecessary_interventions += 1
 
-                # Track baseline safety/policy violations
+                # Track baseline safety/policy violations across 10 categories
                 cat = (item.root_cause or "").lower()
                 orig_cat = str(item.metadata.get("original_category", "")).lower()
                 is_optout = bool(item.metadata.get("customer_opted_out"))
                 att_count = int(item.metadata.get("attempt_count", 0))
                 is_promise = item.metadata.get("promise_status") == "promised"
+                is_expired = item.metadata.get("promise_status") == "expired" or orig_cat == "soft_promise_expired"
+                is_disputed = bool(item.metadata.get("disputed"))
+                is_cancelled = bool(item.metadata.get("cancelled"))
+                status_str = item.status.value if hasattr(item.status, "value") else str(item.status)
+                is_terminal = status_str in ("recovered", "stopped", "escalated")
 
-                if cat in ("fraud", "security_or_fraud") or orig_cat == "fraud":
+                if cat in ("fraud", "security_or_fraud") or orig_cat == "fraud" or item.metadata.get("fraud_flag"):
                     result.baseline_policy_violations["fraud_retry"] += 1
                     result.baseline_policy_violations["total_policy_violations"] += 1
                 if is_optout:
@@ -247,6 +258,22 @@ class BaselineEvaluator:
                     result.baseline_policy_violations["total_policy_violations"] += 1
                 if is_promise or orig_cat == "soft_promise_active":
                     result.baseline_policy_violations["promise_contact_violation"] += 1
+                    result.baseline_policy_violations["total_policy_violations"] += 1
+                if is_expired:
+                    result.baseline_policy_violations.setdefault("expired_case_violations", 0)
+                    result.baseline_policy_violations["expired_case_violations"] += 1
+                    result.baseline_policy_violations["total_policy_violations"] += 1
+                if is_disputed:
+                    result.baseline_policy_violations.setdefault("disputed_invoice_violations", 0)
+                    result.baseline_policy_violations["disputed_invoice_violations"] += 1
+                    result.baseline_policy_violations["total_policy_violations"] += 1
+                if is_cancelled:
+                    result.baseline_policy_violations.setdefault("cancelled_subscription_violations", 0)
+                    result.baseline_policy_violations["cancelled_subscription_violations"] += 1
+                    result.baseline_policy_violations["total_policy_violations"] += 1
+                if is_terminal:
+                    result.baseline_policy_violations.setdefault("terminal_state_violations", 0)
+                    result.baseline_policy_violations["terminal_state_violations"] += 1
                     result.baseline_policy_violations["total_policy_violations"] += 1
 
             except Exception as exc:

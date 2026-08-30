@@ -167,6 +167,9 @@ class _InMemoryRecoveryOutcomeRepository:
         data = self._outcomes.get(recovery_item_id)
         return data
 
+    def list_all(self) -> list:
+        return list(self._outcomes.values())
+
 
 class _InMemoryPromiseRepository:
     """In-memory promise repository — full CRUD for Stage 8 promise lifecycle."""

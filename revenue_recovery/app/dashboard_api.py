@@ -22,9 +22,9 @@ from app.agents.llm_agent import RealRecoveryDecisionAgent
 
 
 # Status sets — centralised so changes propagate everywhere
-_ACTIVE_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "failed"})
+_ACTIVE_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "pending_verification", "failed"})
 _TERMINAL_STATUSES = frozenset({"recovered", "stopped", "escalated"})
-_AT_RISK_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "failed"})
+_AT_RISK_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "pending_verification", "failed"})
 
 
 def _get_items(container) -> list:
@@ -181,6 +181,7 @@ def build_dashboard_summary(container, *, agent=None) -> dict[str, Any]:
         "recovered_cases": len(recovered),
         "stopped_cases": len(stopped),
         "escalated_cases": len(escalated),
+        "pending_verification_cases": len([i for i in items if i.status.value == "pending_verification"]),
         # Legacy fields (keep for backward compat with existing tests)
         "total_amount_minor": sum(i.amount_minor for i in items),
         "recovered_count": len(recovered),
@@ -188,7 +189,7 @@ def build_dashboard_summary(container, *, agent=None) -> dict[str, Any]:
         "expected_recovery_value": expected_recovery,
         "escalated_count": len(escalated),
         "pending_count": len(active),
-        "executed_count": len([i for i in items if i.status.value == "intervention_executed"]),
+        "executed_count": len([i for i in items if i.status.value in ("intervention_executed", "pending_verification")]),
         "attempts_total": len(attempts),
         "attempts_successful": len(successful_attempts),
         "attempts_failed": len(failed_attempts),

@@ -1,0 +1,5350 @@
+{
+  "evaluation_id": "d2ad2a57-b42b-4a5a-9093-e5fb676a4008",
+  "seed": 42,
+  "count": 50,
+  "status": "completed",
+  "started_at": "2026-08-30T13:35:56.046108+00:00",
+  "completed_at": "2026-08-30T13:35:56.409158+00:00",
+  "dataset": {
+    "count": 50,
+    "seed": 42,
+    "categories": {
+      "soft": 13,
+      "hard": 5,
+      "subscription_failure": 6,
+      "fraud": 4,
+      "checkout_abandonment": 4,
+      "authentication_required": 5,
+      "soft_optout": 2,
+      "soft_exhausted": 5,
+      "overdue_receivable": 5,
+      "soft_promise_expired": 1
+    },
+    "surfaces": {
+      "payment_failure": 35,
+      "subscription_failure": 6,
+      "checkout_abandonment": 4,
+      "receivable": 5
+    },
+    "opted_out_customer_count": 2,
+    "case_ids": [
+      "eval_42_0000",
+      "eval_42_0001",
+      "eval_42_0002",
+      "eval_42_0003",
+      "eval_42_0004",
+      "eval_42_0005",
+      "eval_42_0006",
+      "eval_42_0007",
+      "eval_42_0008",
+      "eval_42_0009",
+      "eval_42_0010",
+      "eval_42_0011",
+      "eval_42_0012",
+      "eval_42_0013",
+      "eval_42_0014",
+      "eval_42_0015",
+      "eval_42_0016",
+      "eval_42_0017",
+      "eval_42_0018",
+      "eval_42_0019",
+      "eval_42_0020",
+      "eval_42_0021",
+      "eval_42_0022",
+      "eval_42_0023",
+      "eval_42_0024",
+      "eval_42_0025",
+      "eval_42_0026",
+      "eval_42_0027",
+      "eval_42_0028",
+      "eval_42_0029",
+      "eval_42_0030",
+      "eval_42_0031",
+      "eval_42_0032",
+      "eval_42_0033",
+      "eval_42_0034",
+      "eval_42_0035",
+      "eval_42_0036",
+      "eval_42_0037",
+      "eval_42_0038",
+      "eval_42_0039",
+      "eval_42_0040",
+      "eval_42_0041",
+      "eval_42_0042",
+      "eval_42_0043",
+      "eval_42_0044",
+      "eval_42_0045",
+      "eval_42_0046",
+      "eval_42_0047",
+      "eval_42_0048",
+      "eval_42_0049"
+    ],
+    "safety_statistics": {
+      "ALLOWED": 26,
+      "STOPPED": 0,
+      "DENY": 0,
+      "ESCALATE": 0,
+      "STOP": 24
+    },
+    "calibration_buckets": {
+      "0.0-0.2": {
+        "count": 15,
+        "avg_predicted_probability": 0.06,
+        "actual_recovery_rate": 0.0
+      },
+      "0.2-0.4": {
+        "count": 0,
+        "avg_predicted_probability": 0.0,
+        "actual_recovery_rate": 0.0
+      },
+      "0.4-0.6": {
+        "count": 5,
+        "avg_predicted_probability": 0.45,
+        "actual_recovery_rate": 0.6
+      },
+      "0.6-0.8": {
+        "count": 30,
+        "avg_predicted_probability": 0.675,
+        "actual_recovery_rate": 0.3667
+      },
+      "0.8-1.0": {
+        "count": 0,
+        "avg_predicted_probability": 0.0,
+        "actual_recovery_rate": 0.0
+      }
+    },
+    "economic_metrics": {
+      "net_revenue_recovered": 1943500,
+      "roi": 169.0,
+      "expected_vs_actual_error": 30754.0
+    }
+  },
+  "recoveros": {
+    "cases_evaluated": 50,
+    "cases_completed": 50,
+    "cases_failed_processing": 0,
+    "eligible_cases": 39,
+    "total_amount_at_risk": 4267400,
+    "expected_recovery": 1443244,
+    "actual_recovered": 1955000,
+    "net_recovered": 1943500,
+    "recovery_rate": 0.458124,
+    "case_recovery_rate": 0.358974,
+    "recovered_count": 14,
+    "stopped_count": 24,
+    "escalated_count": 0,
+    "pending_verification_count": 0,
+    "failed_count": 0,
+    "total_interventions": 26,
+    "executed_interventions": 0,
+    "successful_interventions": 0,
+    "failed_interventions": 0,
+    "intervention_cost": 11500,
+    "cost_per_recovery": 821.43,
+    "cost_per_rupee_recovered": 0.0059,
+    "net_recovery_margin": 0.9941,
+    "unnecessary_interventions": 12,
+    "no_action_cases": 24,
+    "negative_ev_no_action_cases": 9,
+    "policy_stop_cases": 24,
+    "rules_classified_count": 50,
+    "llm_classified_count": 0,
+    "llm_fallback_count": 0,
+    "safety_violations": {
+      "fraud_retry_violations": 0,
+      "hard_decline_retry_violations": 0,
+      "opt_out_contact_violations": 0,
+      "retry_budget_violations": 0,
+      "contact_budget_violations": 0,
+      "promise_to_pay_violations": 0,
+      "expired_case_violations": 0,
+      "disputed_invoice_violations": 0,
+      "cancelled_subscription_violations": 0,
+      "terminal_state_violations": 0,
+      "total_safety_violations": 0
+    },
+    "ai_metrics_placeholders": {
+      "ai_cases": 0,
+      "deterministic_cases": 50,
+      "ai_proposals": 0,
+      "ai_proposals_accepted": 0,
+      "ai_proposals_rejected_by_policy": 0,
+      "ai_fallback_cases": 0,
+      "human_escalations": 0
+    },
+    "decision_quality": {
+      "root_cause_accuracy": 1.0,
+      "proposal_action_accuracy": 0.84,
+      "final_action_accuracy": 0.64,
+      "intervention_accuracy": 0.64,
+      "escalation_precision": 0.1111,
+      "stopping_rule_compliance": 0.8182,
+      "prevented_unsafe_actions": 0
+    },
+    "unnecessary_intervention_definition": "action=retry_payment AND outcome!=recovered"
+  },
+  "baseline": {
+    "cases_evaluated": 50,
+    "cases_completed": 50,
+    "cases_failed_processing": 0,
+    "total_amount_at_risk": 4267400,
+    "expected_recovery": null,
+    "actual_recovered": 1336300,
+    "recovery_rate": 0.313141,
+    "recovered_count": 14,
+    "stopped_count": 36,
+    "escalated_count": 0,
+    "total_interventions": 86,
+    "intervention_cost": 43000,
+    "cost_per_recovery": 3071.43,
+    "unnecessary_interventions": 36,
+    "raw_retry_attempts": 86,
+    "raw_retries_that_failed": 72,
+    "baseline_policy_violations": {
+      "hard_decline_retry": 5,
+      "fraud_retry": 4,
+      "do_not_contact_violation": 2,
+      "retry_budget_violation": 5,
+      "promise_contact_violation": 0,
+      "total_policy_violations": 17,
+      "expired_case_violations": 1
+    },
+    "unnecessary_intervention_definition": "action=retry_payment AND outcome!=recovered"
+  },
+  "comparison": {
+    "absolute_recovery_difference": 618700,
+    "recovery_rate_difference": 0.144983,
+    "relative_improvement": 0.463,
+    "recoveros_beat_baseline": true,
+    "honest_summary": "RecoverOS net recovery \u20b96502 higher than baseline (Net \u20b919435 vs \u20b912933)."
+  },
+  "per_case": [
+    {
+      "case_id": "eval_42_0000",
+      "case_map_id": "eval_42_0000",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 50000,
+      "customer_id": "eval_cust_8",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 50000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 50000,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": true,
+                "actual_recovery_minor": 50000,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 50000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 50000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 45000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "expected_recovery": 34500,
+        "intervention_cost": 500,
+        "net_recovered": 49500,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "intervention_cost": 500,
+        "net_recovered": 49500,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0001",
+      "case_map_id": "eval_42_0001",
+      "failure_category": "hard",
+      "original_category": "hard",
+      "amount_at_risk": 100000,
+      "customer_id": "eval_cust_3",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "hard",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "escalate_human"
+        ],
+        "recoverable": true,
+        "expected_recovery": 100000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 100000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 100000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 100000,
+        "expected_recovery": 44800,
+        "intervention_cost": 200,
+        "net_recovered": 99800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0002",
+      "case_map_id": "eval_42_0002",
+      "failure_category": "soft",
+      "original_category": "subscription_failure",
+      "amount_at_risk": 150,
+      "customer_id": "eval_cust_3",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 150,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 150,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 135,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0003",
+      "case_map_id": "eval_42_0003",
+      "failure_category": "fraud",
+      "original_category": "fraud",
+      "amount_at_risk": 250000,
+      "customer_id": "eval_cust_7",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "fraud",
+        "correct_action": "stop_recovery",
+        "acceptable_actions": [
+          "stop_recovery",
+          "no_action"
+        ],
+        "recoverable": false,
+        "expected_recovery": 0,
+        "acceptable_contact": false,
+        "should_escalate": false,
+        "should_stop": true,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "stop_recovery",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0004",
+      "case_map_id": "eval_42_0004",
+      "failure_category": "soft",
+      "original_category": "subscription_failure",
+      "amount_at_risk": 25000,
+      "customer_id": "eval_cust_19",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 25000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 25000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 25000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 22500,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 17000,
+        "intervention_cost": 500,
+        "net_recovered": -500,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0005",
+      "case_map_id": "eval_42_0005",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 10000,
+      "customer_id": "eval_cust_11",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 10000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 10000,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": true,
+                "actual_recovery_minor": 10000,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 9000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "expected_recovery": 6500,
+        "intervention_cost": 500,
+        "net_recovered": 9500,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "intervention_cost": 500,
+        "net_recovered": 9500,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0006",
+      "case_map_id": "eval_42_0006",
+      "failure_category": "hard",
+      "original_category": "hard",
+      "amount_at_risk": 50000,
+      "customer_id": "eval_cust_4",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "hard",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "escalate_human"
+        ],
+        "recoverable": true,
+        "expected_recovery": 50000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 50000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 50000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 45000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "expected_recovery": 22300,
+        "intervention_cost": 200,
+        "net_recovered": 49800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0007",
+      "case_map_id": "eval_42_0007",
+      "failure_category": "checkout_abandoned",
+      "original_category": "checkout_abandonment",
+      "amount_at_risk": 5000,
+      "customer_id": "eval_cust_12",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "checkout_abandoned",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link"
+        ],
+        "recoverable": true,
+        "expected_recovery": 5000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 5000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "escalate_human",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0008",
+      "case_map_id": "eval_42_0008",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 100000,
+      "customer_id": "eval_cust_4",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 100000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 100000,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": true,
+                "actual_recovery_minor": 100000,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": true,
+                "actual_recovery_minor": 100000,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 100000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 100000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 90000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 100000,
+        "expected_recovery": 54499,
+        "intervention_cost": 500,
+        "net_recovered": 99500,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 100000,
+        "intervention_cost": 500,
+        "net_recovered": 99500,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0009",
+      "case_map_id": "eval_42_0009",
+      "failure_category": "checkout_abandoned",
+      "original_category": "checkout_abandonment",
+      "amount_at_risk": 250000,
+      "customer_id": "eval_cust_10",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "checkout_abandoned",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link"
+        ],
+        "recoverable": true,
+        "expected_recovery": 250000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 250000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 250000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 225000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "escalate_human",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 24000,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0010",
+      "case_map_id": "eval_42_0010",
+      "failure_category": "authentication_required",
+      "original_category": "authentication_required",
+      "amount_at_risk": 200,
+      "customer_id": "eval_cust_8",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "authentication_required",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "send_customer_message"
+        ],
+        "recoverable": true,
+        "expected_recovery": 200,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 200,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 200,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": true,
+            "actual_recovery_minor": 200,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 180,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 6,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 200,
+        "intervention_cost": 500,
+        "net_recovered": -300,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0011",
+      "case_map_id": "eval_42_0011",
+      "failure_category": "soft",
+      "original_category": "soft_optout",
+      "amount_at_risk": 5000,
+      "customer_id": "optout_cust_3",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "stop_recovery",
+        "acceptable_actions": [
+          "stop_recovery",
+          "no_action"
+        ],
+        "recoverable": false,
+        "expected_recovery": 0,
+        "acceptable_contact": false,
+        "should_escalate": false,
+        "should_stop": true,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "stop_recovery",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0012",
+      "case_map_id": "eval_42_0012",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 50000,
+      "customer_id": "eval_cust_15",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 50000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 50000,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 50000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 45000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 26999,
+        "intervention_cost": 500,
+        "net_recovered": -500,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "intervention_cost": 500,
+        "net_recovered": 49500,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0013",
+      "case_map_id": "eval_42_0013",
+      "failure_category": "checkout_abandoned",
+      "original_category": "checkout_abandonment",
+      "amount_at_risk": 10000,
+      "customer_id": "eval_cust_12",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "checkout_abandoned",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link"
+        ],
+        "recoverable": true,
+        "expected_recovery": 10000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 9000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "escalate_human",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0014",
+      "case_map_id": "eval_42_0014",
+      "failure_category": "soft",
+      "original_category": "soft_exhausted",
+      "amount_at_risk": 100000,
+      "customer_id": "eval_cust_6",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "stop_recovery",
+          "escalate_human"
+        ],
+        "recoverable": false,
+        "expected_recovery": 0,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": true,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 14800,
+        "intervention_cost": 200,
+        "net_recovered": -200,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0015",
+      "case_map_id": "eval_42_0015",
+      "failure_category": "fraud",
+      "original_category": "fraud",
+      "amount_at_risk": 50000,
+      "customer_id": "eval_cust_13",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "fraud",
+        "correct_action": "stop_recovery",
+        "acceptable_actions": [
+          "stop_recovery",
+          "no_action"
+        ],
+        "recoverable": false,
+        "expected_recovery": 0,
+        "acceptable_contact": false,
+        "should_escalate": false,
+        "should_stop": true,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "stop_recovery",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0016",
+      "case_map_id": "eval_42_0016",
+      "failure_category": "fraud",
+      "original_category": "fraud",
+      "amount_at_risk": 250,
+      "customer_id": "eval_cust_8",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "fraud",
+        "correct_action": "stop_recovery",
+        "acceptable_actions": [
+          "stop_recovery",
+          "no_action"
+        ],
+        "recoverable": false,
+        "expected_recovery": 0,
+        "acceptable_contact": false,
+        "should_escalate": false,
+        "should_stop": true,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "stop_recovery",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0017",
+      "case_map_id": "eval_42_0017",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 50000,
+      "customer_id": "eval_cust_9",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 50000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 50000,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": true,
+                "actual_recovery_minor": 50000,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 50000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 50000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 45000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "expected_recovery": 26999,
+        "intervention_cost": 500,
+        "net_recovered": 49500,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "intervention_cost": 500,
+        "net_recovered": 49500,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0018",
+      "case_map_id": "eval_42_0018",
+      "failure_category": "authentication_required",
+      "original_category": "authentication_required",
+      "amount_at_risk": 50000,
+      "customer_id": "eval_cust_16",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "authentication_required",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "send_customer_message"
+        ],
+        "recoverable": true,
+        "expected_recovery": 50000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 50000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 50000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 45000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "expected_recovery": 32300,
+        "intervention_cost": 200,
+        "net_recovered": 49800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 8,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0019",
+      "case_map_id": "eval_42_0019",
+      "failure_category": "invoice_overdue",
+      "original_category": "overdue_receivable",
+      "amount_at_risk": 25000,
+      "customer_id": "eval_cust_5",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "invoice_overdue",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link"
+        ],
+        "recoverable": true,
+        "expected_recovery": 25000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": true,
+            "actual_recovery_minor": 25000,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 25000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 22500,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "escalate_human",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 1500,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0020",
+      "case_map_id": "eval_42_0020",
+      "failure_category": "soft",
+      "original_category": "soft_exhausted",
+      "amount_at_risk": 1000000,
+      "customer_id": "eval_cust_13",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "stop_recovery",
+          "escalate_human"
+        ],
+        "recoverable": false,
+        "expected_recovery": 0,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": true,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0021",
+      "case_map_id": "eval_42_0021",
+      "failure_category": "fraud",
+      "original_category": "fraud",
+      "amount_at_risk": 25000,
+      "customer_id": "eval_cust_16",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "fraud",
+        "correct_action": "stop_recovery",
+        "acceptable_actions": [
+          "stop_recovery",
+          "no_action"
+        ],
+        "recoverable": false,
+        "expected_recovery": 0,
+        "acceptable_contact": false,
+        "should_escalate": false,
+        "should_stop": true,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "stop_recovery",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0022",
+      "case_map_id": "eval_42_0022",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 500,
+      "customer_id": "eval_cust_6",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 500,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 500,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 500,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 500,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 450,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 500,
+        "intervention_cost": 500,
+        "net_recovered": 0,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0023",
+      "case_map_id": "eval_42_0023",
+      "failure_category": "soft",
+      "original_category": "subscription_failure",
+      "amount_at_risk": 25000,
+      "customer_id": "eval_cust_13",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 25000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 25000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 17000,
+        "intervention_cost": 500,
+        "net_recovered": -500,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0024",
+      "case_map_id": "eval_42_0024",
+      "failure_category": "invoice_overdue",
+      "original_category": "overdue_receivable",
+      "amount_at_risk": 250000,
+      "customer_id": "eval_cust_1",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "invoice_overdue",
+        "correct_action": "send_reminder",
+        "acceptable_actions": [
+          "send_reminder"
+        ],
+        "recoverable": true,
+        "expected_recovery": 250000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 225000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "escalate_human",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 24000,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0025",
+      "case_map_id": "eval_42_0025",
+      "failure_category": "soft",
+      "original_category": "soft_exhausted",
+      "amount_at_risk": 200,
+      "customer_id": "eval_cust_10",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "stop_recovery",
+          "escalate_human"
+        ],
+        "recoverable": false,
+        "expected_recovery": 0,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": true,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0026",
+      "case_map_id": "eval_42_0026",
+      "failure_category": "hard",
+      "original_category": "hard",
+      "amount_at_risk": 100,
+      "customer_id": "eval_cust_9",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "hard",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "escalate_human"
+        ],
+        "recoverable": true,
+        "expected_recovery": 100,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 100,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 90,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0027",
+      "case_map_id": "eval_42_0027",
+      "failure_category": "authentication_required",
+      "original_category": "authentication_required",
+      "amount_at_risk": 500000,
+      "customer_id": "eval_cust_10",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "authentication_required",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "send_customer_message"
+        ],
+        "recoverable": true,
+        "expected_recovery": 500000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 500000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": true,
+            "actual_recovery_minor": 500000,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 500000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 450000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 500000,
+        "expected_recovery": 324800,
+        "intervention_cost": 200,
+        "net_recovered": 499800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 8,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0028",
+      "case_map_id": "eval_42_0028",
+      "failure_category": "authentication_required",
+      "original_category": "authentication_required",
+      "amount_at_risk": 10000,
+      "customer_id": "eval_cust_6",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "authentication_required",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "send_customer_message"
+        ],
+        "recoverable": true,
+        "expected_recovery": 10000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 9000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "expected_recovery": 6300,
+        "intervention_cost": 200,
+        "net_recovered": 9800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 8,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0029",
+      "case_map_id": "eval_42_0029",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 10000,
+      "customer_id": "eval_cust_1",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 10000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 10000,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": true,
+                "actual_recovery_minor": 10000,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "expected_recovery": 4999,
+        "intervention_cost": 500,
+        "net_recovered": 9500,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "intervention_cost": 500,
+        "net_recovered": 9500,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0030",
+      "case_map_id": "eval_42_0030",
+      "failure_category": "checkout_abandoned",
+      "original_category": "checkout_abandonment",
+      "amount_at_risk": 10000,
+      "customer_id": "eval_cust_2",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "checkout_abandoned",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link"
+        ],
+        "recoverable": true,
+        "expected_recovery": 10000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 9000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "escalate_human",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0031",
+      "case_map_id": "eval_42_0031",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 10000,
+      "customer_id": "eval_cust_3",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 10000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 10000,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": true,
+                "actual_recovery_minor": 10000,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 9000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "expected_recovery": 6500,
+        "intervention_cost": 500,
+        "net_recovered": 9500,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "intervention_cost": 500,
+        "net_recovered": 9500,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0032",
+      "case_map_id": "eval_42_0032",
+      "failure_category": "hard",
+      "original_category": "hard",
+      "amount_at_risk": 5000,
+      "customer_id": "eval_cust_18",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "hard",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "escalate_human"
+        ],
+        "recoverable": true,
+        "expected_recovery": 5000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 4500,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 2050,
+        "intervention_cost": 200,
+        "net_recovered": -200,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0033",
+      "case_map_id": "eval_42_0033",
+      "failure_category": "soft",
+      "original_category": "soft_exhausted",
+      "amount_at_risk": 50000,
+      "customer_id": "eval_cust_18",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "stop_recovery",
+          "escalate_human"
+        ],
+        "recoverable": false,
+        "expected_recovery": 0,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": true,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0034",
+      "case_map_id": "eval_42_0034",
+      "failure_category": "authentication_required",
+      "original_category": "authentication_required",
+      "amount_at_risk": 50000,
+      "customer_id": "eval_cust_12",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "authentication_required",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "send_customer_message"
+        ],
+        "recoverable": true,
+        "expected_recovery": 50000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 50000,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": true,
+            "actual_recovery_minor": 50000,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 50000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 45000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 32300,
+        "intervention_cost": 200,
+        "net_recovered": -200,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 8,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "intervention_cost": 500,
+        "net_recovered": 49500,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0035",
+      "case_map_id": "eval_42_0035",
+      "failure_category": "invoice_overdue",
+      "original_category": "overdue_receivable",
+      "amount_at_risk": 10000,
+      "customer_id": "eval_cust_8",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "invoice_overdue",
+        "correct_action": "send_reminder",
+        "acceptable_actions": [
+          "send_reminder"
+        ],
+        "recoverable": true,
+        "expected_recovery": 10000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 9000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "escalate_human",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0036",
+      "case_map_id": "eval_42_0036",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 1000000,
+      "customer_id": "eval_cust_8",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 1000000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 1000000,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 1000000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 1000000,
+        "expected_recovery": 699500,
+        "intervention_cost": 500,
+        "net_recovered": 999500,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 1000000,
+        "intervention_cost": 500,
+        "net_recovered": 999500,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0037",
+      "case_map_id": "eval_42_0037",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 5000,
+      "customer_id": "eval_cust_3",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 5000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 5000,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 5000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 4500,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 5000,
+        "expected_recovery": 3000,
+        "intervention_cost": 500,
+        "net_recovered": 4500,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 5000,
+        "intervention_cost": 500,
+        "net_recovered": 4500,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0038",
+      "case_map_id": "eval_42_0038",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 500,
+      "customer_id": "eval_cust_17",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 500,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 500,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 500,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 500,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 450,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 500,
+        "intervention_cost": 500,
+        "net_recovered": 0,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0039",
+      "case_map_id": "eval_42_0039",
+      "failure_category": "soft",
+      "original_category": "soft_optout",
+      "amount_at_risk": 50000,
+      "customer_id": "optout_cust_1",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "stop_recovery",
+        "acceptable_actions": [
+          "stop_recovery",
+          "no_action"
+        ],
+        "recoverable": false,
+        "expected_recovery": 0,
+        "acceptable_contact": false,
+        "should_escalate": false,
+        "should_stop": true,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "stop_recovery",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0040",
+      "case_map_id": "eval_42_0040",
+      "failure_category": "hard",
+      "original_category": "hard",
+      "amount_at_risk": 10000,
+      "customer_id": "eval_cust_16",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "hard",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "escalate_human"
+        ],
+        "recoverable": true,
+        "expected_recovery": 10000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 9000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "expected_recovery": 2800,
+        "intervention_cost": 200,
+        "net_recovered": 9800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0041",
+      "case_map_id": "eval_42_0041",
+      "failure_category": "soft",
+      "original_category": "subscription_failure",
+      "amount_at_risk": 150,
+      "customer_id": "eval_cust_4",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 150,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 150,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 135,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0042",
+      "case_map_id": "eval_42_0042",
+      "failure_category": "invoice_overdue",
+      "original_category": "overdue_receivable",
+      "amount_at_risk": 10000,
+      "customer_id": "eval_cust_14",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "invoice_overdue",
+        "correct_action": "escalate_human",
+        "acceptable_actions": [
+          "escalate_human"
+        ],
+        "recoverable": true,
+        "expected_recovery": 10000,
+        "acceptable_contact": true,
+        "should_escalate": true,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 9000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "escalate_human",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0043",
+      "case_map_id": "eval_42_0043",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 250,
+      "customer_id": "eval_cust_13",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 250,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 225,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0044",
+      "case_map_id": "eval_42_0044",
+      "failure_category": "soft",
+      "original_category": "soft_promise_expired",
+      "amount_at_risk": 10000,
+      "customer_id": "eval_cust_7",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 10000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 4999,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 8,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0045",
+      "case_map_id": "eval_42_0045",
+      "failure_category": "invoice_overdue",
+      "original_category": "overdue_receivable",
+      "amount_at_risk": 10000,
+      "customer_id": "eval_cust_6",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "invoice_overdue",
+        "correct_action": "alternate_channel",
+        "acceptable_actions": [
+          "alternate_channel"
+        ],
+        "recoverable": true,
+        "expected_recovery": 10000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 10000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 9000,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "escalate_human",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0046",
+      "case_map_id": "eval_42_0046",
+      "failure_category": "soft",
+      "original_category": "soft_exhausted",
+      "amount_at_risk": 25000,
+      "customer_id": "eval_cust_18",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "send_payment_link",
+        "acceptable_actions": [
+          "send_payment_link",
+          "stop_recovery",
+          "escalate_human"
+        ],
+        "recoverable": false,
+        "expected_recovery": 0,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": true,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 3550,
+        "intervention_cost": 200,
+        "net_recovered": -200,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0047",
+      "case_map_id": "eval_42_0047",
+      "failure_category": "soft",
+      "original_category": "soft",
+      "amount_at_risk": 100,
+      "customer_id": "eval_cust_8",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 100,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": true,
+                "actual_recovery_minor": 100,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 100,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 90,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "expected_recovery": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 7,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 100,
+        "intervention_cost": 500,
+        "net_recovered": -400,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      }
+    },
+    {
+      "case_id": "eval_42_0048",
+      "case_map_id": "eval_42_0048",
+      "failure_category": "soft",
+      "original_category": "subscription_failure",
+      "amount_at_risk": 5000,
+      "customer_id": "eval_cust_7",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 5000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 5000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 5000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 4500,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 2249,
+        "intervention_cost": 500,
+        "net_recovered": -500,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    },
+    {
+      "case_id": "eval_42_0049",
+      "case_map_id": "eval_42_0049",
+      "failure_category": "soft",
+      "original_category": "subscription_failure",
+      "amount_at_risk": 5000,
+      "customer_id": "eval_cust_13",
+      "ground_truth": {
+        "dataset_version": "v2-counterfactual",
+        "true_root_cause": "soft",
+        "correct_action": "retry_payment",
+        "acceptable_actions": [
+          "retry_payment"
+        ],
+        "recoverable": true,
+        "expected_recovery": 5000,
+        "acceptable_contact": true,
+        "should_escalate": false,
+        "should_stop": false,
+        "action_outcomes": {
+          "retry_payment": {
+            "attempts": {
+              "1": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "2": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              },
+              "3": {
+                "success": false,
+                "actual_recovery_minor": 0,
+                "cost_minor": 500
+              }
+            }
+          },
+          "send_payment_link": {
+            "success": true,
+            "actual_recovery_minor": 5000,
+            "cost_minor": 200
+          },
+          "send_reminder": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 100
+          },
+          "alternate_channel": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 300
+          },
+          "send_customer_message": {
+            "success": true,
+            "actual_recovery_minor": 5000,
+            "cost_minor": 150
+          },
+          "offer_discount": {
+            "success": true,
+            "actual_recovery_minor": 4500,
+            "cost_minor": 500
+          },
+          "stop_recovery": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 0
+          },
+          "escalate_human": {
+            "success": false,
+            "actual_recovery_minor": 0,
+            "cost_minor": 1000
+          }
+        }
+      },
+      "recoveros": {
+        "proposed_action": "retry_payment",
+        "safety_decision": "ALLOWED",
+        "outcome": "failed",
+        "actual_recovered": 0,
+        "expected_recovery": 3000,
+        "intervention_cost": 500,
+        "net_recovered": -500,
+        "unnecessary_intervention": true,
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "rules",
+        "audit_event_count": 9,
+        "processing_error": null
+      },
+      "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      }
+    }
+  ],
+  "error": null
+}

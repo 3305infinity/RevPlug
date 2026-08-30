@@ -328,10 +328,14 @@ class RecoveryWorker:
             elif proposal.action == RecoveryAction.ESCALATE_HUMAN:
                 item = self._safe_transition(item, RecoveryStatus.ESCALATED)
             else:
-                item = self._safe_transition(item, RecoveryStatus.RECOVERED)
-                if self._outcomes is not None:
-                    self._persist_outcome(item)
-                item = self._apply_actual_recovery(item)
+                # Intervention executed successfully -> PENDING_VERIFICATION
+                # Recovery is recognized ONLY after authoritative settlement verification
+                item = self._safe_transition(item, RecoveryStatus.PENDING_VERIFICATION)
+                self._emit("pending_verification", item.id, {
+                    "job_id": job.job_id,
+                    "action": proposal.action.value,
+                    "attempt_number": attempt_number,
+                })
         else:
             # Execution failed
             from app.policies.retry import DefaultRetryPolicy

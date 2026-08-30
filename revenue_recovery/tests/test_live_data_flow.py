@@ -31,7 +31,7 @@ def test_live_data_flow_canonical_pipeline():
     assert trigger_data["status"] == "processed"
     item_id = trigger_data["recovery_item_id"]
     assert item_id is not None
-    assert trigger_data["recovery_status"] == "recovered"
+    assert trigger_data["recovery_status"] == "pending_verification"
 
     # 2. Check /api/recovery-items
     res_items = client.get("/api/recovery-items")
@@ -40,16 +40,32 @@ def test_live_data_flow_canonical_pipeline():
     found_item = next((i for i in items if i["id"] == item_id), None)
     assert found_item is not None
     assert found_item["customer_id"] == customer_id
-    assert found_item["status"] == "recovered"
+    assert found_item["status"] == "pending_verification"
 
-    # 3. Check /api/customers
+    # Process settlement event via SettlementVerifier
+    from app.services.settlement_verifier import SettlementVerifier, SettlementEvent
+    container = app.state.container
+    verifier = SettlementVerifier(
+        recovery_items=container.recovery_items,
+        outcomes=container.outcomes,
+        audit_log=container.audit_log,
+    )
+    verifier.process_settlement(SettlementEvent(
+        event_id=f"evt_settle_{item_id}",
+        provider="razorpay",
+        recovery_item_id=item_id,
+        success=True,
+        actual_amount_minor=50000,
+    ))
+
+    # 3. Check /api/customers after verified settlement
     res_cust_list = client.get("/api/customers")
     assert res_cust_list.status_code == 200
     customers = res_cust_list.json()
     found_cust = next((c for c in customers if c["customer_id"] == customer_id), None)
     assert found_cust is not None
     assert found_cust["total_cases"] == 1
-    assert found_cust["actually_recovered"] > 0
+    assert found_cust["actually_recovered"] == 50000
     assert len(found_cust["cases"]) == 1
 
     # 4. Check /api/customers/{id}

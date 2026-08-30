@@ -27,7 +27,7 @@ class RecoveryStateMachine(Protocol):
 
 # Legal transitions: from -> set of allowed targets
 _LEGAL_TRANSITIONS: dict[RecoveryStatus, set[RecoveryStatus]] = {
-    RecoveryStatus.DETECTED: {RecoveryStatus.DIAGNOSED, RecoveryStatus.STOPPED},
+    RecoveryStatus.DETECTED: {RecoveryStatus.DIAGNOSED, RecoveryStatus.STOPPED, RecoveryStatus.PENDING_VERIFICATION},
     RecoveryStatus.DIAGNOSED: {
         RecoveryStatus.QUEUED,
         RecoveryStatus.ESCALATED,
@@ -38,13 +38,22 @@ _LEGAL_TRANSITIONS: dict[RecoveryStatus, set[RecoveryStatus]] = {
         RecoveryStatus.STOPPED,
         RecoveryStatus.ESCALATED,
         RecoveryStatus.RECOVERED,
+        RecoveryStatus.PENDING_VERIFICATION,
     },
     RecoveryStatus.INTERVENTION_PENDING: {
         RecoveryStatus.INTERVENTION_EXECUTED,
+        RecoveryStatus.PENDING_VERIFICATION,
         RecoveryStatus.ESCALATED,
         RecoveryStatus.STOPPED,
     },
     RecoveryStatus.INTERVENTION_EXECUTED: {
+        RecoveryStatus.PENDING_VERIFICATION,
+        RecoveryStatus.RECOVERED,
+        RecoveryStatus.FAILED,
+        RecoveryStatus.ESCALATED,
+        RecoveryStatus.STOPPED,
+    },
+    RecoveryStatus.PENDING_VERIFICATION: {
         RecoveryStatus.RECOVERED,
         RecoveryStatus.FAILED,
         RecoveryStatus.ESCALATED,

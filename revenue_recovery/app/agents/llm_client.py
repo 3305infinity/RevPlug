@@ -73,7 +73,7 @@ class DeterministicLLMClient:
                 "risk_level": "low",
                 "requires_human_approval": False,
             })
-        if "attempt: 3/3" in prompt_lower or "attempt_count" in prompt_lower and "3/3" in prompt:
+        if "3/3" in prompt_lower or "attempt: 3" in prompt_lower or "attempt count: 3" in prompt_lower:
             return json.dumps({
                 "action": "send_payment_link",
                 "confidence": 0.7,
@@ -81,7 +81,7 @@ class DeterministicLLMClient:
                 "risk_level": "medium",
                 "requires_human_approval": False,
             })
-        if "fraud" in prompt_lower or "risk" in prompt_lower:
+        if "fraud" in prompt_lower or "high_risk" in prompt_lower or "fraud_flag" in prompt_lower:
             return json.dumps({
                 "action": "escalate_human",
                 "confidence": 0.95,

@@ -51,34 +51,62 @@ class RecoveryAgentOrchestrator:
 
     def decide(self, context: RecoveryContext) -> AgentOrchestratorResult:
         """Run the full agent → validator → policy pipeline."""
+        from app.audit.models import EventType
+        from app.services.trace_service import compute_context_hash
+
         audit_events: list[AuditEvent] = []
+        c_hash = compute_context_hash(context)
 
         # Audit: context created
         audit_events.append(self._audit_log.log(
             recovery_item_id=context.item_id,
             actor="system",
             action="agent_context_created",
-            reason="Recovery context built for agent",
+            reason="Recovery context captured for agent",
             metadata={
-                "category": context.failure_category.value,
+                "event_type": EventType.CONTEXT_CAPTURED,
+                "category": context.failure_category.value if hasattr(context.failure_category, "value") else str(context.failure_category),
                 "attempt_count": context.attempt_count,
+                "context_hash": c_hash,
             },
+            event_type=EventType.CONTEXT_CAPTURED,
+            context_hash=c_hash,
         ))
 
         # Stage 1: Agent proposes
         proposal = self._agent.propose(context)
+        last_tr = getattr(self._agent, "last_trace", None)
+        fallback_used = getattr(last_tr, "fallback_used", False) if last_tr else False
+
         audit_events.append(self._audit_log.log(
             recovery_item_id=context.item_id,
-            actor="agent",
+            actor="ai" if getattr(proposal, "model_name", "") not in ("mock", "deterministic-mock", "deterministic-rules") else "system",
             action="agent_proposal_created",
-            reason=f"Agent proposed {proposal.action.value}",
+            reason=f"AI proposed {proposal.action.value}" if not fallback_used else f"Fallback proposed {proposal.action.value}",
             metadata={
+                "event_type": EventType.AI_RECOMMENDATION_CREATED,
                 "action": proposal.action.value,
                 "confidence": proposal.confidence,
                 "model": proposal.model_name,
                 "agent": self._agent.name,
+                "fallback_used": fallback_used,
+                "context_hash": c_hash,
             },
+            event_type=EventType.AI_RECOMMENDATION_CREATED,
+            source=proposal.model_name,
+            context_hash=c_hash,
         ))
+
+        if fallback_used:
+            audit_events.append(self._audit_log.log(
+                recovery_item_id=context.item_id,
+                actor="system",
+                action="fallback_triggered",
+                reason=getattr(last_tr, "validation_error", "AI fallback triggered"),
+                metadata={"event_type": EventType.FALLBACK_USED, "context_hash": c_hash},
+                event_type=EventType.FALLBACK_USED,
+                context_hash=c_hash,
+            ))
 
         # Stage 2: Validate proposal
         try:
@@ -90,9 +118,13 @@ class RecoveryAgentOrchestrator:
                 action="agent_proposal_rejected",
                 reason=str(exc),
                 metadata={
+                    "event_type": EventType.APPROVAL_REJECTED,
                     "action": proposal.action.value,
                     "error": str(exc),
+                    "reason_code": "proposal_validation_failed",
                 },
+                event_type=EventType.APPROVAL_REJECTED,
+                reason_code="proposal_validation_failed",
             ))
             # Fail closed: return a denied policy decision
             return AgentOrchestratorResult(
@@ -117,11 +149,17 @@ class RecoveryAgentOrchestrator:
             action="policy_evaluate",
             reason=policy_decision.reason,
             metadata={
+                "event_type": EventType.POLICY_EVALUATED,
+                "source": "deterministic_policy",
                 "proposed_action": proposal.action.value,
                 "allowed": policy_decision.allowed,
                 "requires_human_approval": policy_decision.requires_human_approval,
                 "policy_rule": policy_decision.policy_rule,
+                "reason_code": policy_decision.reason_code or policy_decision.policy_rule,
             },
+            event_type=EventType.POLICY_EVALUATED,
+            source="deterministic_policy",
+            reason_code=policy_decision.reason_code or policy_decision.policy_rule,
         ))
 
         return AgentOrchestratorResult(

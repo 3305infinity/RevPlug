@@ -23,6 +23,7 @@ class RecoveryStatus(StrEnum):
     QUEUED = "queued"
     INTERVENTION_PENDING = "intervention_pending"
     INTERVENTION_EXECUTED = "intervention_executed"
+    PENDING_VERIFICATION = "pending_verification"
     RECOVERED = "recovered"
     FAILED = "failed"
     ESCALATED = "escalated"

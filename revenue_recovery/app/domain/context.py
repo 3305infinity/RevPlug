@@ -1,12 +1,9 @@
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
-
 from app.domain.failures import FailureCategory, NormalizedFailure
 from app.domain.models import RecoveryItem
-
 
 @dataclass(frozen=True, slots=True)
 class RecoveryContext:
@@ -17,12 +14,12 @@ class RecoveryContext:
     """
 
     failure_category: FailureCategory
-    retryable: bool
-    attempt_count: int
-    amount_minor: int
-    currency: str
-    expected_recovery_value: int | None
-    customer_opt_out: bool
+    retryable: bool = True
+    attempt_count: int = 0
+    amount_minor: int = 100000
+    currency: str = "INR"
+    expected_recovery_value: int | None = None
+    customer_opt_out: bool = False
     previous_actions: list[str] = field(default_factory=list)
     failure_code: str = ""
     failure_reason: str = ""

@@ -323,23 +323,29 @@ async def api_reject_item(item_id: str, request: Request, container: Persistence
 
 @router.get("/api/recovery-items/{item_id}/agent-trace")
 def api_agent_trace(item_id: str, container: PersistenceContainer = Depends(get_container)) -> Response:
-    events = []
-    if hasattr(container.audit_log, "events_for"):
-        events = [
-            _audit_to_dict(e) for e in container.audit_log.events_for(item_id)
-        ]
-    return JSONResponse(status_code=200, content={"item_id": item_id, "agent_events": events})
+    from app.services.trace_service import build_case_trace
+    trace_data = build_case_trace(item_id, container)
+    trace_data["agent_events"] = trace_data.get("timeline", [])
+    return JSONResponse(status_code=200, content=trace_data)
+
+@router.get("/api/recovery-items/{item_id}/trace")
+@router.get("/recovery/{item_id}/trace")
+def api_case_trace(item_id: str, container: PersistenceContainer = Depends(get_container)) -> Response:
+    """Get canonical decision trace, explainability, and replay data for a recovery case."""
+    from app.services.trace_service import build_case_trace
+    trace_data = build_case_trace(item_id, container)
+    return JSONResponse(status_code=200, content=trace_data)
 
 @router.get("/api/recovery-items/{item_id}/audit-trail")
 def api_audit_trail(item_id: str, container: PersistenceContainer = Depends(get_container)) -> Response:
     """Get complete, chronologically ordered audit trail for a recovery item."""
-    events = []
-    if hasattr(container.audit_log, "events_for"):
-        events = [_audit_to_dict(e) for e in container.audit_log.events_for(item_id)]
+    from app.services.trace_service import build_case_trace
+    trace_data = build_case_trace(item_id, container)
     return JSONResponse(status_code=200, content={
         "item_id": item_id,
-        "total_events": len(events),
-        "timeline": events,
+        "total_events": len(trace_data.get("timeline", [])),
+        "timeline": trace_data.get("timeline", []),
+        "trace": trace_data,
     })
 
 @router.get("/api/audit-events")

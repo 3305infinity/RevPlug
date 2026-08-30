@@ -206,16 +206,20 @@ class RazorpayWebhookService:
             is_new_event = True
 
         if not is_new_event and provider_event is not None:
+            from app.audit.models import EventType
             events.append(self._audit_log.log(
                 recovery_item_id=provider_event.recovery_item_id,
                 actor="system",
                 action="duplicate_event_ignored",
                 reason="Provider event already processed",
                 metadata={
+                    "event_type": EventType.DUPLICATE_WEBHOOK_SKIPPED,
                     "provider": provider,
                     "provider_event_id": provider_event_id,
                     "recovery_item_id": provider_event.recovery_item_id,
                 },
+                event_type=EventType.DUPLICATE_WEBHOOK_SKIPPED,
+                correlation_id=provider_event_id,
             ))
             return None, events, "duplicate"
 
@@ -408,25 +412,9 @@ class RazorpayWebhookService:
                             metadata=scored_item.metadata,
                         )
                     else:
-                        scored_item = self._safe_transition(scored_item, RecoveryStatus.RECOVERED)
-                        recovered_amount = scored_item.amount_minor
-                        recovery_cost = scored_item.intervention_cost or 500
-                        if self._outcomes is not None:
-                            from app.domain.models import RecoveryOutcome
-                            import uuid
-                            outcome = RecoveryOutcome(
-                                id=str(uuid.uuid4()),
-                                recovery_item_id=scored_item.id,
-                                outcome_type="recovered",
-                                expected_recovery_minor=scored_item.expected_recovery_value or recovered_amount,
-                                actual_recovery_minor=recovered_amount,
-                                recovery_cost_minor=recovery_cost,
-                                net_recovery_minor=recovered_amount - recovery_cost,
-                                recovered_at=datetime.now(timezone.utc),
-                                created_at=datetime.now(timezone.utc),
-                                metadata={"source": "webhook_execution"},
-                            )
-                            self._outcomes.save(outcome)
+                        # Execution succeeded -> PENDING_VERIFICATION
+                        # Recovery is recognized ONLY after authoritative settlement verification
+                        scored_item = self._safe_transition(scored_item, RecoveryStatus.PENDING_VERIFICATION)
                         scored_item = scored_item.__class__(
                             id=scored_item.id,
                             source_type=scored_item.source_type,
@@ -436,7 +424,7 @@ class RazorpayWebhookService:
                             currency=scored_item.currency,
                             created_at=scored_item.created_at,
                             due_at=scored_item.due_at,
-                            status=RecoveryStatus.RECOVERED,
+                            status=RecoveryStatus.PENDING_VERIFICATION,
                             root_cause=scored_item.root_cause,
                             recovery_probability=scored_item.recovery_probability,
                             expected_recovery_value=scored_item.expected_recovery_value,
@@ -444,7 +432,7 @@ class RazorpayWebhookService:
                             failure_category=scored_item.failure_category,
                             provider=scored_item.provider,
                             provider_event_id=scored_item.provider_event_id,
-                            actual_recovery_value=recovered_amount,
+                            actual_recovery_value=0,
                             recovery_status=scored_item.recovery_status,
                             score_version=scored_item.score_version,
                             scoring_reason=scored_item.scoring_reason,
@@ -497,25 +485,7 @@ class RazorpayWebhookService:
                     elif result.proposal.action == RecoveryAction.ESCALATE_HUMAN:
                         scored_item = self._safe_transition(scored_item, RecoveryStatus.ESCALATED)
                     else:
-                        scored_item = self._safe_transition(scored_item, RecoveryStatus.RECOVERED)
-                        if self._outcomes is not None:
-                            from app.domain.models import RecoveryOutcome
-                            recovered_amount = scored_item.expected_recovery_value or 0
-                            recovery_cost = scored_item.intervention_cost or 0
-                            import uuid
-                            outcome = RecoveryOutcome(
-                                id=str(uuid.uuid4()),
-                                recovery_item_id=scored_item.id,
-                                outcome_type="recovered",
-                                expected_recovery_minor=recovered_amount,
-                                actual_recovery_minor=recovered_amount,
-                                recovery_cost_minor=recovery_cost,
-                                net_recovery_minor=recovered_amount - recovery_cost,
-                                recovered_at=datetime.now(timezone.utc),
-                                created_at=datetime.now(timezone.utc),
-                                metadata={"source": "webhook_execution"},
-                            )
-                            self._outcomes.save(outcome)
+                        scored_item = self._safe_transition(scored_item, RecoveryStatus.PENDING_VERIFICATION)
                         scored_item = scored_item.__class__(
                             id=scored_item.id,
                             source_type=scored_item.source_type,
@@ -525,7 +495,7 @@ class RazorpayWebhookService:
                             currency=scored_item.currency,
                             created_at=scored_item.created_at,
                             due_at=scored_item.due_at,
-                            status=scored_item.status,
+                            status=RecoveryStatus.PENDING_VERIFICATION,
                             root_cause=scored_item.root_cause,
                             recovery_probability=scored_item.recovery_probability,
                             expected_recovery_value=scored_item.expected_recovery_value,
@@ -533,7 +503,6 @@ class RazorpayWebhookService:
                             failure_category=scored_item.failure_category,
                             provider=scored_item.provider,
                             provider_event_id=scored_item.provider_event_id,
-                            actual_recovery_value=scored_item.expected_recovery_value,
                             recovery_status=scored_item.recovery_status,
                             score_version=scored_item.score_version,
                             scoring_reason=scored_item.scoring_reason,
