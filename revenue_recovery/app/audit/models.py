@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Protocol
 
 from app.domain.models import RecoveryItem
@@ -15,7 +15,7 @@ class AuditEvent:
     action: str
     reason: str | None = None
     metadata: dict[str, object] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AuditLog(Protocol):

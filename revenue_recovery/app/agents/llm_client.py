@@ -99,7 +99,7 @@ class DeterministicLLMClient:
             })
         if "authentication" in prompt_lower:
             return json.dumps({
-                "action": "send_recovery_message",
+                "action": "send_customer_message",
                 "confidence": 0.75,
                 "reasoning": "Customer must re-authenticate; send recovery message with payment link",
                 "risk_level": "low",

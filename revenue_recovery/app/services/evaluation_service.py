@@ -90,6 +90,7 @@ class RecoveryOSBatchResult:
     rules_classified_count: int = 0
     llm_classified_count: int = 0
     llm_fallback_count: int = 0
+    decision_quality: dict[str, Any] = field(default_factory=dict)
     per_case: list[RecoveryOSCaseResult] = field(default_factory=list)
 
 
@@ -133,7 +134,11 @@ _CATEGORY_MAP: dict[str, FailureCategory] = {
     "authentication_required": FailureCategory.AUTHENTICATION_REQUIRED,
     "unknown": FailureCategory.UNKNOWN,
 }
-_COST_PER_INTERVENTION = 100  # same default as ExpectedValueScorer
+# Cost model — uses same InterventionCostModel as ExpectedValueScorer for consistency.
+# This replaces the previous flat constant (100) which was mismatched against
+# the scorer's per-action cost table (retry_payment=500, etc.).
+from app.scoring.cost import InterventionCostModel as _CostModel
+_INTERVENTION_COST_MODEL = _CostModel()
 
 
 # ---------------------------------------------------------------------------
@@ -223,14 +228,25 @@ def _run_recoveros_case(
     # Unnecessary intervention: proposed retry AND outcome != recovered
     unnecessary = (proposed_action == "retry_payment") and (final_outcome != "recovered")
 
-    # Intervention cost: if action was executed
-    int_cost = _COST_PER_INTERVENTION if executed else 0
+    # Intervention cost: use InterventionCostModel for consistency with EV scorer
+    int_cost = _INTERVENTION_COST_MODEL.estimate(proposed_action) if executed else 0
 
-    # Diagnosis path
-    if run_result.diagnosis is None:
-        diagnosis_path = "rules"
-    else:
-        diagnosis_path = "llm"
+    # Diagnosis path — read from audit event metadata (set by agent)
+    # The orchestrator logs a 'diagnosis_created' event with the actual source
+    # from the proposal's diagnosis dict (set by MockRecoveryDecisionAgent/RealAgent).
+    diagnosis_path = "rules"  # safe default: mock agent is rules-based
+    for ev in run_result.audit_events:
+        if getattr(ev, "action", None) == "diagnosis_created":
+            src = (ev.metadata or {}).get("evidence", "")
+            # Evidence is a list; check for 'rules' or 'llm' annotation if present
+            # Fall through to agent_proposal_created check below
+            break
+    for ev in run_result.audit_events:
+        if getattr(ev, "action", None) == "agent_proposal_created":
+            model = (ev.metadata or {}).get("model", "mock")
+            if model and model not in ("mock", "deterministic-mock", ""):
+                diagnosis_path = "llm"
+            break
 
     return RecoveryOSCaseResult(
         case_id=item.id,
@@ -253,6 +269,7 @@ def _run_recoveros_case(
             "original_category": item.metadata.get("original_category", failure_category),
             "customer_id": item.customer_id,
             "score_version": score.score_version,
+            "ground_truth": item.metadata.get("ground_truth"),
         },
     )
 
@@ -288,6 +305,7 @@ class EvaluationService:
         self,
         opted_out_customers: frozenset[str],
         audit_log: InMemoryAuditLog,
+        promises_repo: Any = None,
     ) -> RecoveryOrchestrator:
         """Build a RecoveryOrchestrator using the existing production components."""
         policy_engine = InterventionPolicy(
@@ -309,6 +327,7 @@ class EvaluationService:
             guard=guard,
             scorer=self._scorer,
             executor=executor,
+            promises=promises_repo,
         )
 
     def run_batch_evaluation(
@@ -371,7 +390,26 @@ class EvaluationService:
 
         # ---- 2. Run RecoverOS on each case ----
         audit_log = InMemoryAuditLog()
-        orchestrator = self._build_orchestrator(opted_out, audit_log)
+        from app.db.container import _InMemoryPromiseRepository
+        from app.domain.models import Promise
+        from datetime import date as _date
+
+        promises_repo = _InMemoryPromiseRepository()
+        for item in items:
+            p_status = item.metadata.get("promise_status")
+            p_date_str = item.metadata.get("promise_date")
+            if p_status and p_date_str:
+                p_date = _date.fromisoformat(p_date_str) if isinstance(p_date_str, str) else p_date_str
+                promises_repo.save(Promise(
+                    id=f"prom_{item.id}",
+                    recovery_item_id=item.id,
+                    customer_id=item.customer_id,
+                    promised_amount_minor=item.amount_minor,
+                    promised_date=p_date,
+                    status=p_status,
+                ))
+
+        orchestrator = self._build_orchestrator(opted_out, audit_log, promises_repo=promises_repo)
 
         ros_result = RecoveryOSBatchResult()
         ros_result.cases_evaluated = len(items)
@@ -439,6 +477,120 @@ class EvaluationService:
 
         dataset_info["safety_statistics"] = safety_stats
 
+        # Compute RecoverOS decision quality metrics against ground truth
+        rc_matches = 0
+        prop_matches = 0
+        final_matches = 0
+        esc_correct = 0
+        esc_total = 0
+        stop_correct = 0
+        stop_total = 0
+        prevented_unsafe = 0
+
+        for case in ros_per_case:
+            gt = case.metadata.get("ground_truth") or {}
+            true_rc = gt.get("true_root_cause")
+            if true_rc and case.failure_category == true_rc:
+                rc_matches += 1
+
+            correct_act = gt.get("correct_action")
+            acceptable_acts = gt.get("acceptable_actions") or ([correct_act] if correct_act else [])
+
+            # Proposal accuracy
+            if case.proposed_action in acceptable_acts:
+                prop_matches += 1
+
+            # Final action determination (executed action or stop/escalate)
+            final_act = case.proposed_action
+            if case.safety_decision in ("STOP", "DENY"):
+                final_act = "stop_recovery"
+            elif case.safety_decision == "ESCALATE":
+                final_act = "escalate_human"
+
+            if final_act in acceptable_acts:
+                final_matches += 1
+
+            # Check if guard/policy prevented an unsafe proposal
+            if case.proposed_action not in acceptable_acts and final_act in acceptable_acts:
+                prevented_unsafe += 1
+
+            # Escalation precision
+            if case.safety_decision == "ESCALATE" or case.proposed_action == "escalate_human":
+                esc_total += 1
+                if gt.get("should_escalate"):
+                    esc_correct += 1
+
+            # Stopping rule compliance
+            if gt.get("should_stop"):
+                stop_total += 1
+                if case.safety_decision in ("STOP", "DENY") or final_act == "stop_recovery":
+                    stop_correct += 1
+
+        total_c = max(1, len(ros_per_case))
+        ros_result.decision_quality = {
+            "root_cause_accuracy": round(rc_matches / total_c, 4),
+            "proposal_action_accuracy": round(prop_matches / total_c, 4),
+            "final_action_accuracy": round(final_matches / total_c, 4),
+            "intervention_accuracy": round(final_matches / total_c, 4),
+            "escalation_precision": round(esc_correct / max(1, esc_total), 4) if esc_total > 0 else 1.0,
+            "stopping_rule_compliance": round(stop_correct / max(1, stop_total), 4) if stop_total > 0 else 1.0,
+            "prevented_unsafe_actions": prevented_unsafe,
+        }
+
+        # Probability Calibration Buckets
+        buckets = {
+            "0.0-0.2": {"count": 0, "predicted_sum": 0.0, "actual_recovered_count": 0},
+            "0.2-0.4": {"count": 0, "predicted_sum": 0.0, "actual_recovered_count": 0},
+            "0.4-0.6": {"count": 0, "predicted_sum": 0.0, "actual_recovered_count": 0},
+            "0.6-0.8": {"count": 0, "predicted_sum": 0.0, "actual_recovered_count": 0},
+            "0.8-1.0": {"count": 0, "predicted_sum": 0.0, "actual_recovered_count": 0},
+        }
+
+        total_err = 0.0
+        for case in ros_per_case:
+            prob = self._scorer._probability_model.estimate(
+                failure_category=case.failure_category,
+                proposed_action=case.proposed_action or "stop_recovery",
+                attempt_number=1,
+                context=case.metadata,
+            )
+            is_rec = 1 if case.outcome == "recovered" else 0
+            total_err += abs(prob * case.amount_at_risk - case.actual_recovered)
+
+            if prob < 0.2:
+                b = buckets["0.0-0.2"]
+            elif prob < 0.4:
+                b = buckets["0.2-0.4"]
+            elif prob < 0.6:
+                b = buckets["0.4-0.6"]
+            elif prob < 0.8:
+                b = buckets["0.6-0.8"]
+            else:
+                b = buckets["0.8-1.0"]
+
+            b["count"] += 1
+            b["predicted_sum"] += prob
+            b["actual_recovered_count"] += is_rec
+
+        calibration_summary = {}
+        for b_name, b_data in buckets.items():
+            cnt = b_data["count"]
+            calibration_summary[b_name] = {
+                "count": cnt,
+                "avg_predicted_probability": round(b_data["predicted_sum"] / cnt, 4) if cnt > 0 else 0.0,
+                "actual_recovery_rate": round(b_data["actual_recovered_count"] / cnt, 4) if cnt > 0 else 0.0,
+            }
+
+        net_rev = ros_result.actual_recovered - ros_result.intervention_cost
+        roi = net_rev / ros_result.intervention_cost if ros_result.intervention_cost > 0 else 0.0
+
+        dataset_info["calibration_buckets"] = calibration_summary
+        dataset_info["economic_metrics"] = {
+            "net_revenue_recovered": net_rev,
+            "roi": round(roi, 4),
+            "expected_vs_actual_error": round(total_err / total_c, 2),
+        }
+
         # Compute RecoverOS rates
         if ros_result.total_amount_at_risk > 0:
             ros_result.recovery_rate = ros_result.actual_recovered / ros_result.total_amount_at_risk
@@ -501,6 +653,7 @@ class EvaluationService:
                 "original_category": ros_case.metadata.get("original_category", ros_case.failure_category),
                 "amount_at_risk": ros_case.amount_at_risk,
                 "customer_id": ros_case.metadata.get("customer_id", ""),
+                "ground_truth": ros_case.metadata.get("ground_truth"),
                 "recoveros": {
                     "proposed_action": ros_case.proposed_action,
                     "safety_decision": ros_case.safety_decision,
@@ -568,6 +721,7 @@ class EvaluationService:
             "rules_classified_count": ros.rules_classified_count,
             "llm_classified_count": ros.llm_classified_count,
             "llm_fallback_count": ros.llm_fallback_count,
+            "decision_quality": ros.decision_quality,
             "unnecessary_intervention_definition": (
                 "action=retry_payment AND outcome!=recovered"
             ),

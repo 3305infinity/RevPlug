@@ -479,6 +479,81 @@ def generate_evaluation_dataset(count: int = 50, seed: int = 42) -> list[Recover
             extra["mandate_id"] = f"man_{100 + i}"
             extra["retry_eligible"] = rng.choice([True, False])
 
+        # Determine ground-truth labels deterministically according to recovery policy
+        gt_true_root_cause = actual_root_cause
+        gt_correct_action = "retry_payment"
+        gt_acceptable_actions = ["retry_payment"]
+        gt_recoverable = True
+        gt_acceptable_contact = True
+        gt_should_escalate = False
+        gt_should_stop = False
+
+        if root_cause in ("fraud", "soft_optout", "soft_promise_active"):
+            gt_correct_action = "stop_recovery"
+            gt_acceptable_actions = ["stop_recovery", "no_action"]
+            gt_recoverable = False
+            gt_acceptable_contact = False
+            gt_should_stop = True
+        elif root_cause == "soft_exhausted":
+            gt_correct_action = "send_payment_link"
+            gt_acceptable_actions = ["send_payment_link", "stop_recovery", "escalate_human"]
+            gt_recoverable = False
+            gt_should_stop = True
+        elif root_cause == "hard":
+            if attempt_count >= 2:
+                gt_correct_action = "escalate_human"
+                gt_acceptable_actions = ["escalate_human", "stop_recovery"]
+                gt_should_escalate = True
+            else:
+                gt_correct_action = "send_payment_link"
+                gt_acceptable_actions = ["send_payment_link", "escalate_human"]
+        elif root_cause == "authentication_required":
+            gt_correct_action = "send_payment_link"
+            gt_acceptable_actions = ["send_payment_link", "send_customer_message"]
+        elif root_cause == "checkout_abandonment":
+            age_mins = extra.get("checkout_age_minutes", 30)
+            if age_mins > 10080:  # >7 days
+                gt_correct_action = "stop_recovery"
+                gt_acceptable_actions = ["stop_recovery"]
+                gt_should_stop = True
+                gt_recoverable = False
+            else:
+                gt_correct_action = "send_payment_link"
+                gt_acceptable_actions = ["send_payment_link"]
+        elif root_cause == "overdue_receivable":
+            days = extra.get("days_overdue", 1)
+            if days < 3:
+                gt_correct_action = "send_reminder"
+                gt_acceptable_actions = ["send_reminder"]
+            elif days < 7:
+                gt_correct_action = "send_payment_link"
+                gt_acceptable_actions = ["send_payment_link"]
+            elif days < 14:
+                gt_correct_action = "alternate_channel"
+                gt_acceptable_actions = ["alternate_channel"]
+            else:
+                gt_correct_action = "escalate_human"
+                gt_acceptable_actions = ["escalate_human"]
+                gt_should_escalate = True
+        elif root_cause == "mandate_failure":
+            if extra.get("retry_eligible", True) and attempt_count < 3:
+                gt_correct_action = "retry_payment"
+                gt_acceptable_actions = ["retry_payment"]
+            else:
+                gt_correct_action = "send_payment_link"
+                gt_acceptable_actions = ["send_payment_link"]
+
+        ground_truth = {
+            "true_root_cause": gt_true_root_cause,
+            "correct_action": gt_correct_action,
+            "acceptable_actions": gt_acceptable_actions,
+            "recoverable": gt_recoverable,
+            "expected_recovery": amount_minor if gt_recoverable else 0,
+            "acceptable_contact": gt_acceptable_contact,
+            "should_escalate": gt_should_escalate,
+            "should_stop": gt_should_stop,
+        }
+
         items.append(_make_item(
             item_id=item_id,
             source_type=source_type,
@@ -497,6 +572,7 @@ def generate_evaluation_dataset(count: int = 50, seed: int = 42) -> list[Recover
                 "eval_index": i,
                 "original_category": root_cause,
                 "source_type": source_type.value,
+                "ground_truth": ground_truth,
                 **extra,
             },
         ))

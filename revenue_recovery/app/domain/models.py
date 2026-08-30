@@ -111,6 +111,19 @@ class RecoveryOutcome:
     created_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        if self.actual_recovery_minor is not None:
+            if self.actual_recovery_minor < 0:
+                raise ValueError("actual_recovery_minor must be non-negative")
+            amount_at_risk = self.metadata.get("amount_at_risk") if isinstance(self.metadata, dict) else None
+            if amount_at_risk is not None and isinstance(amount_at_risk, int) and amount_at_risk > 0:
+                if self.actual_recovery_minor > amount_at_risk:
+                    object.__setattr__(self, "actual_recovery_minor", amount_at_risk)
+        if self.recovery_cost_minor < 0:
+            raise ValueError("recovery_cost_minor must be non-negative")
+        if self.actual_recovery_minor is not None and self.net_recovery_minor is None:
+            object.__setattr__(self, "net_recovery_minor", self.actual_recovery_minor - self.recovery_cost_minor)
+
 
 @dataclass(frozen=True, slots=True)
 class Promise:

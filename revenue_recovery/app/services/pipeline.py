@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app.audit.models import AuditLog, AuditEvent
@@ -263,7 +263,7 @@ class RecoveryPipeline:
                 recovery_item_id=current.id,
                 attempt_number=attempt_number,
                 action=proposed_action,
-                executed_at=datetime.utcnow(),
+                executed_at=datetime.now(timezone.utc),
                 outcome="success" if result.success else "failed",
                 metadata=result.side_effects or {},
             )

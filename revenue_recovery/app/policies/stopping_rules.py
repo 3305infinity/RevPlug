@@ -203,10 +203,18 @@ class StoppingRules:
         return item.metadata.get("payment_succeeded") is True
 
     def _is_customer_opted_out(self, item: RecoveryItem) -> bool:
-        return item.customer_id in self._opted_out_customer_ids
+        return (
+            item.customer_id in self._opted_out_customer_ids
+            or item.metadata.get("opted_out") is True
+            or item.metadata.get("customer_opted_out") is True
+        )
 
     def _is_fraud_detected(self, item: RecoveryItem) -> bool:
-        return item.root_cause in {"fraud", "security_or_fraud"}
+        return (
+            item.root_cause in {"fraud", "security_or_fraud"}
+            or item.metadata.get("fraud_flag") is True
+            or item.metadata.get("is_fraud") is True
+        )
 
     def _is_retry_budget_exhausted(self, item: RecoveryItem) -> bool:
         attempt_count = self._get_attempt_count(item)
@@ -216,6 +224,9 @@ class StoppingRules:
         return int(item.metadata.get("attempt_count", 0))
 
     def _is_recovery_deadline_expired(self, item: RecoveryItem, *, now: datetime) -> bool:
+        checkout_age = item.metadata.get("checkout_age_minutes")
+        if checkout_age is not None and isinstance(checkout_age, (int, float)) and checkout_age > 10080:
+            return True
         due_at = item.due_at
         if due_at is None:
             return False
@@ -230,9 +241,11 @@ class StoppingRules:
         promises: Any,
         now: datetime,
     ) -> bool:
-        if promises is None:
-            return False
-        promise = promises.get_for_item(item.id)
+        promise = promises.get_for_item(item.id) if promises is not None else None
+        if promise is None and item.metadata.get("promise_status"):
+            status = item.metadata.get("promise_status", "")
+            due_at = item.metadata.get("promise_date")
+            promise = {"status": status, "due_at": due_at}
         if promise is None:
             return False
         if isinstance(promise, dict):
@@ -262,12 +275,14 @@ class StoppingRules:
         promises: Any,
         now: datetime,
     ) -> bool:
-        if promises is None:
-            return False
-        promise = promises.get_for_item(item.id)
+        promise = promises.get_for_item(item.id) if promises is not None else None
+        if promise is None and item.metadata.get("promise_status"):
+            status = item.metadata.get("promise_status", "")
+            due_at = item.metadata.get("promise_date")
+            promise = {"status": status, "due_at": due_at}
         if promise is None:
             return False
-        status = promise.get("status", "") if isinstance(promise, dict) else promise.status
+        status = promise.get("status", "") if isinstance(promise, dict) else getattr(promise, "status", "")
         if status in {PromiseStatus.PROMISED.value, "active", "PROMISED"}:
             # Ensure it is not expired
             return not self._is_promise_expired(item, promises=promises, now=now)

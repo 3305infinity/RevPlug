@@ -87,32 +87,45 @@ class HinglishPromiseExtractor:
         )
 
     def _extract_amount(self, text: str) -> int | None:
-        # Match pattern like ₹18,000, rs 18000, 18000, 25000, 18k, etc.
-        # Check ₹ / Rs / INR patterns first
-        match = re.search(r'(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d+)?)\s*(k|lakh|lac)?', text)
+        # 1. Match numbers with unit suffix like '50 hazaar', '50 hazar', '18k', '2 lakh'
+        match = re.search(r'([\d,]+(?:\.\d+)?)\s*(k|hazaar|hazar|lakh|lac)\b', text)
         if match:
             raw_num = match.group(1).replace(',', '')
-            val = float(raw_num)
-            unit = match.group(2)
-            if unit == 'k':
-                val *= 1000
-            elif unit in ('lakh', 'lac'):
-                val *= 100000
-            return int(val * 100)
+            try:
+                val = float(raw_num)
+                unit = match.group(2)
+                if unit in ('k', 'hazaar', 'hazar'):
+                    val *= 1000
+                elif unit in ('lakh', 'lac'):
+                    val *= 100000
+                if val > 0:
+                    return int(val * 100)
+            except ValueError:
+                pass
 
-        # Match standalone numbers associated with pay/clear/rupees
-        match = re.search(r'([\d,]+)\s*(k|lakh|lac)?\s*(?:pay|kar|clear|ko|tak|dunga)', text)
+        # 2. Match numbers with currency prefix like ₹18,000, rs 18000, inr 5000
+        match = re.search(r'(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d+)?)', text)
         if match:
             raw_num = match.group(1).replace(',', '')
-            val = float(raw_num)
-            unit = match.group(2)
-            if unit == 'k':
-                val *= 1000
-            elif unit in ('lakh', 'lac'):
-                val *= 100000
-            return int(val * 100)
+            try:
+                val = float(raw_num)
+                if val > 0:
+                    return int(val * 100)
+            except ValueError:
+                pass
 
-        # Match standalone 4+ digit numbers like 18000, 25000
+        # 3. Match standalone numbers associated with pay/clear/rupees/transfer
+        match = re.search(r'([\d,]+)\s*(?:pay|kar|clear|ko|tak|dunga|transfer)', text)
+        if match:
+            raw_num = match.group(1).replace(',', '')
+            try:
+                val = float(raw_num)
+                if val > 0:
+                    return int(val * 100)
+            except ValueError:
+                pass
+
+        # 4. Match standalone 4+ digit numbers like 18000, 25000
         match = re.search(r'\b(\d{4,8})\b', text)
         if match:
             val = float(match.group(1))
@@ -128,6 +141,23 @@ class HinglishPromiseExtractor:
             return ref
         if "parso" in text:
             return ref + timedelta(days=2)
+
+        # Check "X tareekh / tarik / tarikh" pattern e.g. "5 tareekh ko"
+        match = re.search(r'(\d{1,2})\s*(?:st|nd|rd|th)?\s*(?:tareekh|tarik|tarikh|date)', text)
+        if match:
+            day_num = int(match.group(1))
+            if 1 <= day_num <= 31:
+                # Try current month first
+                try:
+                    target_date = date(ref.year, ref.month, day_num)
+                    if target_date < ref:
+                        # Target day in current month has passed, roll to next month
+                        next_month = ref.month % 12 + 1
+                        next_year = ref.year + (1 if next_month == 1 else 0)
+                        target_date = date(next_year, next_month, day_num)
+                    return target_date
+                except ValueError:
+                    pass
 
         # Check day names e.g. "friday ko", "next monday tak"
         for idx, day_name in enumerate(self.DAY_NAMES):
@@ -147,7 +177,7 @@ class HinglishPromiseExtractor:
             days = int(match.group(1))
             return ref + timedelta(days=days)
 
-        # Check ISO date pattern YYYY-MM-DD or DD/MM/YYYY
+        # Check ISO date pattern YYYY-MM-DD
         match = re.search(r'\b(\d{4})-(\d{2})-(\d{2})\b', text)
         if match:
             return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))

@@ -84,6 +84,14 @@ class BaselineBatchResult:
     # Raw counts reported alongside derived metric for transparency
     raw_retry_attempts: int = 0
     raw_retries_that_failed: int = 0
+    baseline_policy_violations: dict[str, int] = field(default_factory=lambda: {
+        "hard_decline_retry": 0,
+        "fraud_retry": 0,
+        "do_not_contact_violation": 0,
+        "retry_budget_violation": 0,
+        "promise_contact_violation": 0,
+        "total_policy_violations": 0,
+    })
     per_case: list[BaselineCaseResult] = field(default_factory=list)
 
 
@@ -91,7 +99,7 @@ class BaselineBatchResult:
 # Baseline Evaluator
 # ---------------------------------------------------------------------------
 
-_COST_PER_INTERVENTION = 100  # minor units (same as ExpectedValueScorer default)
+_COST_PER_INTERVENTION = 500  # minor units — matches InterventionCostModel retry_payment cost
 _MAX_RETRIES = 2               # baseline is fixed at 2 attempts, always
 
 
@@ -218,6 +226,29 @@ class BaselineEvaluator:
                 if case_result.unnecessary_intervention:
                     result.unnecessary_interventions += 1
 
+                # Track baseline safety/policy violations
+                cat = (item.root_cause or "").lower()
+                orig_cat = str(item.metadata.get("original_category", "")).lower()
+                is_optout = bool(item.metadata.get("customer_opted_out"))
+                att_count = int(item.metadata.get("attempt_count", 0))
+                is_promise = item.metadata.get("promise_status") == "promised"
+
+                if cat in ("fraud", "security_or_fraud") or orig_cat == "fraud":
+                    result.baseline_policy_violations["fraud_retry"] += 1
+                    result.baseline_policy_violations["total_policy_violations"] += 1
+                if is_optout:
+                    result.baseline_policy_violations["do_not_contact_violation"] += 1
+                    result.baseline_policy_violations["total_policy_violations"] += 1
+                if cat in ("hard", "hard_decline") or orig_cat == "hard":
+                    result.baseline_policy_violations["hard_decline_retry"] += 1
+                    result.baseline_policy_violations["total_policy_violations"] += 1
+                if att_count >= 3 or orig_cat == "soft_exhausted":
+                    result.baseline_policy_violations["retry_budget_violation"] += 1
+                    result.baseline_policy_violations["total_policy_violations"] += 1
+                if is_promise or orig_cat == "soft_promise_active":
+                    result.baseline_policy_violations["promise_contact_violation"] += 1
+                    result.baseline_policy_violations["total_policy_violations"] += 1
+
             except Exception as exc:
                 result.cases_failed_processing += 1
                 result.per_case.append(BaselineCaseResult(
@@ -260,6 +291,7 @@ class BaselineEvaluator:
             "unnecessary_interventions": batch_result.unnecessary_interventions,
             "raw_retry_attempts": batch_result.raw_retry_attempts,
             "raw_retries_that_failed": batch_result.raw_retries_that_failed,
+            "baseline_policy_violations": batch_result.baseline_policy_violations,
             "unnecessary_intervention_definition": (
                 "action=retry_payment AND outcome!=recovered"
             ),

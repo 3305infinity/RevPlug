@@ -213,31 +213,88 @@ async def api_approve_item(item_id: str, request: Request, container: Persistenc
         return JSONResponse(status_code=404, content={"error": "Item not found"})
 
     stub = _make_item_stub_from_dict(item)
-    from app.policies.engine import InterventionPolicy
-    policy = InterventionPolicy(max_retry_attempts=3)
-    decision = policy.evaluate(stub, action)
+    # Evaluate guard with QUEUED status on stub so terminal_state_absorbing does not
+    # short-circuit evaluation of actual business rules (payment succeeded, opt-out, promise, fraud)
+    from app.domain.models import RecoveryStatus
+    stub = stub.__class__(
+        id=item.id,
+        source_type=item.source_type,
+        external_id=item.external_id,
+        customer_id=item.customer_id,
+        amount_minor=item.amount_minor,
+        currency=item.currency,
+        created_at=item.created_at,
+        due_at=item.due_at,
+        status=RecoveryStatus.QUEUED,
+        root_cause=item.root_cause,
+        recovery_probability=item.recovery_probability,
+        expected_recovery_value=item.expected_recovery_value,
+        intervention_cost=item.intervention_cost,
+        failure_category=item.failure_category,
+        provider=item.provider,
+        provider_event_id=item.provider_event_id,
+        actual_recovery_value=item.actual_recovery_value,
+        recovery_status=item.recovery_status,
+        score_version=item.score_version,
+        scoring_reason=item.scoring_reason,
+        priority=item.priority,
+        stopped_reason=item.stopped_reason,
+        stopped_rule=item.stopped_rule,
+        metadata=item.metadata,
+    )
 
-    if decision.allowed:
+    from app.policies.engine import InterventionPolicy
+    from app.policies.stopping_rules import StoppingRules
+    from app.policies.guard import DefaultRecoveryGuard
+
+    opted_out = set()
+    if hasattr(container.recovery_items, "list_all"):
+        try:
+            for it in container.recovery_items.list_all():
+                it_dict = it if isinstance(it, dict) else (it.__dict__ if hasattr(it, "__dict__") else {})
+                meta = it_dict.get("metadata") or {}
+                if meta.get("customer_opted_out"):
+                    cid = it_dict.get("customer_id")
+                    if cid:
+                        opted_out.add(cid)
+        except Exception:
+            pass
+
+    policy = InterventionPolicy(max_retry_attempts=3, opted_out_customer_ids=frozenset(opted_out))
+    stopping_rules = StoppingRules(max_attempts=3, opted_out_customer_ids=frozenset(opted_out))
+    guard = DefaultRecoveryGuard(stopping_rules=stopping_rules, policy_engine=policy)
+
+    guard_decision = guard.evaluate(
+        stub,
+        action,
+        container=container,
+        promises=getattr(container, "promises", None),
+    )
+
+    if guard_decision.allowed:
         container.audit_log.log(
             recovery_item_id=item_id, actor="human", action="human_approved",
             reason=f"Human approved action: {action}",
-            metadata={"action": action, "policy_rule": decision.policy_rule},
+            metadata={"action": action, "policy_rule": guard_decision.rule, "reason_code": guard_decision.reason_code},
         )
         return JSONResponse(status_code=200, content={
             "status": "approved", "action": action,
-            "policy_rule": decision.policy_rule,
-            "message": f"Action '{action}' approved by human and policy",
+            "policy_rule": guard_decision.rule,
+            "reason_code": guard_decision.reason_code,
+            "message": f"Action '{action}' approved by human and safety guard",
         })
     else:
         container.audit_log.log(
-            recovery_item_id=item_id, actor="human", action="human_approval_denied_by_policy",
-            reason=f"Human approved '{action}' but policy denied: {decision.reason}",
-            metadata={"action": action, "policy_rule": decision.policy_rule},
+            recovery_item_id=item_id, actor="human", action="human_approval_denied_by_safety",
+            reason=f"Human approved '{action}' but safety guard blocked: {guard_decision.reason}",
+            metadata={"action": action, "policy_rule": guard_decision.rule, "reason_code": guard_decision.reason_code, "decision_type": guard_decision.decision_type},
         )
         return JSONResponse(status_code=200, content={
             "status": "denied_by_policy", "action": action,
-            "policy_rule": decision.policy_rule,
-            "message": f"Action '{action}' denied by policy: {decision.reason}",
+            "policy_rule": guard_decision.rule,
+            "reason_code": guard_decision.reason_code,
+            "decision_type": guard_decision.decision_type,
+            "message": f"Action '{action}' blocked by safety guard: {guard_decision.reason}",
         })
 
 @router.post("/api/recovery-items/{item_id}/reject")
@@ -270,9 +327,20 @@ def api_agent_trace(item_id: str, container: PersistenceContainer = Depends(get_
     if hasattr(container.audit_log, "events_for"):
         events = [
             _audit_to_dict(e) for e in container.audit_log.events_for(item_id)
-            if e.actor in ("agent", "system") and "agent" in e.action
         ]
     return JSONResponse(status_code=200, content={"item_id": item_id, "agent_events": events})
+
+@router.get("/api/recovery-items/{item_id}/audit-trail")
+def api_audit_trail(item_id: str, container: PersistenceContainer = Depends(get_container)) -> Response:
+    """Get complete, chronologically ordered audit trail for a recovery item."""
+    events = []
+    if hasattr(container.audit_log, "events_for"):
+        events = [_audit_to_dict(e) for e in container.audit_log.events_for(item_id)]
+    return JSONResponse(status_code=200, content={
+        "item_id": item_id,
+        "total_events": len(events),
+        "timeline": events,
+    })
 
 @router.get("/api/audit-events")
 def api_audit_events(filter: str = "all", container: PersistenceContainer = Depends(get_container)) -> list[dict[str, Any]]:

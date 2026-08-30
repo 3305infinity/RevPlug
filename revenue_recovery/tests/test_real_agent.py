@@ -45,7 +45,7 @@ class TestDeterministicLLMClient:
         resp = client.generate("system", "authentication required")
         import json
         data = json.loads(resp.content)
-        assert data["action"] == "send_recovery_message"
+        assert data["action"] == "send_customer_message"
 
     def test_unknown_returns_escalate(self):
         client = DeterministicLLMClient()

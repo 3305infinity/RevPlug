@@ -85,12 +85,14 @@ class ExpectedValueScorer:
             failure_category=failure_category,
             proposed_action=proposed_action,
             attempt_number=attempt_number,
+            context=context,
         )
 
         intervention_cost = self._cost_model.estimate(proposed_action)
 
         # expected_value = amount × probability − intervention_cost
-        expected_recovery_value = int(amount_minor * recovery_probability) - intervention_cost
+        gross_ev = int(amount_minor * recovery_probability)
+        expected_recovery_value = gross_ev - intervention_cost
         expected_recovery_value = max(0, expected_recovery_value)
 
         priority = self._priority_classifier.classify(expected_recovery_value)
@@ -113,7 +115,55 @@ class ExpectedValueScorer:
                 "failure_category": failure_category,
                 "proposed_action": proposed_action,
                 "attempt_number": attempt_number,
+                "gross_expected_recovery": gross_ev,
+                "net_expected_recovery": gross_ev - intervention_cost,
                 "score_version": "v1",
                 **(context or {}),
             },
         )
+
+    def evaluate_candidates(
+        self,
+        amount_minor: int,
+        failure_category: str,
+        candidate_actions: list[str] | None = None,
+        attempt_number: int = 1,
+        context: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Evaluate and rank multiple candidate intervention actions by expected net recovery.
+
+        Returns:
+            List of candidate dictionaries sorted descending by net_expected_recovery.
+        """
+        actions = candidate_actions or [
+            "retry_payment",
+            "send_payment_link",
+            "send_customer_message",
+            "send_reminder",
+            "alternate_channel",
+            "escalate_human",
+            "stop_recovery",
+        ]
+
+        scored_candidates = []
+        for action in actions:
+            prob = self._probability_model.estimate(
+                failure_category=failure_category,
+                proposed_action=action,
+                attempt_number=attempt_number,
+                context=context,
+            )
+            cost = self._cost_model.estimate(action)
+            gross_ev = int(amount_minor * prob)
+            net_ev = gross_ev - cost if action != "stop_recovery" else 0
+            scored_candidates.append({
+                "action": action,
+                "recovery_probability": round(prob, 4),
+                "intervention_cost": cost,
+                "gross_expected_recovery": gross_ev,
+                "net_expected_recovery": net_ev,
+            })
+
+        # Sort by net_expected_recovery descending
+        scored_candidates.sort(key=lambda c: c["net_expected_recovery"], reverse=True)
+        return scored_candidates

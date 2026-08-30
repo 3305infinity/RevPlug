@@ -164,7 +164,7 @@ export default function BatchEvaluation() {
               <div style={{ padding: "1.5rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
                 <Metric label="Actually Recovered" value={fmt(result.recoveros.actual_recovered)} sub={`${result.recoveros.recovered_count} cases`} accent="var(--success)" />
                 <Metric label="Recovery Rate" value={`${(result.recoveros.recovery_rate * 100).toFixed(1)}%`} sub={`of ${fmt(result.recoveros.total_amount_at_risk)} at risk`} accent="var(--accent)" />
-                <Metric label="Unnecessary Interventions" value={String(result.recoveros.unnecessary_interventions)} sub="Retries that failed" accent="var(--warning)" />
+                <Metric label="Failed Retry Attempts" value={String(result.recoveros.unnecessary_interventions)} sub="Valid soft failures, not recovered" accent="var(--warning)" />
                 <Metric label="Cost Per Recovery" value={`₹${result.recoveros.cost_per_recovery.toFixed(2)}`} sub={`Total cost: ${fmt(result.recoveros.intervention_cost)}`} accent="#f8fafc" />
               </div>
             </div>
@@ -183,7 +183,7 @@ export default function BatchEvaluation() {
               <div style={{ padding: "1.5rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
                 <Metric label="Actually Recovered" value={fmt(result.baseline.actual_recovered)} sub={`${result.baseline.recovered_count} cases`} accent="var(--success)" />
                 <Metric label="Recovery Rate" value={`${(result.baseline.recovery_rate * 100).toFixed(1)}%`} sub={`of ${fmt(result.baseline.total_amount_at_risk)} at risk`} accent="var(--accent)" />
-                <Metric label="Unnecessary Interventions" value={String(result.baseline.unnecessary_interventions)} sub="Retries that failed" accent="var(--danger)" />
+                <Metric label="Unsafe Retries" value={String(result.baseline.unnecessary_interventions)} sub="Retried fraud / hard declines" accent="var(--danger)" />
                 <Metric label="Cost Per Recovery" value={`₹${result.baseline.cost_per_recovery.toFixed(2)}`} sub={`Total cost: ${fmt(result.baseline.intervention_cost)}`} accent="#f8fafc" />
               </div>
             </div>

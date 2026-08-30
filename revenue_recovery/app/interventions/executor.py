@@ -59,7 +59,25 @@ class SimulatedRecoveryExecutor:
         attempt_number: int,
         scenario: str | None = None,
     ) -> ExecutionResult:
-        scenario = scenario or "success"
+        if scenario is None:
+            if item.metadata.get("probabilistic_simulation"):
+                import hashlib
+                seed_str = f"{item.id}:{action}:{attempt_number}"
+                hash_val = int(hashlib.md5(seed_str.encode("utf-8")).hexdigest(), 16)
+                sample = (hash_val % 10000) / 10000.0
+
+                prob = getattr(item, "recovery_probability", None)
+                if prob is None:
+                    prob = 0.60
+
+                if sample < prob:
+                    scenario = "success"
+                elif attempt_number < 3:
+                    scenario = "temporary_failure"
+                else:
+                    scenario = "permanent_failure"
+            else:
+                scenario = "success"
 
         if scenario == "success":
             return ExecutionResult(

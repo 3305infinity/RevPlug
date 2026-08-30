@@ -29,7 +29,10 @@ CONSTRAINTS:
 
 ALLOWED ACTIONS:
 - retry_payment: retry the same payment method
-- send_recovery_message: send a customer recovery message with payment link
+- send_payment_link: send a payment link to the customer via email/SMS
+- send_customer_message: send a customer recovery message (for re-authentication, reminders)
+- send_reminder: send a gentle payment reminder (for overdue receivables)
+- alternate_channel: try a different collection channel (WhatsApp, IVR, agent call)
 - escalate_human: escalate to a human agent
 - stop_recovery: stop all recovery attempts
 

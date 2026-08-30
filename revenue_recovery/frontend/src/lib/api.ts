@@ -372,8 +372,9 @@ export const api = {
   tsAttempts: () => fetchAPI<TimeSeriesPoint[]>("/api/time-series/attempts-by-day"),
   tsStopped: () => fetchAPI<TimeSeriesPoint[]>("/api/time-series/stopped-by-reason"),
   
-  // Lifecycle
+  // Lifecycle & Audit
   lifecycle: (id: string) => fetchAPI<Lifecycle>(`/api/recovery-items/${id}/lifecycle`),
+  auditTrail: (id: string) => fetchAPI<{ item_id: string; total_events: number; timeline: AuditEvent[] }>(`/api/recovery-items/${id}/audit-trail`),
 
   triggerDemo: (data: Record<string, unknown>) =>
     fetchAPI<SimulationResult>("/api/demo/payment-failure", {

@@ -224,29 +224,59 @@ class BatchService:
         total_complete = len(recovered_items) + len(stopped_items) + len(escalated_items)
         completion_pct = total_complete / batch.total_items if batch.total_items > 0 else 0.0
 
+        # Intervention cost & Net recovery — from recovery_outcomes (financial truth)
+        total_cost = 0
+        if self._outcomes is not None:
+            for item_id in item_ids:
+                outcome = self._outcomes.get_for_item(item_id)
+                if outcome is not None:
+                    total_cost += getattr(outcome, "recovery_cost_minor", 0) or 0
+
+        if total_cost == 0:
+            total_cost = sum(getattr(i, "intervention_cost", 0) or 0 for i in items if i.status == RecoveryStatus.RECOVERED)
+
+        net_recovered = actual_recovered - total_cost
+        roi = net_recovered / total_cost if total_cost > 0 else 0.0
+
+        promises_active = sum(
+            1 for i in items
+            if (i.metadata if isinstance(i.metadata, dict) else {}).get("promise_status") == "promised"
+        )
+
         return {
             **batch.to_dict(),
             # Financial truth — from recovery_outcomes
             "actual_recovered": actual_recovered,
+            "intervention_cost": total_cost,
+            "net_revenue_recovered": net_recovered,
+            "roi": round(roi, 4),
             "recovery_rate": round(recovery_rate, 4),
             # Workflow state — from recovery_items.status
             "recovered_count": len(recovered_items),
             "stopped_count": len(stopped_items),
             "escalated_count": len(escalated_items),
             "active_count": len(active_items),
+            "promises_active": promises_active,
             "revenue_at_risk": revenue_at_risk,
             "completion_pct": round(completion_pct, 4),
         }
 
     def _get_batch_items(self, batch_id: str) -> list[RecoveryItem]:
         """Get all recovery items belonging to this batch."""
+        if hasattr(self._items, "list_all"):
+            try:
+                all_items = self._items.list_all()
+                return [
+                    item for item in all_items
+                    if (item.metadata if isinstance(item, dict) else getattr(item, "metadata", {})).get("batch_id") == batch_id
+                ]
+            except Exception:
+                pass
         if hasattr(self._items, "_items"):
-            # InMemoryRecoveryItemRepository
             return [
                 item for item in self._items._items.values()
                 if item.metadata.get("batch_id") == batch_id
             ]
-        # For Postgres: would query by batch_id column
         return []
 
     def get_batch(self, batch_id: str) -> RecoveryBatch | None:

@@ -145,7 +145,7 @@ class TestDashboardAPI:
 class TestHumanInTheLoop:
     """Test human approval/rejection workflow."""
 
-    def _create_escalated_item(self, client):
+    def _create_escalated_item(self, client, root_cause="soft"):
         """Create an escalated item by directly saving to the container."""
         from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
         from datetime import datetime, timezone
@@ -154,14 +154,8 @@ class TestHumanInTheLoop:
         # The client's app is accessible via client.app (TestClient wraps the app)
         app = client.app if hasattr(client, "app") else None
         container = None
-        if app and hasattr(app, "state") and hasattr(app.state, "container"):
-            container = app.state.container
-
-        if container is None:
-            # Fallback: use the module-level container
-            from app.main import _container
-            container = _container
-
+        app = client.app
+        container = getattr(app.state, "container", None)
         if container is None:
             pytest.skip("No container available")
 
@@ -174,7 +168,7 @@ class TestHumanInTheLoop:
             currency="INR",
             created_at=datetime.now(timezone.utc),
             status=RecoveryStatus.ESCALATED,
-            root_cause="fraud",
+            root_cause=root_cause,
             expected_recovery_value=0,
             metadata={"proposed_action": "escalate_human", "policy_allowed": False},
         )
@@ -201,7 +195,7 @@ class TestHumanInTheLoop:
         assert any(i["id"] == item_id for i in items)
 
     def test_approve_item(self, client):
-        item_id = self._create_escalated_item(client)
+        item_id = self._create_escalated_item(client, root_cause="soft")
         resp = client.post(f"/api/recovery-items/{item_id}/approve", json={"action": "stop_recovery"})
         assert resp.status_code == 200
         data = resp.json()
@@ -217,7 +211,7 @@ class TestHumanInTheLoop:
 
     def test_approve_unsafe_action_blocked_by_policy(self, client):
         """Human cannot approve retry for fraud — policy must block it."""
-        item_id = self._create_escalated_item(client)
+        item_id = self._create_escalated_item(client, root_cause="fraud")
         resp = client.post(f"/api/recovery-items/{item_id}/approve", json={"action": "retry_payment"})
         assert resp.status_code == 200
         data = resp.json()

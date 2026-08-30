@@ -90,6 +90,7 @@ class RecoveryOrchestrator:
         retry_policy: Any = None,
         state_machine: Any = None,
         outcomes: Any = None,
+        promises: Any = None,
         confidence_thresholds: dict[str, float] | None = None,
     ) -> None:
         self._agent = agent
@@ -103,6 +104,7 @@ class RecoveryOrchestrator:
         self._retry_policy = retry_policy
         self._state_machine = state_machine
         self._outcomes = outcomes
+        self._promises = promises
 
         # Confidence thresholds for decisioning
         self._high_confidence = (confidence_thresholds or {}).get("high", 0.80)
@@ -116,11 +118,56 @@ class RecoveryOrchestrator:
         # Stage 1: AI diagnosis / proposal
         diagnosis, proposal = self._propose(item, context, events)
 
-        # Stage 2: Deterministic scoring
+        # Stage 2: Deterministic scoring & Multi-candidate EV optimization
         score_result = self._score(item, context, proposal, events)
 
-        # Stage 3: Safety check (stopping rules + policy)
-        safety_decision = self._safety_check(item, context, proposal, events)
+        # Candidate evaluation across all candidate actions
+        candidate_evals = []
+        if hasattr(self._scorer, "evaluate_candidates"):
+            candidate_evals = self._scorer.evaluate_candidates(
+                amount_minor=item.amount_minor,
+                failure_category=context.failure_category.value,
+                attempt_number=context.attempt_count + 1,
+                context={**item.metadata, "customer_opted_out": context.customer_opt_out},
+            )
+
+        # Stage 3: Safety check (stopping rules + policy + EV gate)
+        safety_decision = self._safety_check(item, context, proposal, score_result, events)
+
+        # Build Explainability Metadata for decision transparency
+        rejected_alternatives = {}
+        best_valid_cand = None
+        for cand in candidate_evals:
+            act = cand["action"]
+            if proposal and act == proposal.action.value:
+                continue
+            if self._guard is not None:
+                g_dec = self._guard.evaluate(item, act, promises=self._promises)
+                if not g_dec.allowed:
+                    rejected_alternatives[act] = f"Prohibited by policy rule: {g_dec.reason_code}"
+                else:
+                    rejected_alternatives[act] = f"Lower expected net recovery ({cand['net_expected_recovery']} minor units)"
+            else:
+                rejected_alternatives[act] = f"Lower expected net recovery ({cand['net_expected_recovery']} minor units)"
+
+        explainability = {
+            "selected_action": proposal.action.value if proposal else None,
+            "why": f"{context.failure_category.value} failure + candidate EV ranking",
+            "recovery_probability": score_result.recovery_probability if score_result else 0.0,
+            "expected_recovery": (score_result.expected_recovery_value + score_result.intervention_cost) if score_result else 0,
+            "intervention_cost": score_result.intervention_cost if score_result else 0,
+            "expected_net_recovery": score_result.expected_recovery_value if score_result else 0,
+            "rejected_alternatives": rejected_alternatives,
+            "guardrails": safety_decision,
+        }
+
+        events.append(self._audit_log.log(
+            recovery_item_id=recovery_item_id,
+            actor="scorer",
+            action="intervention_optimization_completed",
+            reason=f"Selected '{proposal.action.value if proposal else None}' via multi-candidate EV optimization",
+            metadata=explainability,
+        ))
 
         # Stage 4: Execute if allowed
         execution_result = None
@@ -136,18 +183,22 @@ class RecoveryOrchestrator:
         # Stage 7: Build final result
         final_state = item.status.value if hasattr(item.status, "value") else str(item.status)
 
+        score_data = {
+            "expected_recovery_value": score_result.expected_recovery_value,
+            "recovery_probability": score_result.recovery_probability,
+            "intervention_cost": score_result.intervention_cost,
+            "priority": score_result.priority,
+            "scoring_reason": score_result.scoring_reason,
+            "explainability": explainability,
+            "candidate_evaluations": candidate_evals,
+        } if score_result else None
+
         return RecoveryRunResult(
             recovery_item_id=recovery_item_id,
             classification=item.root_cause or "unknown",
             diagnosis=diagnosis,
             proposed_action=proposal.action.value if proposal else None,
-            score={
-                "expected_recovery_value": score_result.expected_recovery_value,
-                "recovery_probability": score_result.recovery_probability,
-                "intervention_cost": score_result.intervention_cost,
-                "priority": score_result.priority,
-                "scoring_reason": score_result.scoring_reason,
-            } if score_result else None,
+            score=score_data,
             priority=score_result.priority if score_result else None,
             safety_decision=safety_decision,
             execution_result=execution_result,
@@ -324,11 +375,20 @@ class RecoveryOrchestrator:
 
         return result
 
-    def _safety_check(self, item: RecoveryItem, context: RecoveryContext, proposal: RecoveryProposal | None, events: list[AuditEvent]) -> str:
-        """Stage 3: Safety check — confidence check → stopping rules + policy engine + guard.
+    def _safety_check(
+        self,
+        item: RecoveryItem,
+        context: RecoveryContext,
+        proposal: RecoveryProposal | None,
+        score_result: Any = None,
+        events: list[AuditEvent] = None,
+    ) -> str:
+        """Stage 3: Safety check — confidence check → EV gate → stopping rules + policy engine + guard.
 
         Returns one of: ALLOWED, STOP, DENY, ESCALATE
         """
+        if events is None:
+            events = []
         if proposal is None:
             return "STOP"
 
@@ -363,13 +423,40 @@ class RecoveryOrchestrator:
                 },
             ))
 
+        # EV Gate enforcement: non-positive EV actions must be stopped to prevent unprofitable execution
+        if score_result is not None and proposed_action != "stop_recovery":
+            ev_val = getattr(score_result, "expected_recovery_value", None)
+            if ev_val is not None and ev_val <= 0:
+                events.append(self._audit_log.log(
+                    recovery_item_id=item.id,
+                    actor="rule",
+                    action="ev_check_failed",
+                    reason=f"Action '{proposed_action}' blocked by EV gate: expected recovery value ({ev_val}) is non-positive",
+                    metadata={
+                        "proposed_action": proposed_action,
+                        "expected_recovery_value": ev_val,
+                        "intervention_cost": getattr(score_result, "intervention_cost", 0),
+                        "amount_at_risk": getattr(score_result, "amount_at_risk", 0),
+                        "recovery_probability": getattr(score_result, "recovery_probability", 0.0),
+                        "rule": "ev_gate_enforcement",
+                    },
+                ))
+                return "STOP"
+
+        # Ensure eval_item carries latest attempt count from context
+        eval_item = item
+        if context and context.attempt_count > int(item.metadata.get("attempt_count", 0)):
+            meta = {**item.metadata, "attempt_count": context.attempt_count}
+            from dataclasses import replace
+            eval_item = replace(item, metadata=meta)
+
         # Use guard if available (highest priority)
         if self._guard is not None:
             guard_decision = self._guard.evaluate(
-                item,
+                eval_item,
                 proposed_action,
                 container=None,
-                promises=None,
+                promises=self._promises,
             )
             events.append(self._audit_log.log(
                 recovery_item_id=item.id,
