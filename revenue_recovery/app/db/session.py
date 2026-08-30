@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 import os
 from dataclasses import dataclass
 from typing import Protocol
 
 import psycopg
+from psycopg_pool import ConnectionPool
 
 
 class DatabaseConnection(Protocol):
@@ -20,46 +19,8 @@ class DatabaseConnection(Protocol):
         ...
 
 
-@dataclass
-class PostgresConnection:
-    """Wraps a psycopg connection with a small typed interface."""
-
-    _conn: psycopg.Connection
-
-    def execute(self, query: str, params: tuple | dict | None = None) -> None:
-        try:
-            with self._conn.cursor() as cur:
-                cur.execute(query, params)
-            self._conn.commit()
-        except Exception:
-            self._conn.rollback()
-            raise
-
-    def fetchone(self, query: str, params: tuple | dict | None = None) -> dict | None:
-        try:
-            with self._conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
-                cur.execute(query, params)
-                row = cur.fetchone()
-                return dict(row) if row else None
-        except Exception:
-            self._conn.rollback()
-            raise
-
-    def fetchall(self, query: str, params: tuple | dict | None = None) -> list[dict]:
-        try:
-            with self._conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
-                cur.execute(query, params)
-                return [dict(row) for row in cur.fetchall()]
-        except Exception:
-            self._conn.rollback()
-            raise
-
-
 def get_database_url() -> str:
-    """Build the DATABASE_URL from environment variables.
-
-    Supports either a direct DATABASE_URL or individual PG* variables.
-    """
+    """Build the DATABASE_URL from environment variables."""
     direct = os.environ.get("DATABASE_URL")
     if direct:
         return direct
@@ -72,8 +33,83 @@ def get_database_url() -> str:
     return f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
 
 
+# Global connection pool instance
+_global_pool: ConnectionPool | None = None
+
+def init_pool() -> None:
+    """Initialize the global PostgreSQL connection pool with automatic health checks."""
+    global _global_pool
+    if _global_pool is None:
+        url = get_database_url()
+        _global_pool = ConnectionPool(
+            url,
+            min_size=2,
+            max_size=10,
+            kwargs={"autocommit": False},
+            check=ConnectionPool.check_connection,
+        )
+
+def close_pool() -> None:
+    """Close the global PostgreSQL connection pool."""
+    global _global_pool
+    if _global_pool is not None:
+        _global_pool.close()
+        _global_pool = None
+
+def get_pool() -> ConnectionPool:
+    """Get the global connection pool, initializing it if necessary."""
+    global _global_pool
+    if _global_pool is None:
+        init_pool()
+    return _global_pool
+
+
+@dataclass
+class PostgresConnection:
+    """Uses the global psycopg_pool to execute queries.
+    
+    In a real system, you might pass a pool instance, but this preserves
+    the current repository signatures that expect a `conn`.
+    """
+
+    def execute(self, query: str, params: tuple | dict | None = None) -> None:
+        pool = get_pool()
+        with pool.connection() as conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(query, params)
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+
+    def fetchone(self, query: str, params: tuple | dict | None = None) -> dict | None:
+        pool = get_pool()
+        with pool.connection() as conn:
+            try:
+                with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                    cur.execute(query, params)
+                    row = cur.fetchone()
+                conn.commit()
+                return dict(row) if row else None
+            except Exception:
+                conn.rollback()
+                raise
+
+    def fetchall(self, query: str, params: tuple | dict | None = None) -> list[dict]:
+        pool = get_pool()
+        with pool.connection() as conn:
+            try:
+                with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                    cur.execute(query, params)
+                    rows = [dict(row) for row in cur.fetchall()]
+                conn.commit()
+                return rows
+            except Exception:
+                conn.rollback()
+                raise
+
+
 def create_connection() -> PostgresConnection:
-    """Create a new PostgreSQL connection."""
-    url = get_database_url()
-    conn = psycopg.connect(url, autocommit=False)
-    return PostgresConnection(_conn=conn)
+    """Create a PostgresConnection wrapper (uses global pool internally)."""
+    return PostgresConnection()

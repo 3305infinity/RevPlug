@@ -4,6 +4,14 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import { api, SimulationResult } from "@/lib/api";
 
+const RECOVERY_TYPES = [
+  { value: "payment_failure", label: "Payment Failure", desc: "Razorpay/Stripe card or gateway transaction error" },
+  { value: "checkout_abandonment", label: "Checkout Abandonment", desc: "Customer dropped off before completing checkout" },
+  { value: "subscription_failure", label: "Subscription Failure", desc: "Recurring billing cycle token or renewal failure" },
+  { value: "overdue_receivable", label: "Overdue Receivable", desc: "Delinquent B2B invoice overdue by 1-14+ days" },
+  { value: "mandate_failure", label: "Mandate Failure", desc: "Auto-pay debit or mandate processing failure" },
+];
+
 const FAILURE_REASONS = [
   { value: "payment_timed_out", label: "Gateway Timeout", category: "soft", desc: "Temporary timeout — retry typically succeeds" },
   { value: "gateway_technical_error", label: "Gateway Technical Failure", category: "soft", desc: "Gateway error — retry typically succeeds" },
@@ -16,9 +24,12 @@ const FAILURE_REASONS = [
 type Phase = "idle" | "running" | "complete" | "error";
 
 export default function RunRecoveryPage() {
+  const [sourceType, setSourceType] = useState("payment_failure");
   const [reasonKey, setReasonKey] = useState(0);
   const [amount, setAmount] = useState(50000);
-  const [customerId, setCustomerId] = useState("");
+  const [customerId, setCustomerId] = useState("cust_demo_101");
+  const [daysOverdue, setDaysOverdue] = useState(3);
+  const [mandateId, setMandateId] = useState("man_9021");
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -39,11 +50,24 @@ export default function RunRecoveryPage() {
     setResult(null);
 
     try {
+      const metadata: Record<string, any> = { source_type: sourceType };
+      if (sourceType === "overdue_receivable") {
+        metadata.days_overdue = daysOverdue;
+        metadata.invoice_id = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+      } else if (sourceType === "checkout_abandonment") {
+        metadata.checkout_stage = "payment_method";
+        metadata.checkout_age_minutes = 45;
+      } else if (sourceType === "mandate_failure") {
+        metadata.mandate_id = mandateId;
+        metadata.retry_eligible = true;
+      }
+
       const res = await api.triggerDemo({
-        event_type: "payment_failure",
+        event_type: sourceType,
         error_reason: selectedReason.value,
         amount_minor: amount,
         customer_id: customerId.trim(),
+        metadata,
       });
       setResult(res);
       setPhase("complete");
@@ -63,16 +87,44 @@ export default function RunRecoveryPage() {
       <div style={{ marginBottom: "2rem" }}>
         <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em", marginBottom: "0.5rem" }}>Run Recovery</h1>
         <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem" }}>
-          Evaluate a revenue event and execute the safest eligible recovery action.
+          Evaluate a revenue event across canonical surfaces and execute the safest eligible recovery action.
         </p>
       </div>
 
       {phase === "idle" && (
         <div className="card" style={{ padding: "2rem", marginBottom: "1.5rem" }}>
+          {/* Recovery Surface Type Selector */}
+          <div style={{ marginBottom: "1.75rem" }}>
+            <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.5rem" }}>
+              1. Opportunity Type / Surface
+            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "0.5rem" }}>
+              {RECOVERY_TYPES.map((t) => (
+                <button
+                  key={t.value}
+                  onClick={() => setSourceType(t.value)}
+                  style={{
+                    padding: "0.65rem 0.85rem",
+                    borderRadius: 4,
+                    border: `1px solid ${sourceType === t.value ? "var(--orange)" : "var(--border)"}`,
+                    background: sourceType === t.value ? "rgba(249, 115, 22, 0.1)" : "#0b0f17",
+                    color: sourceType === t.value ? "var(--orange)" : "var(--text-primary)",
+                    fontWeight: sourceType === t.value ? 600 : 400,
+                    cursor: "pointer",
+                    fontSize: "0.78125rem",
+                    textAlign: "left",
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
             <div>
               <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.5rem" }}>
-                Failure Type
+                2. Failure / Reason Code
               </label>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
                 {FAILURE_REASONS.map((r, i) => (
@@ -80,17 +132,17 @@ export default function RunRecoveryPage() {
                     key={r.value}
                     onClick={() => setReasonKey(i)}
                     style={{
-                      padding: "0.75rem 1rem",
-                      borderRadius: 8,
-                      border: `1px solid ${reasonKey === i ? "var(--accent)" : "var(--border)"}`,
-                      background: reasonKey === i ? "var(--accent-subtle)" : "var(--bg-tertiary)",
+                      padding: "0.65rem 0.85rem",
+                      borderRadius: 4,
+                      border: `1px solid ${reasonKey === i ? "var(--orange)" : "var(--border)"}`,
+                      background: reasonKey === i ? "rgba(249, 115, 22, 0.1)" : "#0b0f17",
                       cursor: "pointer",
                       textAlign: "left",
                       transition: "all 0.15s",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.2rem" }}>
-                      <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: reasonKey === i ? "var(--accent)" : "var(--text-primary)" }}>
+                      <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: reasonKey === i ? "var(--orange)" : "var(--text-primary)" }}>
                         {r.label}
                       </span>
                       <span style={{ fontSize: "0.625rem", fontWeight: 600, padding: "0.15rem 0.5rem", borderRadius: 4, background: categoryColor(r.category), color: "#fff", textTransform: "uppercase" }}>
@@ -103,169 +155,202 @@ export default function RunRecoveryPage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <div>
-                <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.5rem" }}>
-                  Amount (₹)
-                </label>
-                <input
-                  type="number"
-                  value={amount / 100}
-                  onChange={(e) => setAmount(Math.max(100, Number(e.target.value) * 100))}
-                  className="input"
-                  style={{ width: "100%" }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.5rem" }}>
-                  Customer ID
-                </label>
-                <input
-                  type="text"
-                  value={customerId}
-                  onChange={(e) => setCustomerId(e.target.value)}
-                  placeholder="e.g. cust_3Xt8Gk"
-                  className="input"
-                  style={{ width: "100%" }}
-                />
-              </div>
+            <div>
+              <label style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "0.5rem" }}>
+                3. Opportunity Details
+              </label>
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
+                    Amount at Risk (₹)
+                  </div>
+                  <input
+                    type="number"
+                    value={amount / 100}
+                    onChange={(e) => setAmount(Math.max(0, Math.round(Number(e.target.value) * 100)))}
+                    style={{
+                      width: "100%",
+                      padding: "0.625rem 0.875rem",
+                      borderRadius: 4,
+                      border: "1px solid var(--border)",
+                      background: "#080c14",
+                      color: "#fff",
+                      fontSize: "0.875rem",
+                    }}
+                  />
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                    {fmt(amount)} minor units
+                  </div>
+                </div>
 
-              <div style={{ padding: "1rem", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border-subtle)" }}>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>Expected outcome</div>
-                <div style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--text-primary)", lineHeight: 1.5 }}>
-                  {selectedReason.category === "soft" && "Automatic retry — recovery likely"}
-                  {selectedReason.category === "hard" && "Payment link or escalation"}
-                  {selectedReason.category === "fraud" && "Blocked — escalated to human"}
-                  {selectedReason.category === "auth" && "Payment link sent"}
-                  {selectedReason.category === "unknown" && "Escalated for review"}
+                <div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
+                    Customer Identifier
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g. cust_razorpay_99"
+                    value={customerId}
+                    onChange={(e) => setCustomerId(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "0.625rem 0.875rem",
+                      borderRadius: 4,
+                      border: "1px solid var(--border)",
+                      background: "#080c14",
+                      color: "#fff",
+                      fontSize: "0.875rem",
+                    }}
+                  />
+                </div>
+
+                {sourceType === "overdue_receivable" && (
+                  <div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
+                      Days Overdue (Ladder Day 1/3/7/14)
+                    </div>
+                    <select
+                      value={daysOverdue}
+                      onChange={(e) => setDaysOverdue(Number(e.target.value))}
+                      style={{
+                        width: "100%",
+                        padding: "0.625rem 0.875rem",
+                        borderRadius: 4,
+                        border: "1px solid var(--border)",
+                        background: "#080c14",
+                        color: "#fff",
+                        fontSize: "0.875rem",
+                      }}
+                    >
+                      <option value={1}>Day 1 — Gentle Reminder</option>
+                      <option value={3}>Day 3 — Strong Reminder + Payment Link</option>
+                      <option value={7}>Day 7 — Alternate Channel Notice</option>
+                      <option value={14}>Day 14 — Escalate to Human Operator</option>
+                    </select>
+                  </div>
+                )}
+
+                {sourceType === "mandate_failure" && (
+                  <div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.25rem" }}>
+                      Mandate ID
+                    </div>
+                    <input
+                      type="text"
+                      value={mandateId}
+                      onChange={(e) => setMandateId(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "0.625rem 0.875rem",
+                        borderRadius: 4,
+                        border: "1px solid var(--border)",
+                        background: "#080c14",
+                        color: "#fff",
+                        fontSize: "0.875rem",
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ marginTop: "1rem" }}>
+                  <button
+                    onClick={handleRun}
+                    disabled={!customerId.trim()}
+                    style={{
+                      width: "100%",
+                      padding: "0.75rem 1rem",
+                      borderRadius: 4,
+                      background: "var(--orange)",
+                      color: "#fff",
+                      fontWeight: 600,
+                      border: "none",
+                      cursor: customerId.trim() ? "pointer" : "not-allowed",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    Evaluate & Execute Recovery →
+                  </button>
                 </div>
               </div>
-
-              <button
-                onClick={handleRun}
-                disabled={!customerId.trim()}
-                className="btn-primary"
-                style={{ width: "100%", padding: "0.875rem", fontSize: "0.875rem" }}
-              >
-                Run Recovery
-              </button>
             </div>
           </div>
         </div>
       )}
 
       {phase === "running" && (
-        <div className="card" style={{ padding: "2rem" }}>
-          <div style={{ marginBottom: "1.5rem" }}>
-            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-              Executing Recovery Workflow
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
-              {[
-                { label: "Event received", status: "done" },
-                { label: "Signature verified", status: "done" },
-                { label: "Failure classified", status: "done" },
-                { label: "Expected value scored", status: "done" },
-                { label: "AI recommendation", status: "done" },
-                { label: "Safety check", status: "active" },
-                { label: "Execution", status: "pending" },
-                { label: "Outcome recorded", status: "pending" },
-              ].map((step, i) => (
-                <div key={step.label} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.75rem 0", borderBottom: i < 7 ? "1px solid var(--border-subtle)" : "none" }}>
-                  <div style={{
-                    width: 28, height: 28, borderRadius: "50%",
-                    background: step.status === "done" ? "var(--success)" : step.status === "active" ? "var(--accent)" : "var(--bg-tertiary)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "0.6875rem", fontWeight: 700,
-                    color: step.status !== "pending" ? "#fff" : "var(--text-muted)",
-                    flexShrink: 0,
-                  }}>
-                    {step.status === "done" ? "✓" : step.status === "active" ? "⟳" : "○"}
-                  </div>
-                  <span style={{ fontSize: "0.8125rem", color: step.status === "pending" ? "var(--text-muted)" : "var(--text-primary)", fontWeight: step.status !== "pending" ? 500 : 400 }}>
-                    {step.label}
-                  </span>
-                </div>
-              ))}
-            </div>
+        <div className="card" style={{ padding: "3rem", textAlign: "center" }}>
+          <div style={{ fontSize: "1.25rem", fontWeight: 600, color: "#fff", marginBottom: "1rem" }}>
+            Running Recovery Control Pipeline...
           </div>
-        </div>
-      )}
-
-      {phase === "complete" && result && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div className="card" style={{ padding: "2rem", borderLeft: `4px solid ${outcomeColor}` }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem", marginBottom: "1.5rem" }}>
-              <div>
-                <div style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.35rem" }}>Outcome</div>
-                <div style={{ fontSize: "2rem", fontWeight: 700, color: outcomeColor, letterSpacing: "-0.03em" }}>{outcomeLabel}</div>
-              </div>
-              {result.recovery_item_id && (
-                <Link href={`/recovery/${result.recovery_item_id}`} className="btn-primary">
-                  Open Case →
-                </Link>
-              )}
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.25rem" }}>
-              <ResultCell label="Case ID" value={result.recovery_item_id || "—"} mono />
-              <ResultCell label="Failure" value={result.failure_category?.replace(/_/g, " ") || "—"} />
-              <ResultCell label="AI Action" value={result.proposed_action?.replace(/_/g, " ") || "—"} />
-              <ResultCell label="Policy" value={result.policy_allowed ? "Allowed" : "Blocked"} success={result.policy_allowed} danger={!result.policy_allowed} />
-            </div>
-
-            {result.expected_recovery_value && (
-              <div style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--success)", fontFamily: "monospace" }}>
-                {fmt(result.expected_recovery_value)} expected recovery
-              </div>
-            )}
-            {result.stopped_reason && (
-              <div style={{ marginTop: "0.75rem", padding: "0.75rem 1rem", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border-subtle)" }}>
-                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--danger)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.35rem" }}>
-                  Recovery Stopped
-                </div>
-                <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                  <span style={{ color: "var(--text-muted)" }}>Reason:</span> {result.stopped_reason.replace(/_/g, " ")}
-                </div>
-                {result.stopped_rule && (
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
-                    <span style={{ color: "var(--text-muted)" }}>Rule:</span> {result.stopped_rule}
-                  </div>
-                )}
-              </div>
-            )}
+          <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontFamily: "monospace" }}>
+            [Detecting → EV Scoring → Safety Policy Check → Bounded Dispatch]
           </div>
-
-          <button onClick={reset} className="btn-secondary" style={{ alignSelf: "flex-start" }}>
-            Run Another Recovery
-          </button>
         </div>
       )}
 
       {phase === "error" && (
-        <div className="card" style={{ padding: "2rem", borderLeft: "4px solid var(--danger)" }}>
-          <div style={{ fontSize: "1.5rem", marginBottom: "0.75rem" }}>⚠️</div>
-          <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.5rem" }}>Execution Failed</h3>
-          <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "1.25rem" }}>{errorMsg}</p>
-          <button onClick={reset} className="btn-primary">Try Again</button>
+        <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
+          <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>⚠️</div>
+          <div style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--danger)", marginBottom: "0.5rem" }}>Execution Failed</div>
+          <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "1.5rem" }}>{errorMsg}</div>
+          <button onClick={reset} style={{ padding: "0.5rem 1rem", background: "var(--bg-tertiary)", border: "1px solid var(--border)", color: "#fff", borderRadius: 4, cursor: "pointer" }}>
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {phase === "complete" && result && (
+        <div>
+          <div className="card" style={{ padding: "1.75rem", marginBottom: "1.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+              <span style={{ fontSize: "0.6875rem", fontWeight: 700, fontFamily: "monospace", color: "var(--text-muted)", textTransform: "uppercase" }}>
+                PIPELINE EXECUTION OUTCOME
+              </span>
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "monospace", padding: "0.25rem 0.6rem", borderRadius: 4, background: outcomeColor + "20", color: outcomeColor, border: `1px solid ${outcomeColor}40` }}>
+                {outcomeLabel}
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem" }}>
+              <div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>ITEM ID</div>
+                <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#fff", fontFamily: "monospace" }}>{result.recovery_item_id}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>RECOVERED VALUE</div>
+                <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--success)" }}>{fmt(result.actual_recovery_value || 0)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>EXECUTED ACTION</div>
+                <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--orange)", fontFamily: "monospace" }}>{result.proposed_action || "none"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>POLICY RULE</div>
+                <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "monospace" }}>{result.policy_rule || "n/a"}</div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem" }}>
+              <Link href={`/recovery/${result.recovery_item_id}`} style={{ padding: "0.5rem 1rem", background: "var(--orange)", color: "#fff", borderRadius: 4, textDecoration: "none", fontSize: "0.8125rem", fontWeight: 600 }}>
+                Open Case Workspace →
+              </Link>
+              <button onClick={reset} style={{ padding: "0.5rem 1rem", background: "#0b0f17", border: "1px solid var(--border)", color: "#fff", borderRadius: 4, cursor: "pointer", fontSize: "0.8125rem" }}>
+                Run Another Evaluation
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function ResultCell({ label, value, mono, success, danger }: { label: string; value: string; mono?: boolean; success?: boolean; danger?: boolean }) {
-  return (
-    <div style={{ padding: "0.875rem 1rem", background: "var(--bg-tertiary)", borderRadius: 8 }}>
-      <div style={{ fontSize: "0.625rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.35rem" }}>{label}</div>
-      <div style={{ fontSize: "0.8125rem", fontWeight: 600, fontFamily: mono ? "monospace" : undefined, color: success ? "var(--success)" : danger ? "var(--danger)" : "var(--text-primary)", textTransform: "capitalize" }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function categoryColor(cat: string): string {
-  const map: Record<string, string> = { soft: "var(--success)", hard: "var(--warning)", fraud: "var(--danger)", auth: "var(--accent)", unknown: "var(--text-muted)" };
-  return map[cat] || "var(--text-muted)";
+function categoryColor(cat: string) {
+  switch (cat) {
+    case "soft": return "var(--orange)";
+    case "hard": return "var(--danger)";
+    case "fraud": return "var(--danger)";
+    case "auth": return "var(--warning)";
+    default: return "var(--text-muted)";
+  }
 }

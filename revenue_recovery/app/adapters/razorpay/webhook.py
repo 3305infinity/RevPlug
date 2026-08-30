@@ -700,11 +700,12 @@ class RazorpayWebhookService:
         normalized: NormalizedFailure,
     ) -> RecoveryItem:
         import uuid
+        extracted_cust = razorpay_failure.customer_id or self._default_customer_id
         return RecoveryItem(
             id=str(uuid.uuid4()),
             source_type=SourceType.PAYMENT_FAILURE,
             external_id=razorpay_failure.razorpay_event_id,
-            customer_id=self._default_customer_id,
+            customer_id=extracted_cust,
             amount_minor=razorpay_failure.amount_minor,
             currency=razorpay_failure.currency,
             created_at=razorpay_failure.occurred_at,
@@ -886,7 +887,7 @@ class RazorpayWebhookService:
             id=razorpay_failure.razorpay_payment_id,
             source_type=SourceType.PAYMENT_FAILURE,
             external_id=razorpay_failure.razorpay_event_id,
-            customer_id=self._default_customer_id,
+            customer_id=razorpay_failure.customer_id or self._default_customer_id,
             amount_minor=razorpay_failure.amount_minor,
             currency=razorpay_failure.currency,
             created_at=razorpay_failure.occurred_at,

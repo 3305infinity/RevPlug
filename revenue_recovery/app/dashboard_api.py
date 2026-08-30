@@ -28,9 +28,19 @@ _AT_RISK_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_
 
 
 def _get_items(container) -> list:
-    """Extract all recovery items from the container."""
-    if hasattr(container.recovery_items, "_items"):
-        return list(container.recovery_items._items.values())
+    """Extract all recovery items from the container.
+
+    Works with both InMemoryRecoveryItemRepository (_items dict)
+    and PostgresRecoveryItemRepository (list_all via _conn).
+    """
+    repo = container.recovery_items
+    if hasattr(repo, "_items"):
+        return list(repo._items.values())
+    if hasattr(repo, "list_all"):
+        try:
+            return repo.list_all()
+        except Exception:
+            return []
     return []
 
 
@@ -63,6 +73,9 @@ def _actual_recovered_from_outcomes(container, item_ids: set[str] | None = None)
 
     This is the authoritative financial truth source. Never use
     expected_recovery_value or any heuristic here.
+
+    Works with both InMemoryRecoveryOutcomeRepository (_outcomes dict)
+    and PostgresRecoveryOutcomeRepository (list_all via _conn).
     """
     if not hasattr(container, "outcomes") or container.outcomes is None:
         return 0
@@ -77,6 +90,19 @@ def _actual_recovered_from_outcomes(container, item_ids: set[str] | None = None)
             amount = getattr(outcome, "actual_recovery_minor", None) or 0
             total += amount
         return total
+    if hasattr(outcomes_repo, "list_all"):
+        try:
+            total = 0
+            for outcome in outcomes_repo.list_all():
+                if outcome is None:
+                    continue
+                if item_ids is not None and outcome.recovery_item_id not in item_ids:
+                    continue
+                amount = getattr(outcome, "actual_recovery_minor", None) or 0
+                total += amount
+            return total
+        except Exception:
+            return 0
     return 0
 
 

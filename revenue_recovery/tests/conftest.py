@@ -1,3 +1,6 @@
+import os
+os.environ["PERSISTENCE_MODE"] = "memory"
+
 from datetime import datetime, timezone
 
 import pytest

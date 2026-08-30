@@ -3,31 +3,33 @@
 @tailwind utilities;
 
 :root {
-  --bg-root: #06080d;
-  --bg-primary: #0a0e17;
-  --bg-secondary: #111827;
-  --bg-tertiary: #1f2937;
-  --bg-card: #161d2a;
-  --bg-elevated: #1c2536;
-  --border: #263044;
-  --border-subtle: #1e293b;
+  --bg-root: #04060a;
+  --bg-primary: #080c14;
+  --bg-secondary: #0d131f;
+  --bg-tertiary: #141c2b;
+  --bg-card: #0b0f17;
+  --bg-elevated: #111722;
+  --border: #1e293b;
+  --border-subtle: #162032;
   --border-focus: #334155;
-  --text-primary: #f1f5f9;
+  --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
-  --accent: #06b6d4;
-  --accent-hover: #0891b2;
-  --accent-subtle: rgba(6, 182, 212, 0.12);
-  --accent-glow: rgba(6, 182, 212, 0.25);
+  --accent: #f97316;
+  --accent-hover: #ea580c;
+  --accent-subtle: rgba(249, 115, 22, 0.1);
+  --accent-glow: rgba(249, 115, 22, 0.2);
+  --orange: #f97316;
+  --orange-hover: #ea580c;
+  --orange-subtle: rgba(249, 115, 22, 0.1);
   --success: #10b981;
-  --success-subtle: rgba(16, 185, 129, 0.12);
+  --success-subtle: rgba(16, 185, 129, 0.1);
   --warning: #f59e0b;
-  --warning-subtle: rgba(245, 158, 11, 0.12);
+  --warning-subtle: rgba(245, 158, 11, 0.1);
   --danger: #ef4444;
-  --danger-subtle: rgba(239, 68, 68, 0.12);
+  --danger-subtle: rgba(239, 68, 68, 0.1);
   --purple: #8b5cf6;
-  --purple-subtle: rgba(139, 92, 246, 0.12);
-  --purple-glow: rgba(139, 92, 246, 0.25);
+  --purple-subtle: rgba(139, 92, 246, 0.1);
 }
 
 * {

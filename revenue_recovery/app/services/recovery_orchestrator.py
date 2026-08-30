@@ -172,7 +172,18 @@ class RecoveryOrchestrator:
             ))
             return None, None
 
-        proposal = self._agent.propose(context)
+        try:
+            proposal = self._agent.propose(context)
+        except Exception as exc:
+            events.append(self._audit_log.log(
+                recovery_item_id=item.id,
+                actor="system",
+                action="agent_failed",
+                reason=f"Agent failed to propose: {exc}",
+                metadata={"error": str(exc), "error_type": type(exc).__name__},
+            ))
+            # Safe fallback: escalate to human or let rules engine take over
+            return None, None
 
         events.append(self._audit_log.log(
             recovery_item_id=item.id,

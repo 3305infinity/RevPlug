@@ -29,6 +29,7 @@ class RazorpayPaymentFailure:
     payment_method: str | None
     occurred_at: datetime
     raw_payload: dict[str, Any]
+    customer_id: str | None = None
 
 
 def _get_nested(payload: dict[str, Any], *keys: str) -> Any:
@@ -107,6 +108,10 @@ def parse_razorpay_event(raw_body: bytes) -> RazorpayPaymentFailure:
     if occurred_at is None:
         occurred_at = datetime.now(timezone.utc)
 
+    customer_id = payload.get("customer_id") or payment_entity.get("customer_id")
+    if customer_id and not isinstance(customer_id, str):
+        customer_id = str(customer_id)
+
     return RazorpayPaymentFailure(
         razorpay_event_id=razorpay_event_id,
         razorpay_payment_id=payment_id,
@@ -120,4 +125,5 @@ def parse_razorpay_event(raw_body: bytes) -> RazorpayPaymentFailure:
         payment_method=payment_entity.get("method"),
         occurred_at=occurred_at,
         raw_payload=payload,
+        customer_id=customer_id,
     )

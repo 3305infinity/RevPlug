@@ -10,7 +10,8 @@ export default function RecoveryQueue() {
   const [status, setStatus] = useState<Status>("loading");
   const [items, setItems] = useState<RecoveryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
 
   const load = useCallback(async () => {
     try {
@@ -28,9 +29,13 @@ export default function RecoveryQueue() {
   useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
-    if (filter === "all") return items;
-    return items.filter((i) => i.status === filter);
-  }, [items, filter]);
+    return items.filter((i) => {
+      const matchStatus = statusFilter === "all" || i.status === statusFilter;
+      const src = String(i.source_type || i.metadata?.source_type || "payment_failure");
+      const matchSource = sourceFilter === "all" || src.includes(sourceFilter);
+      return matchStatus && matchSource;
+    });
+  }, [items, statusFilter, sourceFilter]);
 
   const statuses = useMemo(() => {
     const s = new Set(items.map((i) => i.status));
@@ -57,7 +62,7 @@ export default function RecoveryQueue() {
         <div>
           <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em" }}>Recovery Queue</h1>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>
-            {items.length} case{items.length !== 1 ? "s" : ""} · {fmt(items.reduce((a, i) => a + i.amount_minor, 0))} at risk
+            {items.length} case{items.length !== 1 ? "s" : ""} · {fmt(items.reduce((a, i) => a + i.amount_minor, 0))} at risk across canonical surfaces
           </p>
         </div>
         <Link href="/run-recovery" className="btn-primary" style={{ fontSize: "0.8125rem" }}>
@@ -65,14 +70,26 @@ export default function RecoveryQueue() {
         </Link>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.25rem", flexWrap: "wrap" }}>
-        <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>All</FilterButton>
-        {statuses.map((s) => (
-          <FilterButton key={s} active={filter === s} onClick={() => setFilter(s)}>
-            {s.replace(/_/g, " ")}
-          </FilterButton>
-        ))}
+      {/* Filters: Source Type & Status */}
+      <div style={{ display: "flex", gap: "1rem", marginBottom: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+          <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Source:</span>
+          {["all", "payment_failure", "checkout", "subscription", "receivable", "mandate"].map((src) => (
+            <FilterButton key={src} active={sourceFilter === src} onClick={() => setSourceFilter(src)}>
+              {src === "all" ? "All Sources" : src.replace(/_/g, " ").toUpperCase()}
+            </FilterButton>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+          <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Status:</span>
+          <FilterButton active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>All</FilterButton>
+          {statuses.map((s) => (
+            <FilterButton key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)}>
+              {s.replace(/_/g, " ")}
+            </FilterButton>
+          ))}
+        </div>
       </div>
 
       {status === "loading" ? (
@@ -102,6 +119,7 @@ export default function RecoveryQueue() {
                       <span style={{ fontWeight: 600, fontSize: "0.875rem", fontFamily: "monospace" }}>
                         {item.id}
                       </span>
+                      <SourceBadge source={String(item.source_type || item.metadata?.source_type || "payment_failure")} />
                       <StatusBadge status={item.status} />
                     </div>
                     <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
@@ -119,7 +137,7 @@ export default function RecoveryQueue() {
                   {item.expected_recovery_value != null && (
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>EV</div>
-                      <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--accent)" }}>{fmt(item.expected_recovery_value)}</div>
+                      <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--orange)" }}>{fmt(item.expected_recovery_value)}</div>
                     </div>
                   )}
                   {item.recovery_probability != null && (
@@ -146,20 +164,38 @@ function FilterButton({ active, onClick, children }: { active: boolean; onClick:
     <button
       onClick={onClick}
       style={{
-        padding: "0.4rem 0.85rem",
-        borderRadius: 6,
-        fontSize: "0.75rem",
+        padding: "0.3rem 0.65rem",
+        borderRadius: 4,
+        fontSize: "0.6875rem",
         fontWeight: 500,
         cursor: "pointer",
         border: "1px solid",
-        borderColor: active ? "var(--accent)" : "var(--border)",
-        background: active ? "var(--accent-subtle)" : "var(--bg-card)",
-        color: active ? "var(--accent)" : "var(--text-secondary)",
+        borderColor: active ? "var(--orange)" : "var(--border)",
+        background: active ? "rgba(249, 115, 22, 0.1)" : "#0b0f17",
+        color: active ? "var(--orange)" : "var(--text-secondary)",
         transition: "all 0.15s",
       }}
     >
       {children}
     </button>
+  );
+}
+
+function SourceBadge({ source }: { source: string }) {
+  const formatted = source.replace(/_/g, " ").toUpperCase();
+  return (
+    <span style={{
+      fontSize: "0.625rem",
+      fontWeight: 700,
+      fontFamily: "monospace",
+      padding: "0.15rem 0.45rem",
+      borderRadius: 4,
+      background: "#0d131f",
+      color: "var(--orange)",
+      border: "1px solid var(--border)",
+    }}>
+      {formatted}
+    </span>
   );
 }
 

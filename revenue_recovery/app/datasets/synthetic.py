@@ -344,3 +344,171 @@ def assert_synthetic(item: RecoveryItem) -> None:
             f"Item {item.id} is not marked as synthetic. "
             "Do not process real customer items through synthetic dataset APIs."
         )
+
+
+# ---------------------------------------------------------------------------
+# Evaluation Dataset — seeded, diverse, deterministic
+# ---------------------------------------------------------------------------
+
+def generate_evaluation_dataset(count: int = 50, seed: int = 42) -> list[RecoveryItem]:
+    """Generate a seeded deterministic evaluation dataset for batch comparison.
+
+    Given the same (count, seed), the output is always identical — enabling
+    reproducible evaluation comparisons between RecoverOS and the baseline.
+
+    Dataset coverage (distributed across 'count' items):
+    - Soft failures (retryable, various attempt counts)
+    - Hard failures (non-retryable)
+    - Fraud/risk failures (must stop)
+    - Auth-required failures
+    - Unknown/ambiguous failures
+    - Low-value opportunities
+    - High-value opportunities
+    - Retry-budget-exhausted cases (attempt_count = max)
+    - Opted-out customers
+    - Promise-to-pay scenarios (active and expired)
+
+    All items are tagged is_synthetic=True.
+
+    Args:
+        count: Number of cases to generate (1–500).
+        seed: RNG seed for determinism.
+
+    Returns:
+        List of RecoveryItem instances, always identical for the same inputs.
+    """
+    import random as _random
+
+    rng = _random.Random(seed)
+    count = max(1, min(count, 500))
+
+    # ---- Failure category distribution weights ----
+    # These weights control how many of each category appear.
+    # Kept stable so the same seed always produces the same ratios.
+    CATEGORIES = [
+        # (category_key, weight, retryable, [attempt_choices])
+        ("soft",                     30, True,  [0, 1]),
+        ("hard",                     15, False, [0, 1]),
+        ("authentication_required",  10, False, [0]),
+        ("fraud",                     8, False, [0]),
+        ("soft_exhausted",            8, True,  [3, 4]),
+        ("soft_optout",               5, True,  [0, 1]),
+        ("soft_promise_active",      7, True,  [0]),
+        ("soft_promise_expired",     7, True,  [1]),
+        ("checkout_abandonment",     10, False, [0]),
+        ("subscription_failure",     10, True,  [0, 1]),
+        ("overdue_receivable",       10, False, [0]),
+        ("mandate_failure",          8,  True,  [0, 1]),
+    ]
+
+    # Build weighted pool
+    pool = []
+    for entry in CATEGORIES:
+        cat, weight, retryable, _ = entry
+        pool.extend([entry] * weight)
+
+    items = []
+    opted_out_customers: set[str] = set()
+
+    for i in range(count):
+        entry = pool[rng.randint(0, len(pool) - 1)]
+        root_cause, _, retryable, attempt_choices = entry
+
+        # Resolve actual root cause and source_type for the item
+        actual_root_cause = root_cause
+        source_type = SourceType.PAYMENT_FAILURE
+
+        if root_cause == "soft_exhausted":
+            actual_root_cause = "soft"
+        elif root_cause == "soft_optout":
+            actual_root_cause = "soft"
+        elif root_cause in ("soft_promise_active", "soft_promise_expired"):
+            actual_root_cause = "soft"
+        elif root_cause == "checkout_abandonment":
+            source_type = SourceType.CHECKOUT_ABANDONMENT
+            actual_root_cause = "checkout_abandoned"
+        elif root_cause == "subscription_failure":
+            source_type = SourceType.SUBSCRIPTION_FAILURE
+            actual_root_cause = "soft"
+        elif root_cause == "overdue_receivable":
+            source_type = SourceType.RECEIVABLE
+            actual_root_cause = "invoice_overdue"
+        elif root_cause == "mandate_failure":
+            source_type = SourceType.MANDATE_FAILURE
+            actual_root_cause = "mandate_failed"
+
+        attempt_count = rng.choice(attempt_choices)
+
+        low_amounts = [100, 150, 200, 250, 500]           # < ₹5
+        mid_amounts = [5000, 10000, 25000, 50000]          # ₹50–₹500
+        high_amounts = [100000, 250000, 500000, 1000000]   # ₹1000–₹10000
+        all_amounts = low_amounts * 2 + mid_amounts * 6 + high_amounts * 2
+        amount_minor = rng.choice(all_amounts)
+
+        if root_cause == "soft_optout":
+            cust_id = f"optout_cust_{i % 3 + 1}"
+            opted_out_customers.add(cust_id)
+        else:
+            cust_id = f"eval_cust_{rng.randint(1, 20)}"
+
+        status = RecoveryStatus.DETECTED
+        item_id = f"eval_{seed}_{i:04d}"
+
+        extra: dict = {}
+        if root_cause == "soft_optout":
+            extra["customer_opted_out"] = True
+        if root_cause == "soft_promise_active":
+            from datetime import date, timedelta
+            promise_date = date.today() + timedelta(days=rng.randint(1, 7))
+            extra["promise_date"] = promise_date.isoformat()
+            extra["promise_status"] = "promised"
+        if root_cause == "soft_promise_expired":
+            from datetime import date, timedelta
+            promise_date = date.today() - timedelta(days=rng.randint(1, 14))
+            extra["promise_date"] = promise_date.isoformat()
+            extra["promise_status"] = "expired"
+        if root_cause in ("fraud",):
+            extra["fraud_flag"] = True
+        if source_type == SourceType.RECEIVABLE:
+            extra["days_overdue"] = rng.choice([1, 3, 7, 14])
+            extra["invoice_id"] = f"INV-{1000 + i}"
+        if source_type == SourceType.CHECKOUT_ABANDONMENT:
+            extra["checkout_stage"] = "payment_method"
+            extra["checkout_age_minutes"] = rng.choice([30, 120, 1440, 15000])
+        if source_type == SourceType.MANDATE_FAILURE:
+            extra["mandate_id"] = f"man_{100 + i}"
+            extra["retry_eligible"] = rng.choice([True, False])
+
+        items.append(_make_item(
+            item_id=item_id,
+            source_type=source_type,
+            amount_minor=amount_minor,
+            root_cause=actual_root_cause,
+            status=status,
+            attempt_count=attempt_count,
+            recovery_probability=0.0,
+            expected_recovery_value=0,
+            created_at=_utc(days_ago=rng.randint(0, 30)),
+            customer_id=cust_id,
+            dataset_label=f"eval_seed{seed}",
+            extra_metadata={
+                "customer_opted_out": root_cause == "soft_optout",
+                "eval_seed": seed,
+                "eval_index": i,
+                "original_category": root_cause,
+                "source_type": source_type.value,
+                **extra,
+            },
+        ))
+
+    return items
+
+
+def get_opted_out_customers(items: list[RecoveryItem]) -> frozenset[str]:
+    """Return the set of opted-out customer IDs from an evaluation dataset."""
+    return frozenset(
+        item.customer_id
+        for item in items
+        if item.metadata.get("customer_opted_out")
+    )
+

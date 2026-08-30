@@ -38,6 +38,8 @@ class PersistenceContainer:
     outcomes: "RecoveryOutcomeRepository"
     promises: "PromiseRepository"
     provider_events: "ProviderEventRepository"
+    users: "object | None" = None
+    sessions: "object | None" = None
     jobs: "object | None" = None  # RecoveryJobRepository (Stage 7 async worker)
     batches: "object | None" = None  # InMemoryBatchRepository (Stage 8 batch recovery)
 
@@ -104,7 +106,7 @@ def create_persistence_container(mode: str | None = None) -> PersistenceContaine
               defaulting to "memory".
     """
     if mode is None:
-        mode = os.environ.get("PERSISTENCE_MODE", "memory")
+        mode = os.environ.get("PERSISTENCE_MODE", "postgres")
 
     if mode == "memory":
         from app.services.batch_service import InMemoryBatchRepository
@@ -117,13 +119,19 @@ def create_persistence_container(mode: str | None = None) -> PersistenceContaine
             outcomes=_InMemoryRecoveryOutcomeRepository(),
             promises=_InMemoryPromiseRepository(),
             provider_events=_InMemoryProviderEventRepository(),
+            users=_InMemoryUserRepository(),
+            sessions=_InMemorySessionRepository(),
             jobs=InMemoryRecoveryJobRepository(),
             batches=InMemoryBatchRepository(),
         )
 
     if mode == "postgres":
         conn = create_connection()
-        from app.db.postgres_repositories import PostgresRecoveryDecisionRepository
+        from app.db.postgres_repositories import (
+            PostgresRecoveryDecisionRepository,
+            PostgresUserRepository,
+            PostgresSessionRepository,
+        )
         return PersistenceContainer(
             recovery_items=PostgresRecoveryItemRepository(conn),
             idempotency=PostgresIdempotencyStore(conn),
@@ -133,6 +141,8 @@ def create_persistence_container(mode: str | None = None) -> PersistenceContaine
             outcomes=PostgresRecoveryOutcomeRepository(conn),
             promises=PostgresPromiseRepository(conn),
             provider_events=PostgresProviderEventRepository(conn),
+            users=PostgresUserRepository(conn),
+            sessions=PostgresSessionRepository(conn),
             jobs=PostgresRecoveryJobRepository(conn),
         )
 
@@ -322,6 +332,72 @@ class ProviderEventRepository:
 
     def save(self, event) -> None:
         ...
+
+
+class _InMemoryUserRepository:
+    def __init__(self) -> None:
+        self._users: dict[str, object] = {}
+
+    def create_user(self, email: str, password_hash: str, full_name: str):
+        import uuid
+        from datetime import datetime, timezone
+        from app.domain.auth import User
+        user = User(
+            id=str(uuid.uuid4()),
+            email=email.lower().strip(),
+            password_hash=password_hash,
+            full_name=full_name.strip(),
+            created_at=datetime.now(timezone.utc),
+        )
+        self._users[user.id] = user
+        return user
+
+    def get_by_email(self, email: str):
+        clean_email = email.lower().strip()
+        for u in self._users.values():
+            if u.email.lower() == clean_email:
+                return u
+        return None
+
+    def get_by_id(self, user_id: str):
+        return self._users.get(user_id)
+
+
+class _InMemorySessionRepository:
+    def __init__(self) -> None:
+        self._sessions: dict[str, object] = {}
+
+    def create_session(self, user_id: str, *, expires_in_seconds: int = 86400 * 7):
+        import secrets
+        from datetime import datetime, timedelta, timezone
+        from app.domain.auth import UserSession
+        token = secrets.token_hex(32)
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(seconds=expires_in_seconds)
+        sess = UserSession(
+            session_token=token,
+            user_id=user_id,
+            created_at=now,
+            expires_at=expires_at,
+        )
+        self._sessions[token] = sess
+        return sess
+
+    def get_session(self, session_token: str):
+        from datetime import datetime, timezone
+        if not session_token:
+            return None
+        sess = self._sessions.get(session_token)
+        if not sess:
+            return None
+        if sess.expires_at < datetime.now(timezone.utc):
+            self.delete_session(session_token)
+            return None
+        return sess
+
+    def delete_session(self, session_token: str) -> None:
+        self._sessions.pop(session_token, None)
+
 
     def get_by_provider_event(self, provider: str, provider_event_id: str):
         ...

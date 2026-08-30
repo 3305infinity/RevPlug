@@ -9,7 +9,10 @@ from typing import Any
 class RecoveryAction(StrEnum):
     RETRY_PAYMENT = "retry_payment"
     SEND_PAYMENT_LINK = "send_payment_link"
+    SEND_REMINDER = "send_reminder"
     SEND_CUSTOMER_MESSAGE = "send_customer_message"
+    ALTERNATE_CHANNEL = "alternate_channel"
+    PROMISE_TO_PAY = "promise_to_pay"
     ESCALATE_HUMAN = "escalate_human"
     STOP_RECOVERY = "stop_recovery"
     NO_ACTION = "no_action"
@@ -35,6 +38,11 @@ class RecoveryProposal:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def __post_init__(self) -> None:
+        if isinstance(self.action, str) and not isinstance(self.action, RecoveryAction):
+            try:
+                object.__setattr__(self, "action", RecoveryAction(self.action))
+            except ValueError:
+                pass  # String action retained for ProposalValidator to reject with ProposalValidationError
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError(f"confidence must be between 0.0 and 1.0, got {self.confidence}")
         if not self.reason or not self.reason.strip():

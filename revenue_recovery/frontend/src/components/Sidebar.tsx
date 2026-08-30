@@ -4,11 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { api, User } from "@/lib/api";
+
 const navGroups = [
   {
     label: "OVERVIEW",
     items: [
-      { href: "/", label: "Revenue Recovery", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+      { href: "/", label: "Product Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+      { href: "/dashboard", label: "Operations Dashboard", icon: "M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h3a1 1 0 011 1v6a1 1 0 01-1 1h-3a1 1 0 01-1-1v-6z" },
     ],
   },
   {
@@ -42,7 +45,12 @@ const navGroups = [
   },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  user?: User | null;
+  onLogout?: () => void;
+}
+
+export default function Sidebar({ user, onLogout }: SidebarProps) {
   const pathname = usePathname();
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
 
@@ -54,6 +62,20 @@ export default function Sidebar() {
 
   const colors = { checking: "var(--warning)", connected: "var(--success)", disconnected: "var(--danger)" };
   const labels = { checking: "Checking...", connected: "API Connected", disconnected: "API Disconnected" };
+
+  const handleLogoutClick = async () => {
+    try {
+      await api.logout();
+    } catch {
+      // ignore
+    }
+    localStorage.removeItem("recoveros_user");
+    if (onLogout) {
+      onLogout();
+    } else {
+      window.location.href = "/login";
+    }
+  };
 
   return (
     <aside style={{
@@ -131,6 +153,37 @@ export default function Sidebar() {
           </div>
         ))}
       </nav>
+
+      {user && (
+        <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)", background: "rgba(255, 255, 255, 0.02)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {user.full_name || "Authenticated User"}
+              </div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {user.email}
+              </div>
+            </div>
+            <button
+              onClick={handleLogoutClick}
+              title="Log out"
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#ef4444",
+                cursor: "pointer",
+                padding: "0.25rem 0.4rem",
+                borderRadius: "4px",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: "0.75rem 1.25rem", borderTop: "1px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.6875rem" }}>

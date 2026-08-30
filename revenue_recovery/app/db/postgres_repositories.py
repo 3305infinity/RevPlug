@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
@@ -123,6 +124,43 @@ class PostgresRecoveryItemRepository:
             (status.value, item_id),
         )
 
+    def list_all(self, limit: int = 5000) -> list[RecoveryItem]:
+        """Return all recovery items, newest first. Used by dashboard API."""
+        rows = self._conn.fetchall(
+            "SELECT * FROM recovery_items ORDER BY created_at DESC LIMIT %s",
+            (limit,),
+        )
+        result = []
+        for row in rows:
+            try:
+                result.append(RecoveryItem(
+                    id=str(row["id"]),
+                    source_type=SourceType(row["source_type"]),
+                    external_id=row.get("external_id", row["id"]),
+                    customer_id=row["customer_id"],
+                    amount_minor=row["amount"],
+                    currency=row["currency"],
+                    created_at=row["created_at"],
+                    due_at=row.get("due_at"),
+                    status=RecoveryStatus(row["status"]),
+                    root_cause=row.get("root_cause"),
+                    recovery_probability=row.get("risk_score"),
+                    expected_recovery_value=row.get("expected_recovery_value"),
+                    intervention_cost=row.get("intervention_cost"),
+                    failure_category=row.get("failure_category"),
+                    provider=row.get("provider"),
+                    provider_event_id=row.get("provider_event_id"),
+                    actual_recovery_value=row.get("actual_recovery_value"),
+                    recovery_status=row.get("recovery_status"),
+                    score_version=row.get("score_version"),
+                    scoring_reason=row.get("scoring_reason"),
+                    priority=row.get("priority"),
+                    metadata=row.get("metadata", {}) if isinstance(row.get("metadata"), dict) else json.loads(row.get("metadata") or "{}"),
+                ))
+            except Exception:
+                continue
+        return result
+
 
 class PostgresRecoveryOutcomeRepository:
     """PostgreSQL-backed recovery outcome repository."""
@@ -184,6 +222,20 @@ class PostgresRecoveryOutcomeRepository:
             created_at=row.get("created_at"),
             metadata=row.get("metadata", {}) if isinstance(row.get("metadata"), dict) else json.loads(row.get("metadata", "{}")),
         )
+
+    def list_all(self, limit: int = 5000) -> list[RecoveryOutcome]:
+        """Return all outcomes. Used by dashboard API financial truth aggregation."""
+        rows = self._conn.fetchall(
+            "SELECT * FROM recovery_outcomes ORDER BY created_at DESC LIMIT %s",
+            (limit,),
+        )
+        result = []
+        for row in rows:
+            try:
+                result.append(self._row_to_outcome(row))
+            except Exception:
+                continue
+        return result
 
 
 class PostgresPromiseRepository:
@@ -754,3 +806,121 @@ class PostgresRecoveryJobRepository:
             completed_at=row.get("completed_at"),
             metadata=row.get("metadata", {}) if isinstance(row.get("metadata"), dict) else json.loads(row.get("metadata", "{}")),
         )
+
+
+class PostgresUserRepository:
+    """PostgreSQL-backed user accounts repository."""
+
+    def __init__(self, conn) -> None:
+        self._conn = conn
+
+    def create_user(self, email: str, password_hash: str, full_name: str) -> User:
+        from app.domain.auth import User
+        user_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc)
+        row = self._conn.fetchone(
+            """
+            INSERT INTO users (id, email, password_hash, full_name, created_at)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id, email, password_hash, full_name, created_at
+            """,
+            (user_id, email.lower().strip(), password_hash, full_name.strip(), now),
+        )
+        return User(
+            id=str(row["id"]),
+            email=row["email"],
+            password_hash=row["password_hash"],
+            full_name=row["full_name"],
+            created_at=row["created_at"],
+        )
+
+    def get_by_email(self, email: str) -> User | None:
+        from app.domain.auth import User
+        row = self._conn.fetchone(
+            "SELECT id, email, password_hash, full_name, created_at FROM users WHERE LOWER(email) = %s",
+            (email.lower().strip(),),
+        )
+        if not row:
+            return None
+        return User(
+            id=str(row["id"]),
+            email=row["email"],
+            password_hash=row["password_hash"],
+            full_name=row["full_name"],
+            created_at=row["created_at"],
+        )
+
+    def get_by_id(self, user_id: str) -> User | None:
+        from app.domain.auth import User
+        row = self._conn.fetchone(
+            "SELECT id, email, password_hash, full_name, created_at FROM users WHERE id = %s",
+            (user_id,),
+        )
+        if not row:
+            return None
+        return User(
+            id=str(row["id"]),
+            email=row["email"],
+            password_hash=row["password_hash"],
+            full_name=row["full_name"],
+            created_at=row["created_at"],
+        )
+
+
+class PostgresSessionRepository:
+    """PostgreSQL-backed user sessions repository."""
+
+    def __init__(self, conn) -> None:
+        self._conn = conn
+
+    def create_session(self, user_id: str, *, expires_in_seconds: int = 86400 * 7) -> UserSession:
+        from app.domain.auth import UserSession
+        token = secrets.token_hex(32)
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(seconds=expires_in_seconds)
+        row = self._conn.fetchone(
+            """
+            INSERT INTO sessions (session_token, user_id, created_at, expires_at)
+            VALUES (%s, %s, %s, %s)
+            RETURNING session_token, user_id, created_at, expires_at
+            """,
+            (token, user_id, now, expires_at),
+        )
+        return UserSession(
+            session_token=row["session_token"],
+            user_id=str(row["user_id"]),
+            created_at=row["created_at"],
+            expires_at=row["expires_at"],
+        )
+
+    def get_session(self, session_token: str) -> UserSession | None:
+        from app.domain.auth import UserSession
+        if not session_token:
+            return None
+        row = self._conn.fetchone(
+            "SELECT session_token, user_id, created_at, expires_at FROM sessions WHERE session_token = %s",
+            (session_token,),
+        )
+        if not row:
+            return None
+        expires_at = row["expires_at"]
+        if hasattr(expires_at, "tzinfo") and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            self.delete_session(session_token)
+            return None
+        return UserSession(
+            session_token=row["session_token"],
+            user_id=str(row["user_id"]),
+            created_at=row["created_at"],
+            expires_at=expires_at,
+        )
+
+    def delete_session(self, session_token: str) -> None:
+        if not session_token:
+            return
+        self._conn.execute(
+            "DELETE FROM sessions WHERE session_token = %s",
+            (session_token,),
+        )
+

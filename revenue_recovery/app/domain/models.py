@@ -10,6 +10,7 @@ from typing import Any
 class SourceType(StrEnum):
     PAYMENT_FAILURE = "payment_failure"
     RECEIVABLE = "receivable"
+    OVERDUE_RECEIVABLE = "overdue_receivable"
     CHECKOUT_ABANDONMENT = "checkout_abandonment"
     SUBSCRIPTION_FAILURE = "subscription_failure"
     MANDATE_FAILURE = "mandate_failure"

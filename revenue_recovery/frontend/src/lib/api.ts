@@ -176,15 +176,30 @@ export interface SimulationResult {
   retry_scheduled?: boolean;
   escalation_reason?: string;
   recovery_status?: string;
+  actual_recovery_value?: number;
   stopped_reason?: string;
   stopped_rule?: string;
 }
 
 export async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> || {}),
+  };
+
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("recoveros_session_token");
+    if (token && !headers["Authorization"]) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
   const res = await fetch(`${API_URL}${path}`, {
+    credentials: "include",
     ...options,
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers,
   });
+
   if (!res.ok) {
     const text = await res.text().catch(() => "Unknown error");
     throw new Error(`API error ${res.status}: ${text}`);
@@ -226,7 +241,96 @@ export interface BatchSimulationResult {
   };
 }
 
+export interface EvaluationRunResult {
+  evaluation_id: string;
+  seed: number;
+  count: number;
+  status: string;
+  started_at: string;
+  completed_at: string | null;
+  dataset: {
+    count: number;
+    seed: number;
+    categories: Record<string, number>;
+    opted_out_customer_count: number;
+    case_ids: string[];
+  };
+  recoveros: {
+    cases_evaluated: number;
+    cases_completed: number;
+    cases_failed_processing: number;
+    total_amount_at_risk: number;
+    expected_recovery: number;
+    actual_recovered: number;
+    recovery_rate: number;
+    recovered_count: number;
+    stopped_count: number;
+    escalated_count: number;
+    total_interventions: number;
+    intervention_cost: number;
+    cost_per_recovery: number;
+    unnecessary_interventions: number;
+  };
+  baseline: {
+    cases_evaluated: number;
+    cases_completed: number;
+    cases_failed_processing: number;
+    total_amount_at_risk: number;
+    actual_recovered: number;
+    recovery_rate: number;
+    recovered_count: number;
+    stopped_count: number;
+    total_interventions: number;
+    intervention_cost: number;
+    cost_per_recovery: number;
+    unnecessary_interventions: number;
+    raw_retry_attempts: number;
+    raw_retries_that_failed: number;
+  };
+  comparison: {
+    absolute_recovery_difference: number;
+    recovery_rate_difference: number;
+    relative_improvement: number | null;
+    recoveros_beat_baseline: boolean;
+    honest_summary: string;
+  };
+  per_case: Array<{
+    case_id: string;
+    case_map_id: string;
+    failure_category: string;
+    original_category: string;
+    amount_at_risk: number;
+    customer_id: string;
+    recoveros: {
+      proposed_action: string | null;
+      safety_decision: string | null;
+      outcome: string;
+      actual_recovered: number;
+      expected_recovery: number;
+      intervention_cost: number;
+      unnecessary_intervention: boolean;
+      stop_reason: string | null;
+      escalation_reason: string | null;
+      diagnosis_path: string;
+      audit_event_count: number;
+      processing_error: string | null;
+    };
+    baseline: {
+      proposed_action: string | null;
+      outcome: string;
+      actual_recovered: number;
+      intervention_cost: number;
+      attempts_made: number;
+      unnecessary_intervention: boolean;
+      stop_reason: string | null;
+    } | null;
+  }>;
+  error: string | null;
+}
+
 export const api = {
+  evaluationBatch: (data: { count: number; seed: number }) =>
+    fetchAPI<EvaluationRunResult>("/api/evaluations/batch", { method: "POST", body: JSON.stringify(data) }),
   health: () => fetchAPI<{ status: string }>("/health"),
   summary: () => fetchAPI<DashboardSummary>("/api/dashboard/summary"),
   items: () => fetchAPI<RecoveryItem[]>("/api/recovery-items"),
@@ -291,4 +395,49 @@ export const api = {
     fetchAPI<{ status: string; message: string }>("/api/demo/reset", {
       method: "POST",
     }),
+
+  // Auth
+  me: () => fetchAPI<{ status: string; user: User }>("/api/auth/me"),
+  signup: async (data: { email: string; password: string; full_name: string }) => {
+    const res = await fetchAPI<{ status: string; user: User; session_token: string }>("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    if (typeof window !== "undefined") {
+      if (res.session_token) localStorage.setItem("recoveros_session_token", res.session_token);
+      if (res.user) localStorage.setItem("recoveros_user", JSON.stringify(res.user));
+    }
+    return res;
+  },
+  login: async (data: { email: string; password: string }) => {
+    const res = await fetchAPI<{ status: string; user: User; session_token: string }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    if (typeof window !== "undefined") {
+      if (res.session_token) localStorage.setItem("recoveros_session_token", res.session_token);
+      if (res.user) localStorage.setItem("recoveros_user", JSON.stringify(res.user));
+    }
+    return res;
+  },
+  logout: async () => {
+    try {
+      await fetchAPI<{ status: string; message: string }>("/api/auth/logout", {
+        method: "POST",
+      });
+    } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("recoveros_session_token");
+        localStorage.removeItem("recoveros_user");
+      }
+    }
+    return { status: "success", message: "Logged out" };
+  },
 };
+
+export interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  created_at: string;
+}

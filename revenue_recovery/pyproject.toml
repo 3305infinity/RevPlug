@@ -6,10 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "revenue-recovery"
 version = "0.1.0"
 description = "AI-assisted revenue recovery engine foundation"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.11"
 dependencies = [
   "fastapi==0.115.6",
   "httpx==0.28.1",
+  "psycopg[binary,pool]>=3.1.18",
 ]
 
 [project.optional-dependencies]

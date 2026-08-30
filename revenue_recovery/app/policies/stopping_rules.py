@@ -39,6 +39,12 @@ class StoppingRules:
         "payment_succeeded",
         "customer_opted_out",
         "promise_expired",
+        "active_promise_pauses_recovery",
+        "checkout_already_converted",
+        "subscription_cancelled",
+        "invoice_paid",
+        "invoice_disputed",
+        "invoice_written_off",
         "retry_budget_exhausted",
         "recovery_deadline_expired",
         "fraud_detected",
@@ -86,24 +92,61 @@ class StoppingRules:
                 rule="terminal_state_absorbing",
             )
 
-        # Rule 1: payment_succeeded (highest priority)
-        if self._is_payment_succeeded(item):
+        # Rule 1: payment_succeeded / invoice_paid / checkout_converted (highest priority)
+        if self._is_payment_succeeded(item) or item.metadata.get("paid") is True or item.metadata.get("invoice_paid") is True or item.metadata.get("converted") is True or item.metadata.get("checkout_converted") is True:
             return StoppingDecision(
                 should_stop=True,
-                reason_code="payment_succeeded",
-                reason="Payment succeeded externally. No further recovery actions permitted.",
+                reason_code="payment_succeeded" if self._is_payment_succeeded(item) else ("invoice_paid" if item.metadata.get("paid") or item.metadata.get("invoice_paid") else "checkout_already_converted"),
+                reason="Payment succeeded or converted externally. No further recovery actions permitted.",
                 next_state=RecoveryStatus.RECOVERED,
                 rule="payment_success_is_terminal",
             )
 
         # Rule 2: customer_opted_out
-        if self._is_customer_opted_out(item):
+        if self._is_customer_opted_out(item) or item.metadata.get("opted_out") is True:
             return StoppingDecision(
                 should_stop=True,
                 reason_code="customer_opted_out",
                 reason="Customer opted out of recovery communications",
                 next_state=RecoveryStatus.STOPPED,
                 rule="opt_out_is_terminal",
+            )
+
+        # Rule 2b: subscription_cancelled / invoice_disputed / invoice_written_off
+        if item.metadata.get("cancelled") is True or item.metadata.get("subscription_status") == "cancelled":
+            return StoppingDecision(
+                should_stop=True,
+                reason_code="subscription_cancelled",
+                reason="Subscription cancelled by customer",
+                next_state=RecoveryStatus.STOPPED,
+                rule="subscription_cancelled",
+            )
+        if item.metadata.get("disputed") is True:
+            return StoppingDecision(
+                should_stop=True,
+                reason_code="invoice_disputed",
+                reason="Invoice disputed by customer",
+                next_state=RecoveryStatus.STOPPED,
+                rule="invoice_disputed",
+            )
+        if item.metadata.get("written_off") is True:
+            return StoppingDecision(
+                should_stop=True,
+                reason_code="invoice_written_off",
+                reason="Invoice written off",
+                next_state=RecoveryStatus.STOPPED,
+                rule="invoice_written_off",
+            )
+
+        # Rule 2c: active_promise
+        promise_repo = promises or (getattr(container, "promises", None) if container is not None else None)
+        if promise_repo is not None and self._has_active_promise(item, promises=promise_repo, now=now):
+            return StoppingDecision(
+                should_stop=True,
+                reason_code="active_promise_pauses_recovery",
+                reason="Active Promise-to-Pay exists; ordinary recovery actions paused",
+                next_state=RecoveryStatus.STOPPED,
+                rule="active_promise_pauses_recovery",
             )
 
         # Rule 3: fraud_detected
@@ -210,4 +253,22 @@ class StoppingRules:
             return now > due_at
         if isinstance(due_at, date) and not isinstance(due_at, datetime):
             return now.date() > due_at
+        return False
+
+    def _has_active_promise(
+        self,
+        item: RecoveryItem,
+        *,
+        promises: Any,
+        now: datetime,
+    ) -> bool:
+        if promises is None:
+            return False
+        promise = promises.get_for_item(item.id)
+        if promise is None:
+            return False
+        status = promise.get("status", "") if isinstance(promise, dict) else promise.status
+        if status in {PromiseStatus.PROMISED.value, "active", "PROMISED"}:
+            # Ensure it is not expired
+            return not self._is_promise_expired(item, promises=promises, now=now)
         return False

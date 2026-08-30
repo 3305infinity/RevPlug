@@ -29,6 +29,7 @@ class RecoveryContext:
     payment_method: str = ""
     max_attempts: int = 3
     item_id: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_item_and_failure(
@@ -55,4 +56,5 @@ class RecoveryContext:
             payment_method=failure.metadata.get("payment_method", ""),
             max_attempts=max_attempts,
             item_id=item.id,
+            metadata={**item.metadata, "source_type": item.source_type.value},
         )

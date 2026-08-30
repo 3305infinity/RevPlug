@@ -48,9 +48,10 @@ export default function CustomerDetail() {
     );
   }
 
-  const recoveredCases = data.cases.filter((c) => c.status === "recovered");
-  const activeCases = data.cases.filter((c) => !["recovered", "stopped"].includes(c.status));
-  const failedCases = data.cases.filter((c) => ["escalated", "failed"].includes(c.status));
+  const cases = data.cases || [];
+  const recoveredCases = cases.filter((c) => c.status === "recovered");
+  const activeCases = cases.filter((c) => !["recovered", "stopped"].includes(c.status));
+  const failedCases = cases.filter((c) => ["escalated", "failed"].includes(c.status));
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>

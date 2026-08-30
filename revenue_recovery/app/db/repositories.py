@@ -21,6 +21,8 @@ class RecoveryItemRepository(Protocol):
     def delete_synthetic_data(self) -> int:
         ...
 
+    def list_all(self, limit: int = 100) -> list[RecoveryItem]:
+        ...
 
 class InMemoryRecoveryItemRepository:
     """In-memory RecoveryItem repository for unit tests and local development."""
@@ -61,3 +63,6 @@ class InMemoryRecoveryItemRepository:
         for k in to_delete:
             del self._items[k]
         return len(to_delete)
+
+    def list_all(self, limit: int = 100) -> list[RecoveryItem]:
+        return list(self._items.values())[:limit]

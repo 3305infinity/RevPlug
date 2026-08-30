@@ -675,7 +675,7 @@ class TestAIUnavailable:
 
 class TestProgramConfigSafety:
     def test_unsafe_config_rejected(self):
-        from app.main import _validate_program_config
+        from app.api.dashboard import _validate_program_config
         errors = _validate_program_config({
             "payment_failure": {
                 "max_retry_attempts": 20,
@@ -688,7 +688,7 @@ class TestProgramConfigSafety:
         assert any("confidence_threshold" in e for e in errors)
 
     def test_safe_config_accepted(self):
-        from app.main import _validate_program_config
+        from app.api.dashboard import _validate_program_config
         errors = _validate_program_config({
             "payment_failure": {
                 "max_retry_attempts": 3,

@@ -76,7 +76,7 @@ class InterventionPolicy:
             return self._evaluate_retry(item)
         if proposed_action == "send_discount":
             return self._evaluate_discount(item)
-        if proposed_action in {"send_reminder", "send_payment_link", "escalate_human"}:
+        if proposed_action in {"send_reminder", "send_customer_message", "send_payment_link", "alternate_channel", "promise_to_pay", "escalate_human"}:
             return self._evaluate_outbound(item, proposed_action)
         if proposed_action == "stop_recovery":
             return PolicyDecision(
