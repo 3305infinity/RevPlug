@@ -1,4 +1,4 @@
-"""Deterministic synthetic datasets for RecoverOS demonstrations.
+"""Deterministic synthetic datasets for RevPlug demonstrations.
 
 IMPORTANT: All items in this module are clearly labeled as synthetic/demo data.
 They are NOT real customer payments and must never be reported as actual
@@ -356,7 +356,7 @@ def generate_evaluation_dataset(count: int = 50, seed: int = 42) -> list[Recover
     """Generate a seeded deterministic evaluation dataset for batch comparison.
 
     Given the same (count, seed), the output is always identical — enabling
-    reproducible evaluation comparisons between RecoverOS and the baseline.
+    reproducible evaluation comparisons between RevPlug and the baseline.
 
     Dataset coverage (distributed across 'count' items):
     - Soft failures (retryable, various attempt counts)
@@ -596,7 +596,7 @@ def _generate_counterfactual_outcomes(
     """Generate a deterministic, pre-rolled counterfactual action-outcome table.
     
     This table models the underlying environment ONCE per case so that both
-    Baseline and RecoverOS evaluate against the EXACT SAME ground truth.
+    Baseline and RevPlug evaluate against the EXACT SAME ground truth.
     """
     is_safe = gt_recoverable and root_cause not in ("fraud", "soft_optout", "soft_promise_active")
 

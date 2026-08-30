@@ -1,6 +1,6 @@
 # Security Model & Adversarial Trust Boundaries
 
-RecoverOS enforces a non-bypassable security architecture designed for audit-grade financial operations.
+RevPlug enforces a non-bypassable security architecture designed for audit-grade financial operations.
 
 ---
 

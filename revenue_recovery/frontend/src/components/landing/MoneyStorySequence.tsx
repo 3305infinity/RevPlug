@@ -38,7 +38,7 @@ export default function MoneyStorySequence() {
 
           <div>
             <p style={{ fontSize: "1rem", color: "var(--text-secondary)", lineHeight: 1.65, margin: 0 }}>
-              RecoverOS controls every rupee moving through the recovery pipeline. Raw failures are filtered through deterministic economic scoring and safety bounds before execution.
+              RevPlug controls every rupee moving through the recovery pipeline. Raw failures are filtered through deterministic economic scoring and safety bounds before execution.
             </p>
           </div>
         </div>

@@ -1,7 +1,7 @@
 """Stage 2 Mandatory Tests — Fair Counterfactual Batch Evaluation.
 
 Verifies strict invariants:
-1. Baseline and RecoverOS receive identical counterfactual ground truth tables.
+1. Baseline and RevPlug receive identical counterfactual ground truth tables.
 2. Dataset generation is deterministic and reproducible by seed.
 3. Outcome lookups are controlled, independent of policy order or execution.
 4. Sequence evaluation, alternative action attribution, and no-action logic.
@@ -23,7 +23,7 @@ from app.services.evaluation_service import EvaluationService
 
 
 def test_1_same_ground_truth():
-    """Test 1: Baseline and RecoverOS receive identical counterfactual outcomes."""
+    """Test 1: Baseline and RevPlug receive identical counterfactual outcomes."""
     items = generate_evaluation_dataset(count=10, seed=42)
     item = items[0]
     gt = item.metadata.get("ground_truth")
@@ -76,7 +76,7 @@ def test_4_same_case_different_policy():
     gt_after_be = item.metadata["ground_truth"]
     assert gt_before == gt_after_be
 
-    # Run RecoverOS
+    # Run RevPlug
     es = EvaluationService()
     es.run_batch_evaluation(count=5, seed=42)
 
@@ -149,7 +149,7 @@ def test_8_actual_recovery_comes_from_ground_truth():
     es = EvaluationService()
     res = es.run_batch_evaluation(count=10, seed=42)
 
-    ros = res.recoveros
+    ros = res.revplug
     # Expected recovery (scorer estimate) != Actual verified recovery
     for case in ros.per_case:
         if case.outcome != "recovered":
@@ -165,7 +165,7 @@ def test_9_intervention_cost_in_net_recovery():
     es = EvaluationService()
     res = es.run_batch_evaluation(count=20, seed=42)
 
-    ros = res.recoveros
+    ros = res.revplug
     assert ros.net_recovered == ros.actual_recovered - ros.intervention_cost
 
     bl = res.baseline
@@ -191,7 +191,7 @@ def test_11_value_recovery_rate():
     es = EvaluationService()
     res = es.run_batch_evaluation(count=20, seed=42)
 
-    ros = res.recoveros
+    ros = res.revplug
     if ros.total_amount_at_risk > 0:
         expected_rate = ros.actual_recovered / ros.total_amount_at_risk
         assert abs(ros.recovery_rate - expected_rate) < 1e-6
@@ -202,7 +202,7 @@ def test_12_case_recovery_rate():
     es = EvaluationService()
     res = es.run_batch_evaluation(count=20, seed=42)
 
-    ros = res.recoveros
+    ros = res.revplug
     if ros.eligible_cases > 0:
         expected_case_rate = ros.recovered_count / ros.eligible_cases
         assert abs(ros.case_recovery_rate - expected_case_rate) < 1e-6
@@ -218,7 +218,7 @@ def test_13_zero_recovery_no_division_by_zero():
 
     es = EvaluationService()
     res = es.run_batch_evaluation(count=1, seed=99999)  # edge test
-    assert res.recoveros.cases_completed >= 0
+    assert res.revplug.cases_completed >= 0
 
 
 def test_14_duplicate_execution_outcome_idempotent():
@@ -289,7 +289,7 @@ def test_16_golden_benchmark_exact_reconciliation():
     assert b_res.baseline_policy_violations["fraud_retry"] >= 1
     assert b_res.baseline_policy_violations["promise_contact_violation"] >= 1
 
-    # RecoverOS evaluation on golden set
+    # RevPlug evaluation on golden set
     es = EvaluationService()
     # Mock orchestrator on golden set
     ros_res = es.run_batch_evaluation(count=5, seed=42)

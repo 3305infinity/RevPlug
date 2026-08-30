@@ -5,7 +5,7 @@ class PriorityClassifier:
     """Deterministic priority classifier based on expected recovery value.
 
     Thresholds are chosen to align with typical synthetic/demo amounts
-    used in RecoverOS (₹1,000 – ₹100,000 range).
+    used in RevPlug (₹1,000 – ₹100,000 range).
     """
 
     _CRITICAL_THRESHOLD: int = 50_000   # >= ₹500 expected

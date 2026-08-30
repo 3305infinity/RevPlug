@@ -59,7 +59,7 @@ export default function AuthoritySplit() {
               It cannot authorize.
             </h2>
             <p style={{ fontSize: "1rem", color: "var(--text-secondary)", lineHeight: 1.65, margin: 0 }}>
-              RecoverOS enforces a complete boundary between LLM reasoning and financial execution authority. The model proposes interventions, but deterministic code determines if, when, and how execution proceeds.
+              RevPlug enforces a complete boundary between LLM reasoning and financial execution authority. The model proposes interventions, but deterministic code determines if, when, and how execution proceeds.
             </p>
           </div>
         </div>

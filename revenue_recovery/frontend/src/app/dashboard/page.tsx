@@ -45,7 +45,7 @@ export default function OperationsDashboard() {
     return (
       <div style={{ textAlign: "center", padding: "4rem 2rem" }}>
         <div style={{ fontSize: "2.5rem", marginBottom: "1rem", opacity: 0.9 }}>⚠️</div>
-        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.5rem" }}>Unable to connect to RecoverOS</h2>
+        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.5rem" }}>Unable to connect to RevPlug</h2>
         <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginBottom: "1.25rem" }}>
           {error || "Start the Recovery Engine API on port 8000 and try again."}
         </p>
@@ -64,7 +64,7 @@ export default function OperationsDashboard() {
 
   const verifiedRecovered = summary.actually_recovered || 0;
   const atRisk = summary.revenue_at_risk || 0;
-  // Calculate baseline recovery based on canonical baseline ratio (~78% of RecoverOS recovery)
+  // Calculate baseline recovery based on canonical baseline ratio (~78% of RevPlug recovery)
   const baselineRecovered = Math.round(verifiedRecovered * 0.78);
   const incrementalGain = verifiedRecovered - baselineRecovered;
 
@@ -100,13 +100,13 @@ export default function OperationsDashboard() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-              RecoverOS Revenue Control Center
+              RevPlug Revenue Control Center
             </span>
             <h1 style={{ fontSize: "2.25rem", fontWeight: 900, letterSpacing: "-0.03em", marginTop: 4, marginBottom: "0.5rem" }}>
               AI revenue recovery that doesn&apos;t retry blindly.
             </h1>
             <p style={{ color: "var(--text-secondary)", fontSize: "0.9375rem", maxWidth: 720, lineHeight: 1.5 }}>
-              RecoverOS detects revenue at risk, diagnoses why it&apos;s stuck, chooses a bounded intervention, and only counts recovery after settlement is verified.
+              RevPlug detects revenue at risk, diagnoses why it&apos;s stuck, chooses a bounded intervention, and only counts recovery after settlement is verified.
             </p>
           </div>
           <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
@@ -139,7 +139,7 @@ export default function OperationsDashboard() {
             vs fixed retry baseline
           </div>
           <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8, display: "flex", justifyContent: "space-between" }}>
-            <span>RecoverOS: <strong>{fmt(verifiedRecovered)}</strong></span>
+            <span>RevPlug: <strong>{fmt(verifiedRecovered)}</strong></span>
             <span>Baseline: <strong>{fmt(baselineRecovered)}</strong></span>
           </div>
         </div>
@@ -197,7 +197,7 @@ export default function OperationsDashboard() {
               SAME RECOVERY OPPORTUNITIES
             </div>
             <h3 style={{ fontSize: "1.125rem", fontWeight: 800, marginTop: 2, color: "var(--text-primary)" }}>
-              Counterfactual Financial Benchmark: Baseline vs RecoverOS
+              Counterfactual Financial Benchmark: Baseline vs RevPlug
             </h3>
           </div>
           <span className="badge badge-accent" style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem" }}>
@@ -217,9 +217,9 @@ export default function OperationsDashboard() {
             </div>
           </div>
 
-          {/* RecoverOS Column */}
+          {/* RevPlug Column */}
           <div style={{ padding: "1.25rem", background: "rgba(16, 185, 129, 0.08)", borderRadius: 8, border: "1px solid rgba(16, 185, 129, 0.3)" }}>
-            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--success)" }}>RecoverOS AI Agent</div>
+            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--success)" }}>RevPlug AI Agent</div>
             <div style={{ fontSize: "1.5rem", fontWeight: 800, marginTop: 6, color: "var(--success)" }}>
               {fmt(verifiedRecovered)}
             </div>
@@ -245,7 +245,7 @@ export default function OperationsDashboard() {
       <div className="card" style={{ padding: "1.5rem", marginBottom: "2rem" }}>
         <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
           <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            HOW RECOVEROS WORKS
+            HOW REVPLUG WORKS
           </div>
           <h3 style={{ fontSize: "1.25rem", fontWeight: 800, marginTop: 4, color: "var(--text-primary)" }}>
             &ldquo;AI decides what to try. Policy decides what is allowed. Settlement decides what counts.&rdquo;

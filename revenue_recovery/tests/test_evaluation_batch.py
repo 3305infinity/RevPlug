@@ -10,9 +10,9 @@ def test_evaluation_reproducibility():
     svc2 = EvaluationService()
     res2 = svc2.run_batch_evaluation(count=20, seed=123)
     
-    assert res1.recoveros.actual_recovered == res2.recoveros.actual_recovered
+    assert res1.revplug.actual_recovered == res2.revplug.actual_recovered
     assert res1.baseline.actual_recovered == res2.baseline.actual_recovered
-    assert res1.recoveros.stopped_count == res2.recoveros.stopped_count
+    assert res1.revplug.stopped_count == res2.revplug.stopped_count
 
 def test_evaluation_count_bounds():
     """Test bounds on count argument."""
@@ -24,7 +24,7 @@ def test_evaluation_count_bounds():
     assert res_large.count == 500
 
 def test_evaluation_mock_agent_safety():
-    """Test that RecoverOS (via MockAgent) properly stops on fraud."""
+    """Test that RevPlug (via MockAgent) properly stops on fraud."""
     svc = EvaluationService()
     # Find a dataset with fraud cases
     res = svc.run_batch_evaluation(count=50, seed=42)
@@ -32,7 +32,7 @@ def test_evaluation_mock_agent_safety():
     assert len(fraud_cases) > 0
     
     for case in fraud_cases:
-        ros = case['recoveros']
+        ros = case['revplug']
         assert ros['proposed_action'] == 'stop_recovery'
         assert ros['outcome'] == 'stopped'
         assert ros['actual_recovered'] == 0

@@ -32,7 +32,7 @@ export default function SignupPage() {
         full_name: fullName,
       });
       if (res.user) {
-        localStorage.setItem("recoveros_user", JSON.stringify(res.user));
+        localStorage.setItem("revplug_user", JSON.stringify(res.user));
         router.push("/dashboard");
       } else {
         setError("Registration failed");

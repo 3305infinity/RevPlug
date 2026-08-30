@@ -14,7 +14,7 @@ def api_evaluations(container: PersistenceContainer = Depends(get_container)) ->
 
 @router.post("/api/evaluations/batch")
 async def api_batch_evaluation(request: Request) -> Response:
-    """Run a real batch evaluation comparing RecoverOS against a dumb baseline.
+    """Run a real batch evaluation comparing RevPlug against a dumb baseline.
 
     Generates a seeded deterministic dataset, runs every case through the
     existing RecoveryOrchestrator (not a parallel engine), runs the same

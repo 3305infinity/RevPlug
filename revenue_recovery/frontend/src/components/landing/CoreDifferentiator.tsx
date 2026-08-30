@@ -43,7 +43,7 @@ export default function CoreDifferentiator() {
             lineHeight: 1.7,
             margin: 0,
           }}>
-            RecoverOS separates intelligence from authority. The AI can diagnose a failure and propose an intervention, but deterministic economic scoring, policy rules, stopping rules, and payment verification control what actually happens.
+            RevPlug separates intelligence from authority. The AI can diagnose a failure and propose an intervention, but deterministic economic scoring, policy rules, stopping rules, and payment verification control what actually happens.
           </p>
         </div>
 

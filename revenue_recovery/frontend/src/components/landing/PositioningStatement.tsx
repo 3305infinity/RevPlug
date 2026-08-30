@@ -30,7 +30,7 @@ export default function PositioningStatement() {
             marginBottom: "2.5rem",
             lineHeight: 1.15,
           }}>
-            What RecoverOS is not.
+            What RevPlug is not.
           </h2>
         </div>
 
@@ -70,7 +70,7 @@ export default function PositioningStatement() {
           margin: "0 auto",
         }}>
           <div style={{ fontSize: "1.0625rem", fontWeight: 700, color: "#f8fafc", lineHeight: 1.6 }}>
-            "RecoverOS is a bounded recovery control plane where AI proposes, deterministic systems constrain execution, and verification establishes financial truth."
+            "RevPlug is a bounded recovery control plane where AI proposes, deterministic systems constrain execution, and verification establishes financial truth."
           </div>
         </div>
       </div>

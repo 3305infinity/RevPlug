@@ -36,7 +36,7 @@ export default function ArchitectureComparison() {
           color: "#fff",
           marginBottom: "1rem",
         }}>
-          AI recommends. RecoverOS decides.
+          AI recommends. RevPlug decides.
         </h2>
         <p style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
           We never allow unconstrained LLM outputs to execute financial transactions. Intelligence handles reasoning, while deterministic code enforces truth and safety.

@@ -23,7 +23,7 @@ from app.db.decision_repository import InMemoryRecoveryDecisionRepository
 from app.db.repositories import InMemoryRecoveryItemRepository
 from app.domain.transitions import DefaultStateMachine
 from app.idempotency.store import InMemoryIdempotencyStore
-from app.interventions.executor import SimulatedRecoveryExecutor
+from app.interventions.executor import SimulatedRecoveryExecutor, get_executor
 from app.ledger.attempts import InMemoryAttemptLedger
 from app.policies.engine import InterventionPolicy
 from app.policies.guard import DefaultRecoveryGuard
@@ -96,7 +96,7 @@ def _build_webhook_service(
         attempts=container.attempts,
         agent=agent,
         orchestrator=orchestrator,
-        executor=SimulatedRecoveryExecutor(),
+        executor=get_executor(),
         retry_policy=DefaultRetryPolicy(max_attempts=3),
         state_machine=DefaultStateMachine(),
         stopping_rules=stopping_rules,

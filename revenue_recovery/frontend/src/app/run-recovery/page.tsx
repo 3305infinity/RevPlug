@@ -178,7 +178,7 @@ export default function RunRecoveryPage() {
           Interactive Recovery Control Plane
         </h1>
         <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", maxWidth: 750, lineHeight: 1.5 }}>
-          Watch RecoverOS evaluate revenue risk, consult AI diagnosis, enforce non-bypassable policy rules, execute bounded recovery actions, and verify settlement.
+          Watch RevPlug evaluate revenue risk, consult AI diagnosis, enforce non-bypassable policy rules, execute bounded recovery actions, and verify settlement.
         </p>
       </div>
 
@@ -358,7 +358,7 @@ export default function RunRecoveryPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <span style={{ fontSize: "1.25rem" }}>🛑</span>
                   <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "var(--danger)" }}>
-                    RECOVEROS STOPPED — POSITIVE SAFETY OUTCOME
+                    REVPLUG STOPPED — POSITIVE SAFETY OUTCOME
                   </h3>
                 </div>
                 <span className="badge badge-danger" style={{ fontSize: "0.6875rem" }}>
@@ -367,7 +367,7 @@ export default function RunRecoveryPage() {
               </div>
 
               <p style={{ fontSize: "0.875rem", color: "var(--text-primary)", fontWeight: 600, marginBottom: "1rem" }}>
-                RecoverOS intentionally chose <strong>NOT</strong> to retry this transaction to protect merchant reputation, avoid wasted intervention cost, and comply with non-bypassable safety rules.
+                RevPlug intentionally chose <strong>NOT</strong> to retry this transaction to protect merchant reputation, avoid wasted intervention cost, and comply with non-bypassable safety rules.
               </p>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", fontSize: "0.75rem" }}>
@@ -382,7 +382,7 @@ export default function RunRecoveryPage() {
                 </div>
 
                 <div style={{ padding: "0.75rem", background: "rgba(16, 185, 129, 0.08)", borderRadius: 6, border: "1px solid rgba(16, 185, 129, 0.2)" }}>
-                  <span style={{ color: "var(--success)", display: "block" }}>Without RecoverOS:</span>
+                  <span style={{ color: "var(--success)", display: "block" }}>Without RevPlug:</span>
                   <strong style={{ color: "var(--success)", fontSize: "0.875rem" }}>Blind retry fails &amp; burns cost</strong>
                 </div>
               </div>
@@ -423,7 +423,7 @@ export default function RunRecoveryPage() {
                   🤖 AI PROPOSED (ZERO EXECUTION PRIVILEGE)
                 </div>
                 <span className="badge badge-accent" style={{ fontSize: "0.6875rem" }}>
-                  {isAIFallback ? "FALLBACK AGENT" : "LLM PROPOSAL"}
+                  {isAIFallback ? "DETERMINISTIC FALLBACK" : "GROQ (LLAMA-3.3-70B)"}
                 </span>
               </div>
 
@@ -526,7 +526,7 @@ export default function RunRecoveryPage() {
             </div>
 
             <div style={{ padding: "1rem", background: "rgba(0,0,0,0.25)", borderRadius: 6, fontSize: "0.8125rem", color: "var(--text-secondary)", marginBottom: "1rem", lineHeight: 1.5 }}>
-              RecoverOS does <strong>NOT</strong> count revenue when an action is dispatched. Money is credited to the recovery ledger <strong>ONLY</strong> after receiving authoritative provider settlement evidence (`actual_recovery_minor`).
+              RevPlug does <strong>NOT</strong> count revenue when an action is dispatched. Money is credited to the recovery ledger <strong>ONLY</strong> after receiving authoritative provider settlement evidence (`actual_recovery_minor`).
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", fontSize: "0.75rem" }}>
@@ -555,7 +555,7 @@ export default function RunRecoveryPage() {
                 WHY THIS ACTION OVER BLIND RETRIES?
               </div>
               <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 6, lineHeight: 1.5 }}>
-                RecoverOS does not blindly retry card transactions. Naive retries on authentication failures or hard declines waste money and risk bank penalties. RecoverOS switches channels to a hosted payment link or halts recovery on fraud/opt-out.
+                RevPlug does not blindly retry card transactions. Naive retries on authentication failures or hard declines waste money and risk bank penalties. RevPlug switches channels to a hosted payment link or halts recovery on fraud/opt-out.
               </p>
             </div>
 
@@ -570,7 +570,7 @@ export default function RunRecoveryPage() {
                   <strong style={{ color: "var(--danger)" }}>Card Retry 3x $\to$ Fails / Violates Policy</strong>
                 </div>
                 <div style={{ padding: "0.5rem 0" }}>
-                  <span style={{ color: "var(--text-muted)" }}>RECOVEROS: </span>
+                  <span style={{ color: "var(--text-muted)" }}>REVPLUG: </span>
                   <strong style={{ color: "var(--success)" }}>Payment Link $\to$ Recovered + 0 Violations</strong>
                 </div>
               </div>

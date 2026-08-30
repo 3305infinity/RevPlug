@@ -69,7 +69,7 @@ export default function MoneyStory() {
           Revenue recovery is more than sending another retry.
         </h2>
         <p style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          Blindly retrying failed payments causes customer friction, processor penalties, and unnecessary cost. RecoverOS governs the full lifecycle through strict financial control.
+          Blindly retrying failed payments causes customer friction, processor penalties, and unnecessary cost. RevPlug governs the full lifecycle through strict financial control.
         </p>
       </div>
 

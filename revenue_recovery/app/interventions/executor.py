@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Any, Protocol
 
 from app.domain.models import RecoveryItem
 
@@ -86,7 +87,7 @@ class SimulatedRecoveryExecutor:
                 attempt_number=attempt_number,
                 reason=f"Simulated recovery succeeded for {item.id}",
                 retry_eligible=False,
-                metadata={"simulated": True, "scenario": scenario},
+                metadata={"simulated": True, "scenario": scenario, "execution_mode": "simulation"},
             )
 
         if scenario == "temporary_failure":
@@ -97,7 +98,7 @@ class SimulatedRecoveryExecutor:
                 reason=f"Simulated temporary failure for {item.id}; retry eligible",
                 retry_eligible=True,
                 error_code="temporary_failure",
-                metadata={"simulated": True, "scenario": scenario},
+                metadata={"simulated": True, "scenario": scenario, "execution_mode": "simulation"},
             )
 
         if scenario == "permanent_failure":
@@ -108,7 +109,7 @@ class SimulatedRecoveryExecutor:
                 reason=f"Simulated permanent failure for {item.id}; no retry possible",
                 retry_eligible=False,
                 error_code="permanent_failure",
-                metadata={"simulated": True, "scenario": scenario},
+                metadata={"simulated": True, "scenario": scenario, "execution_mode": "simulation"},
             )
 
         # Unknown scenario defaults to success (safe default).
@@ -118,5 +119,111 @@ class SimulatedRecoveryExecutor:
             attempt_number=attempt_number,
             reason=f"Simulated recovery succeeded for {item.id} (unknown scenario '{scenario}')",
             retry_eligible=False,
-            metadata={"simulated": True, "scenario": scenario},
+            metadata={"simulated": True, "scenario": scenario, "execution_mode": "simulation"},
         )
+
+
+class RazorpayRecoveryExecutor:
+    """Real Razorpay Test-Mode Recovery Executor.
+
+    Creates actual Razorpay Payment Links when RECOVERY_EXECUTION_MODE='razorpay_test'
+    and valid Test-Mode credentials are configured.
+    Falls back gracefully to SimulatedRecoveryExecutor if unconfigured or requested.
+    """
+
+    def __init__(self, razorpay_client: Any | None = None) -> None:
+        self._simulated = SimulatedRecoveryExecutor()
+        if razorpay_client is not None:
+            self._client = razorpay_client
+        else:
+            try:
+                from app.adapters.razorpay.client import RazorpayClient
+                self._client = RazorpayClient()
+            except Exception:
+                self._client = None
+
+    def execute(
+        self,
+        item: RecoveryItem,
+        action: str,
+        *,
+        attempt_number: int,
+        scenario: str | None = None,
+    ) -> ExecutionResult:
+        mode = os.getenv("RECOVERY_EXECUTION_MODE", "simulation").lower().strip()
+
+        # If simulation mode explicitly requested or Razorpay unconfigured -> delegate to simulation
+        if mode != "razorpay_test" or not self._client or not self._client.is_configured:
+            return self._simulated.execute(item, action, attempt_number=attempt_number, scenario=scenario)
+
+        # Execute real Razorpay Test Mode Payment Link for send_payment_link
+        if action in ("send_payment_link", "SEND_PAYMENT_LINK"):
+            try:
+                result = self._client.create_payment_link(
+                    amount_minor=item.amount_minor,
+                    currency=item.currency,
+                    description=f"RevPlug Payment Recovery for item {item.id}",
+                    reference_id=item.id,
+                    notes={
+                        "recovery_item_id": item.id,
+                        "customer_id": item.customer_id,
+                        "source_type": item.source_type.value,
+                        "attempt_number": attempt_number,
+                    },
+                )
+                return ExecutionResult(
+                    success=True,
+                    action=action,
+                    attempt_number=attempt_number,
+                    reason=f"Razorpay Payment Link created: {result['payment_link_id']}",
+                    retry_eligible=False,
+                    metadata={
+                        "simulated": False,
+                        "execution_mode": "razorpay_test",
+                        "provider": "razorpay",
+                        "provider_reference": result["payment_link_id"],
+                        "customer_action_url": result["payment_link_url"],
+                        "payment_link_id": result["payment_link_id"],
+                        "payment_link_url": result["payment_link_url"],
+                        "amount_minor": item.amount_minor,
+                        "currency": item.currency,
+                    },
+                )
+            except Exception as exc:
+                err_str = str(exc)
+                from app.adapters.razorpay.client import RazorpayNetworkTimeoutError
+                if isinstance(exc, RazorpayNetworkTimeoutError) or "timeout" in err_str.lower() or "timed out" in err_str.lower():
+                    return ExecutionResult(
+                        success=False,
+                        action=action,
+                        attempt_number=attempt_number,
+                        reason=f"EXECUTION_UNKNOWN: Network timeout contacting Razorpay API for {item.id}",
+                        retry_eligible=True,
+                        error_code="EXECUTION_UNKNOWN",
+                        metadata={
+                            "simulated": False,
+                            "execution_mode": "razorpay_test",
+                            "provider": "razorpay",
+                            "reconciliation_required": True,
+                        },
+                    )
+                return ExecutionResult(
+                    success=False,
+                    action=action,
+                    attempt_number=attempt_number,
+                    reason=f"Razorpay Payment Link creation failed: {err_str}",
+                    retry_eligible=True,
+                    error_code="razorpay_api_error",
+                    metadata={"simulated": False, "execution_mode": "razorpay_test", "error": err_str},
+                )
+
+        # Other actions (retry, reminder, etc.) delegate safely to simulation executor in test mode
+        return self._simulated.execute(item, action, attempt_number=attempt_number, scenario=scenario)
+
+
+def get_executor() -> RecoveryExecutor:
+    """Factory returning configured RecoveryExecutor based on RECOVERY_EXECUTION_MODE."""
+    mode = os.getenv("RECOVERY_EXECUTION_MODE", "simulation").lower().strip()
+    if mode == "razorpay_test":
+        return RazorpayRecoveryExecutor()
+    return SimulatedRecoveryExecutor()

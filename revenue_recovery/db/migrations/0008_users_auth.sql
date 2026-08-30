@@ -1,5 +1,5 @@
 -- Migration: 0008_users_auth.sql
--- User accounts and session persistence for RecoverOS authentication.
+-- User accounts and session persistence for RevPlug authentication.
 
 BEGIN;
 

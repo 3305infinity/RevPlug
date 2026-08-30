@@ -56,7 +56,7 @@ export default function ProductPreview({ items }: { items: RecoveryItem[] }) {
           Inside a Recovery Case
         </h2>
         <p style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          Inspect how RecoverOS evaluates a single case from initial failure signal to final settlement verification.
+          Inspect how RevPlug evaluates a single case from initial failure signal to final settlement verification.
         </p>
       </div>
 

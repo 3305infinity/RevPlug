@@ -1,10 +1,10 @@
 {
-  "evaluation_id": "2f938dc3-d6d9-4aa5-a530-cec176d613dc",
+  "evaluation_id": "585aeb15-e939-48af-b9d6-9893762fba6c",
   "seed": 42,
   "count": 10,
   "status": "completed",
-  "started_at": "2026-08-30T16:42:25.036927+00:00",
-  "completed_at": "2026-08-30T16:42:25.045051+00:00",
+  "started_at": "2026-08-30T17:47:29.459517+00:00",
+  "completed_at": "2026-08-30T17:47:29.467723+00:00",
   "dataset": {
     "count": 10,
     "seed": 42,
@@ -72,6 +72,70 @@
       "roi": 90.1765,
       "expected_vs_actual_error": 17360.5
     }
+  },
+  "revplug": {
+    "cases_evaluated": 10,
+    "cases_completed": 10,
+    "cases_failed_processing": 0,
+    "eligible_cases": 9,
+    "total_amount_at_risk": 840150,
+    "expected_recovery": 203599,
+    "actual_recovered": 310000,
+    "net_recovered": 306600,
+    "recovery_rate": 0.368982,
+    "case_recovery_rate": 0.555556,
+    "recovered_count": 5,
+    "stopped_count": 3,
+    "escalated_count": 0,
+    "pending_verification_count": 0,
+    "failed_count": 0,
+    "total_interventions": 7,
+    "executed_interventions": 0,
+    "successful_interventions": 0,
+    "failed_interventions": 0,
+    "intervention_cost": 3400,
+    "cost_per_recovery": 680.0,
+    "cost_per_rupee_recovered": 0.011,
+    "net_recovery_margin": 0.989,
+    "unnecessary_interventions": 2,
+    "no_action_cases": 3,
+    "negative_ev_no_action_cases": 1,
+    "policy_stop_cases": 3,
+    "rules_classified_count": 10,
+    "llm_classified_count": 0,
+    "llm_fallback_count": 0,
+    "safety_violations": {
+      "fraud_retry_violations": 0,
+      "hard_decline_retry_violations": 0,
+      "opt_out_contact_violations": 0,
+      "retry_budget_violations": 0,
+      "contact_budget_violations": 0,
+      "promise_to_pay_violations": 0,
+      "expired_case_violations": 0,
+      "disputed_invoice_violations": 0,
+      "cancelled_subscription_violations": 0,
+      "terminal_state_violations": 0,
+      "total_safety_violations": 0
+    },
+    "ai_metrics_placeholders": {
+      "ai_cases": 0,
+      "deterministic_cases": 10,
+      "ai_proposals": 0,
+      "ai_proposals_accepted": 0,
+      "ai_proposals_rejected_by_policy": 0,
+      "ai_fallback_cases": 0,
+      "human_escalations": 0
+    },
+    "decision_quality": {
+      "root_cause_accuracy": 1.0,
+      "proposal_action_accuracy": 0.8,
+      "final_action_accuracy": 0.7,
+      "intervention_accuracy": 0.7,
+      "escalation_precision": 0.0,
+      "stopping_rule_compliance": 1.0,
+      "prevented_unsafe_actions": 0
+    },
+    "unnecessary_intervention_definition": "action=retry_payment AND outcome!=recovered"
   },
   "recoveros": {
     "cases_evaluated": 10,
@@ -168,8 +232,8 @@
     "absolute_recovery_difference": 150000,
     "recovery_rate_difference": 0.17854,
     "relative_improvement": 0.9375,
-    "recoveros_beat_baseline": true,
-    "honest_summary": "RecoverOS net recovery \u20b91551 higher than baseline (Net \u20b93066 vs \u20b91515)."
+    "revplug_beat_baseline": true,
+    "honest_summary": "RevPlug net recovery \u20b91551 higher than baseline (Net \u20b93066 vs \u20b91515)."
   },
   "per_case": [
     {
@@ -248,7 +312,7 @@
           }
         }
       },
-      "recoveros": {
+      "revplug": {
         "proposed_action": "retry_payment",
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
@@ -351,7 +415,7 @@
           }
         }
       },
-      "recoveros": {
+      "revplug": {
         "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
@@ -453,7 +517,7 @@
           }
         }
       },
-      "recoveros": {
+      "revplug": {
         "proposed_action": "retry_payment",
         "safety_decision": "STOP",
         "outcome": "stopped",
@@ -556,7 +620,7 @@
           }
         }
       },
-      "recoveros": {
+      "revplug": {
         "proposed_action": "stop_recovery",
         "safety_decision": "STOP",
         "outcome": "stopped",
@@ -658,7 +722,7 @@
           }
         }
       },
-      "recoveros": {
+      "revplug": {
         "proposed_action": "retry_payment",
         "safety_decision": "ALLOWED",
         "outcome": "failed",
@@ -760,7 +824,7 @@
           }
         }
       },
-      "recoveros": {
+      "revplug": {
         "proposed_action": "retry_payment",
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
@@ -863,7 +927,7 @@
           }
         }
       },
-      "recoveros": {
+      "revplug": {
         "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
@@ -965,7 +1029,7 @@
           }
         }
       },
-      "recoveros": {
+      "revplug": {
         "proposed_action": "escalate_human",
         "safety_decision": "STOP",
         "outcome": "stopped",
@@ -1067,7 +1131,7 @@
           }
         }
       },
-      "recoveros": {
+      "revplug": {
         "proposed_action": "retry_payment",
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
@@ -1169,7 +1233,7 @@
           }
         }
       },
-      "recoveros": {
+      "revplug": {
         "proposed_action": "escalate_human",
         "safety_decision": "ALLOWED",
         "outcome": "failed",

@@ -1,11 +1,13 @@
-"""LLM Provider abstraction layer supporting Gemini, OpenAI, and Mock providers.
+"""LLM Provider abstraction layer supporting Groq (PRIMARY), Gemini (OPTIONAL), and Mock/Deterministic providers.
 
 Features:
 - Provider protocol interface (LLMProvider)
-- GeminiProvider (Google Gemini API via SDK or HTTP endpoint)
+- GroqLLMProvider (Groq OpenAI-compatible Chat Completions API)
+- GeminiProvider (Google Gemini API via REST endpoint)
 - MockLLMProvider (Deterministic seeded response for tests & offline dev)
+- Provider Factory (get_llm_provider) with env-based routing & fail-safe defaults
 - Token tracking, latency measurement, timeout enforcement, retry bounds
-- Clean separation from business domain logic
+- Redaction of sensitive credentials from error tracebacks
 """
 from __future__ import annotations
 
@@ -53,13 +55,126 @@ class LLMProvider(Protocol):
         *,
         max_tokens: int = 500,
         temperature: float = 0.1,
-        timeout_seconds: float = 5.0,
+        timeout_seconds: float = 15.0,
     ) -> LLMResponse:
         ...
 
 
+class GroqLLMProvider:
+    """Production Groq LLM Provider (PRIMARY).
+
+    Uses GROQ_API_KEY environment variable.
+    Executes OpenAI-compatible chat completion request to Groq API endpoint.
+    Includes automatic retries, timeout bounds, and credential redaction.
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model_name: str | None = None,
+        max_retries: int = 2,
+    ) -> None:
+        self._api_key = api_key or os.getenv("GROQ_API_KEY")
+        self._model_name = model_name or os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        self._max_retries = max_retries
+
+    @property
+    def provider_name(self) -> str:
+        return "groq"
+
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_tokens: int = 500,
+        temperature: float = 0.1,
+        timeout_seconds: float = 15.0,
+    ) -> LLMResponse:
+        if not self._api_key:
+            return LLMResponse(
+                content="",
+                model=self._model_name,
+                latency_ms=0,
+                error="GROQ_API_KEY not configured",
+            )
+
+        start = time.monotonic()
+        url = "https://api.groq.com/openai/v1/chat/completions"
+
+        payload = {
+            "model": self._model_name,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "response_format": {"type": "json_object"},
+        }
+
+        body = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self._api_key}",
+        }
+
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+
+        last_error = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+                    resp_data = json.loads(resp.read().decode("utf-8"))
+                    latency = int((time.monotonic() - start) * 1000)
+
+                    choices = resp_data.get("choices", [])
+                    if not choices:
+                        return LLMResponse(
+                            content="",
+                            model=self._model_name,
+                            latency_ms=latency,
+                            error="Empty choices array returned from Groq API",
+                        )
+
+                    text = choices[0].get("message", {}).get("content", "")
+
+                    usage = resp_data.get("usage", {})
+                    in_tokens = usage.get("prompt_tokens", len(system_prompt + user_prompt) // 4)
+                    out_tokens = usage.get("completion_tokens", len(text) // 4)
+
+                    return LLMResponse(
+                        content=text,
+                        model=self._model_name,
+                        latency_ms=latency,
+                        input_tokens=in_tokens,
+                        output_tokens=out_tokens,
+                    )
+
+            except urllib.error.HTTPError as exc:
+                # Sanitize error string so raw bearer token is never logged
+                error_body = exc.read().decode("utf-8", errors="ignore") if hasattr(exc, "read") else ""
+                last_error = f"HTTP {exc.code}: {exc.reason} - {error_body[:200]}"
+                time.sleep(0.1 * (2 ** attempt))
+            except Exception as exc:
+                last_error = str(exc)
+                time.sleep(0.1 * (2 ** attempt))
+
+        latency = int((time.monotonic() - start) * 1000)
+        return LLMResponse(
+            content="",
+            model=self._model_name,
+            latency_ms=latency,
+            error=f"Groq API request failed after retries: {last_error}",
+        )
+
+
 class GeminiProvider:
-    """Real Google Gemini LLM Provider.
+    """Real Google Gemini LLM Provider (OPTIONAL).
 
     Uses GEMINI_API_KEY environment variable.
     Executes HTTP request to Google Gemini API with timeout and retries.
@@ -69,11 +184,11 @@ class GeminiProvider:
     def __init__(
         self,
         api_key: str | None = None,
-        model_name: str = "gemini-1.5-flash",
+        model_name: str | None = None,
         max_retries: int = 2,
     ) -> None:
         self._api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        self._model_name = model_name
+        self._model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
         self._max_retries = max_retries
 
     @property
@@ -91,7 +206,7 @@ class GeminiProvider:
         *,
         max_tokens: int = 500,
         temperature: float = 0.1,
-        timeout_seconds: float = 5.0,
+        timeout_seconds: float = 15.0,
     ) -> LLMResponse:
         if not self._api_key:
             return LLMResponse(
@@ -218,14 +333,14 @@ class MockLLMProvider:
             })
         elif "fraud" in prompt_lower:
             content = json.dumps({
-                "selected_action": "stop_recovery",
+                "selected_action": "escalate_human",
                 "confidence": 0.95,
-                "reasoning_summary": "High risk fraud indicators; stop all recovery attempts.",
+                "reasoning_summary": "High risk fraud indicators; escalate for manual review.",
                 "evidence": ["Fraud risk flag present"],
-                "ranked_candidates": [{"action": "stop_recovery", "confidence": 0.95, "reason": "Fraud prevention"}],
+                "ranked_candidates": [{"action": "escalate_human", "confidence": 0.95, "reason": "Fraud prevention"}],
                 "fallback_required": False,
             })
-        elif "opted out" in prompt_lower or "opt_out" in prompt_lower:
+        elif "opted out: true" in prompt_lower or "opt_out: true" in prompt_lower or "customer opted out: true" in prompt_lower:
             content = json.dumps({
                 "selected_action": "stop_recovery",
                 "confidence": 0.95,
@@ -268,3 +383,33 @@ class MockLLMProvider:
             input_tokens=len(system_prompt + user_prompt) // 4,
             output_tokens=len(content) // 4,
         )
+
+
+def get_llm_provider(requested_provider: str | None = None) -> LLMProvider:
+    """Factory function returning the configured LLMProvider instance.
+
+    Priority:
+        1. Explicit argument requested_provider
+        2. Environment variable LLM_PROVIDER ('groq', 'gemini', 'deterministic', 'mock')
+        3. Default to 'groq' if AI is enabled, otherwise 'mock'
+    """
+    ai_enabled = os.getenv("AI_ENABLED", "true").lower() in ("true", "1", "yes")
+    if not ai_enabled:
+        return MockLLMProvider()
+
+    provider_name = (requested_provider or os.getenv("LLM_PROVIDER", "groq")).lower().strip()
+
+    if provider_name == "groq":
+        groq_key = os.getenv("GROQ_API_KEY")
+        if groq_key:
+            return GroqLLMProvider(api_key=groq_key)
+        # If Groq requested but key missing, fall back to mock
+        return MockLLMProvider(model_name="deterministic-mock")
+
+    if provider_name == "gemini":
+        gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if gemini_key:
+            return GeminiProvider(api_key=gemini_key)
+        return MockLLMProvider(model_name="deterministic-mock")
+
+    return MockLLMProvider(model_name="deterministic-mock")

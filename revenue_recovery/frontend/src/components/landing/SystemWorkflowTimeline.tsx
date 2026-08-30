@@ -2,7 +2,7 @@
 
 export default function SystemWorkflowTimeline() {
   const steps = [
-    { num: "01", title: "DETECT", desc: "Revenue-risk event enters RecoverOS via webhook or API ingestion." },
+    { num: "01", title: "DETECT", desc: "Revenue-risk event enters RevPlug via webhook or API ingestion." },
     { num: "02", title: "DIAGNOSE", desc: "Known failures are classified deterministically. Ambiguous cases can use AI decision agents." },
     { num: "03", title: "SCORE", desc: "Expected Recovery Value (EV) is calculated deterministically prior to action." },
     { num: "04", title: "GUARD", desc: "Policy and stopping rules constrain the recommendation before authorization." },

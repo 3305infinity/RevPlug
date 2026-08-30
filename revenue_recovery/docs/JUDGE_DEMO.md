@@ -1,12 +1,12 @@
-# RecoverOS Judge Demo Guide & Presentation Script
+# RevPlug Judge Demo Guide & Presentation Script
 
-This guide prepares judges and reviewers to evaluate RecoverOS in 30 seconds, 2 minutes, or 5 minutes.
+This guide prepares judges and reviewers to evaluate RevPlug in 30 seconds, 2 minutes, or 5 minutes.
 
 ---
 
 ## 1. The 30-Second Elevator Pitch
 
-> **RecoverOS is an AI-powered revenue recovery control plane that diagnoses slipping revenue, ranks interventions using context reasoning, and executes bounded recovery actions—without ever letting AI bypass safety rules or declare unverified revenue.**
+> **RevPlug is an AI-powered revenue recovery control plane that diagnoses slipping revenue, ranks interventions using context reasoning, and executes bounded recovery actions—without ever letting AI bypass safety rules or declare unverified revenue.**
 
 ---
 
@@ -53,5 +53,5 @@ VERIFIED SETTLEMENT (Authoritative Provider Evidence)
 | **4. What happens when AI fails or times out?** | The system triggers `DeterministicFallbackAgent`, logging a `FALLBACK_USED` event while safety controls remain active. |
 | **5. What prevents duplicate retries?** | Action execution uses unique idempotency keys (`item_id:action:attempt_number`) and reconciles `UNKNOWN` provider states. |
 | **6. Is this real money?** | Payment events in simulation mode are clearly tagged with `● SIMULATION MODE ACTIVE` for complete transparency. |
-| **7. How did you measure improvement?** | We ran a seeded counterfactual benchmark (`count=50`, `seed=42`) comparing RecoverOS directly against a fixed retry baseline. |
-| **8. What is the financial ROI?** | RecoverOS delivered +25.7% incremental recovery uplift and reduced unnecessary intervention costs by 20%. |
+| **7. How did you measure improvement?** | We ran a seeded counterfactual benchmark (`count=50`, `seed=42`) comparing RevPlug directly against a fixed retry baseline. |
+| **8. What is the financial ROI?** | RevPlug delivered +25.7% incremental recovery uplift and reduced unnecessary intervention costs by 20%. |

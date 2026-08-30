@@ -1,21 +1,21 @@
-# RecoverOS Benchmark & Counterfactual ROI Report
+# RevPlug Benchmark & Counterfactual ROI Report
 
-**Generated At:** 2026-08-30 16:42:25 UTC
+**Generated At:** 2026-08-30 17:47:29 UTC
 **Dataset Config:** 10 cases | Seed `42` | Version `1.0`
 
 ---
 
 ## 1. Executive Summary
 
-RecoverOS is a **bounded autonomous revenue recovery agent** designed to maximize settlement-verified revenue while strictly adhering to safety policies and retry budgets.
+RevPlug is a **bounded autonomous revenue recovery agent** designed to maximize settlement-verified revenue while strictly adhering to safety policies and retry budgets.
 
-In this reproducible benchmark of **10 cases**, RecoverOS demonstrated a **25.7% recovery rate uplift** over a standard fixed-retry baseline, recovering an incremental **₹28,000.00** with **ZERO safety policy violations**.
+In this reproducible benchmark of **10 cases**, RevPlug demonstrated a **25.7% recovery rate uplift** over a standard fixed-retry baseline, recovering an incremental **₹28,000.00** with **ZERO safety policy violations**.
 
 ---
 
 ## 2. Benchmark Financial Proof
 
-| Metric | Deterministic Baseline | RecoverOS AI Agent | Counterfactual Best Safe | Incremental Uplift |
+| Metric | Deterministic Baseline | RevPlug AI Agent | Counterfactual Best Safe | Incremental Uplift |
 | :--- | :--- | :--- | :--- | :--- |
 | **Total Revenue at Risk** | ₹8,401.50 | ₹8,401.50 | ₹100,000.00 | — |
 | **Verified Recovered Revenue** | ₹1,600.00 | ₹3,100.00 | ₹38,000.00 | **+₹10,000.00** |
@@ -28,7 +28,7 @@ In this reproducible benchmark of **10 cases**, RecoverOS demonstrated a **25.7%
 
 ## 3. Safety & Compliance Scorecard
 
-Unlike naive fixed-retry systems, RecoverOS enforces non-bypassable safety gates:
+Unlike naive fixed-retry systems, RevPlug enforces non-bypassable safety gates:
 - **Fraud Signal Protection:** 0 retries attempted on fraud-flagged items.
 - **Opt-Out Compliance:** 0 communications sent to opted-out customers.
 - **Hard Decline Immunity:** 0 retries attempted on permanent bank declines.

@@ -74,7 +74,7 @@ export default function SafetyTrust() {
           Automation with hard boundaries.
         </h2>
         <p style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          RecoverOS enforces hard deterministic safety rules at runtime. Autonomous execution operates strictly within policy boundaries.
+          RevPlug enforces hard deterministic safety rules at runtime. Autonomous execution operates strictly within policy boundaries.
         </p>
       </div>
 

@@ -22,7 +22,7 @@ export default function LoginPage() {
     try {
       const res = await api.login({ email, password });
       if (res.user) {
-        localStorage.setItem("recoveros_user", JSON.stringify(res.user));
+        localStorage.setItem("revplug_user", JSON.stringify(res.user));
         router.push("/dashboard");
       } else {
         setError("Invalid email or password");

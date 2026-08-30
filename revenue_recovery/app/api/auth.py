@@ -8,7 +8,7 @@ from app.domain.auth import hash_password, verify_password
 
 router = APIRouter()
 
-COOKIE_NAME = "recoveros_session"
+COOKIE_NAME = "revplug_session"
 
 
 def get_token_from_request(request: Request, authorization: str | None = None) -> str | None:

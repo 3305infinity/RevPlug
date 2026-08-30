@@ -81,7 +81,7 @@ def test_decision_quality_metrics_in_evaluation():
     eval_service = EvaluationService()
     res = eval_service.run_batch_evaluation(count=30, seed=42)
 
-    ros = res.recoveros
+    ros = res.revplug
     assert hasattr(ros, "decision_quality")
     dq = ros.decision_quality
 

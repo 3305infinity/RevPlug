@@ -1,6 +1,6 @@
-# RecoverOS — Autonomous Revenue Recovery Control Plane
+# RevPlug — Autonomous Revenue Recovery Control Plane
 
-> **RecoverOS is an AI revenue recovery agent that finds money at risk, understands why it is stuck, chooses a bounded intervention, and verifies the money actually came back.**
+> **RevPlug is an AI revenue recovery agent that finds money at risk, understands why it is stuck, chooses a bounded intervention, and verifies the money actually came back.**
 
 > **Signature Architecture Axiom:** *AI decides what to try. Policy decides what is allowed. Settlement decides what counts.*
 
@@ -14,7 +14,7 @@ Naively retrying every failed transaction inflates intervention costs, frustrate
 
 **THIS IS NOT A RETRY SCRIPT.**
 
-RecoverOS is an autonomous revenue recovery control plane that detects revenue at risk, diagnoses why recovery failed, evaluates economically viable interventions, enforces safety policies, executes bounded recovery actions, verifies settlement, and records the financial outcome.
+RevPlug is an autonomous revenue recovery control plane that detects revenue at risk, diagnoses why recovery failed, evaluates economically viable interventions, enforces safety policies, executes bounded recovery actions, verifies settlement, and records the financial outcome.
 
 ---
 
@@ -22,7 +22,7 @@ RecoverOS is an autonomous revenue recovery control plane that detects revenue a
 
 Reproducible evaluation (`count = 50, seed = 42`, dataset `v2-counterfactual`):
 
-| Metric | Fixed Retry Baseline | RecoverOS AI Control Plane | Performance & Safety Impact |
+| Metric | Fixed Retry Baseline | RevPlug AI Control Plane | Performance & Safety Impact |
 | :--- | :--- | :--- | :--- |
 | **Total Amount at Risk** | ₹48,20,000 | **₹48,20,000** | Identical 50-case risk pool |
 | **Verified Recovered Revenue** | ₹10,90,000 | **₹13,70,000** | **+₹2,80,000 (+25.7% uplift)** |
@@ -32,13 +32,13 @@ Reproducible evaluation (`count = 50, seed = 42`, dataset `v2-counterfactual`):
 | **Action Selection Regret** | ₹3,30,000 | **₹50,000** | **84.8% reduction in regret** |
 | **Safety Violations** | **8 Violations** | **0 Violations** | **100% Safety Compliance** |
 
-> **Why Violations Matter**: The fixed baseline suffers **8 safety violations** (retrying fraud, hard declines, and opted-out users). RecoverOS achieves superior net recovery with **0 safety violations**.
+> **Why Violations Matter**: The fixed baseline suffers **8 safety violations** (retrying fraud, hard declines, and opted-out users). RevPlug achieves superior net recovery with **0 safety violations**.
 
 ---
 
 ## 3. Core Architecture & Control Loop
 
-RecoverOS operates on a strict 7-stage control loop:
+RevPlug operates on a strict 7-stage control loop:
 
 $$\text{Detect} \longrightarrow \text{Diagnose} \longrightarrow \text{Score} \longrightarrow \text{Guard} \longrightarrow \text{Execute} \longrightarrow \text{Verify} \longrightarrow \text{Record}$$
 
@@ -104,7 +104,7 @@ Available in interactive demo (`http://localhost:3000/run-recovery`):
 4. **How do you verify recovered money?** Execution success $\neq$ Recovered revenue. Money is credited ONLY after authoritative provider settlement evidence is verified.
 5. **What happens when AI fails?** Automatic failover to `DeterministicFallbackAgent` with fail-closed policy enforcement.
 6. **What if provider status is unknown?** Gateway timeouts set status to `UNKNOWN` and trigger reconciliation query without duplicate retries.
-7. **Is the benchmark fair?** Yes, both baseline and RecoverOS run on identical 50 cases with identical initial conditions (`seed = 42`).
+7. **Is the benchmark fair?** Yes, both baseline and RevPlug run on identical 50 cases with identical initial conditions (`seed = 42`).
 8. **What is simulated vs real?** External gateway webhooks are simulated for 100% reproducible judging without requiring live credentials.
 
 ---

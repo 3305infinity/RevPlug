@@ -1,8 +1,8 @@
 """Baseline Evaluator — dumb fixed-strategy comparator.
 
 THIS IS NOT A RECOVERY ENGINE. It is a comparator that applies a fixed
-strategy to the same evaluation dataset that RecoverOS processes. The
-baseline allows a judge to compare the value of RecoverOS's intelligent
+strategy to the same evaluation dataset that RevPlug processes. The
+baseline allows a judge to compare the value of RevPlug's intelligent
 decisions versus a naive approach.
 
 Baseline strategy (fixed, unchanged):
@@ -17,12 +17,12 @@ The baseline:
 - Does NOT choose between intelligent interventions
 - Does NOT use confidence thresholds
 - Does NOT enforce policy (opt-out, fraud, retry budget)
-- DOES use the exact same simulated payment outcome model as RecoverOS
+- DOES use the exact same simulated payment outcome model as RevPlug
 - DOES use the exact same recovery probability model to simulate success/failure
 
 IMPORTANT: The baseline deliberately ignores opt-out and fraud signals.
 This is intentional — it shows the risk of a dumb strategy.
-RecoverOS's avoidance of these cases is a genuine safety/compliance advantage.
+RevPlug's avoidance of these cases is a genuine safety/compliance advantage.
 
 Definition of Unnecessary Intervention (used by BOTH systems):
     An intervention is unnecessary when:
@@ -112,7 +112,7 @@ class BaselineEvaluator:
     - retry budget
     - failure category appropriateness
 
-    Uses the same RecoveryProbabilityModel as RecoverOS to determine whether
+    Uses the same RecoveryProbabilityModel as RevPlug to determine whether
     a retry attempt succeeds. This ensures the comparison is fair -- both
     systems face the same underlying payment success probabilities.
 
@@ -203,7 +203,7 @@ class BaselineEvaluator:
         """Evaluate all items with the fixed baseline strategy.
 
         Args:
-            items: List of RecoveryItems (same dataset as RecoverOS uses).
+            items: List of RecoveryItems (same dataset as RevPlug uses).
 
         Returns:
             BaselineBatchResult with aggregated metrics.

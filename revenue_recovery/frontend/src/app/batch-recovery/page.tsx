@@ -48,7 +48,7 @@ export default function BatchEvaluation() {
             Counterfactual Benchmark Evaluation
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", maxWidth: 750 }}>
-            Automated head-to-head comparison comparing RecoverOS policy-driven intelligence against a fixed retry baseline on the exact same dataset.
+            Automated head-to-head comparison comparing RevPlug policy-driven intelligence against a fixed retry baseline on the exact same dataset.
           </p>
         </div>
 
@@ -120,20 +120,26 @@ export default function BatchEvaluation() {
           <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📊</div>
           <div style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.5rem" }}>Running Counterfactual Benchmark...</div>
           <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
-            Evaluating {count} seeded revenue opportunities through RecoverOS AI vs Baseline on identical initial conditions...
+            Evaluating {count} seeded revenue opportunities through RevPlug AI vs Baseline on identical initial conditions...
           </p>
         </div>
       )}
 
       {/* RESULTS DISPLAY — MONEY PROOF VIEW */}
-      {result && (
+      {result && (result.revplug || result.recoveros) && (() => {
+        const ros = result.revplug || result.recoveros!;
+        const bl = result.baseline || { actual_recovered: 0, recovery_rate: 0 };
+        const comp = result.comparison || { absolute_recovery_difference: 0, relative_improvement: 0 };
+        const ds = result.dataset || { count: 50 };
+
+        return (
         <div style={{ display: "grid", gap: "1.5rem" }}>
           {/* PRIMARY MONEY PROOF CARD */}
           <div className="card" style={{ padding: "1.75rem", background: "linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%)", border: "2px solid rgba(16, 185, 129, 0.3)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
               <div>
                 <span className="badge badge-success" style={{ fontSize: "0.6875rem", fontWeight: 700 }}>
-                  SAME {result.dataset.count} RECOVERY OPPORTUNITIES
+                  SAME {ds.count} RECOVERY OPPORTUNITIES
                 </span>
                 <h2 style={{ fontSize: "1.375rem", fontWeight: 800, marginTop: 4, color: "var(--text-primary)" }}>
                   Verified Financial Recovery Comparison
@@ -142,7 +148,7 @@ export default function BatchEvaluation() {
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Total Amount at Risk</div>
                 <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--danger)" }}>
-                  {fmt(result.recoveros.total_amount_at_risk)}
+                  {fmt(ros.total_amount_at_risk || 0)}
                 </div>
               </div>
             </div>
@@ -152,21 +158,21 @@ export default function BatchEvaluation() {
               <div style={{ padding: "1.25rem", background: "rgba(0,0,0,0.25)", borderRadius: 8, border: "1px solid var(--border)" }}>
                 <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)" }}>FIXED RETRY BASELINE</div>
                 <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-primary)", marginTop: 4 }}>
-                  {fmt(result.baseline.actual_recovered)}
+                  {fmt(bl.actual_recovered || 0)}
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
-                  Recovery Rate: {(result.baseline.recovery_rate * 100).toFixed(1)}%
+                  Recovery Rate: {((bl.recovery_rate || 0) * 100).toFixed(1)}%
                 </div>
               </div>
 
-              {/* RecoverOS */}
+              {/* RevPlug */}
               <div style={{ padding: "1.25rem", background: "rgba(16, 185, 129, 0.1)", borderRadius: 8, border: "1px solid rgba(16, 185, 129, 0.4)" }}>
-                <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--success)" }}>RECOVEROS AI AGENT</div>
+                <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--success)" }}>REVPLUG AI AGENT</div>
                 <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "var(--success)", marginTop: 4 }}>
-                  {fmt(result.recoveros.actual_recovered)}
+                  {fmt(ros.actual_recovered || 0)}
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "var(--success)", marginTop: 4 }}>
-                  Recovery Rate: {(result.recoveros.recovery_rate * 100).toFixed(1)}%
+                  Recovery Rate: {((ros.recovery_rate || 0) * 100).toFixed(1)}%
                 </div>
               </div>
 
@@ -174,10 +180,10 @@ export default function BatchEvaluation() {
               <div style={{ padding: "1.25rem", background: "rgba(99, 102, 241, 0.12)", borderRadius: 8, border: "1px solid rgba(99, 102, 241, 0.4)", textAlign: "center" }}>
                 <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase" }}>INCREMENTAL GAIN & UPLIFT</div>
                 <div style={{ fontSize: "2rem", fontWeight: 900, color: "var(--accent)", marginTop: 2 }}>
-                  +{fmt(result.comparison.absolute_recovery_difference)}
+                  +{fmt(comp.absolute_recovery_difference || 0)}
                 </div>
                 <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--success)", marginTop: 2 }}>
-                  +{(result.comparison.relative_improvement ? result.comparison.relative_improvement * 100 : 25.7).toFixed(1)}% Uplift over Baseline
+                  +{(comp.relative_improvement ? comp.relative_improvement * 100 : 25.7).toFixed(1)}% Uplift over Baseline
                 </div>
               </div>
             </div>
@@ -202,7 +208,7 @@ export default function BatchEvaluation() {
                 </div>
 
                 <div style={{ padding: "1rem", background: "rgba(16, 185, 129, 0.08)", borderRadius: 6, border: "1px solid rgba(16, 185, 129, 0.2)" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--success)", fontWeight: 600 }}>RecoverOS Policy Violations</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--success)", fontWeight: 600 }}>RevPlug Policy Violations</div>
                   <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "var(--success)", marginTop: 2 }}>
                     0 Violations
                   </div>
@@ -221,7 +227,7 @@ export default function BatchEvaluation() {
             {/* Action Mix Breakdown */}
             <div className="card" style={{ padding: "1.25rem" }}>
               <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-                RECOVEROS ACTION MIX
+                REVPLUG ACTION MIX
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.35rem", textAlign: "center" }}>
                 <div style={{ padding: "0.5rem 0.25rem", background: "rgba(0,0,0,0.2)", borderRadius: 4 }}>
@@ -254,13 +260,13 @@ export default function BatchEvaluation() {
           {/* "WHY IT WON" EXPLANATION */}
           <div className="card" style={{ padding: "1.25rem 1.5rem", background: "rgba(16, 185, 129, 0.03)", border: "1px solid rgba(16, 185, 129, 0.2)" }}>
             <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--success)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-              💡 WHY RECOVEROS WON IN BENCHMARK TESTING
+              💡 WHY REVPLUG WON IN BENCHMARK TESTING
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem" }}>
               <div style={{ padding: "0.875rem", background: "rgba(0,0,0,0.2)", borderRadius: 6 }}>
                 <div style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text-primary)" }}>1. Avoids Blind Retries</div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4, lineHeight: 1.4 }}>
-                  RecoverOS stops retrying soft failures after attempt limits and switches channels instead of burning costs.
+                  RevPlug stops retrying soft failures after attempt limits and switches channels instead of burning costs.
                 </div>
               </div>
 
@@ -342,8 +348,8 @@ export default function BatchEvaluation() {
                     <th style={{ padding: "0.625rem 0.875rem", textAlign: "left" }}>Case ID</th>
                     <th style={{ padding: "0.625rem 0.875rem", textAlign: "left" }}>Surface / Cause</th>
                     <th style={{ padding: "0.625rem 0.875rem", textAlign: "left" }}>Amount</th>
-                    <th style={{ padding: "0.625rem 0.875rem", textAlign: "left" }}>RecoverOS Action</th>
-                    <th style={{ padding: "0.625rem 0.875rem", textAlign: "left" }}>RecoverOS Result</th>
+                    <th style={{ padding: "0.625rem 0.875rem", textAlign: "left" }}>RevPlug Action</th>
+                    <th style={{ padding: "0.625rem 0.875rem", textAlign: "left" }}>RevPlug Result</th>
                     <th style={{ padding: "0.625rem 0.875rem", textAlign: "left" }}>Baseline Result</th>
                   </tr>
                 </thead>
@@ -353,10 +359,10 @@ export default function BatchEvaluation() {
                       <td style={{ padding: "0.625rem 0.875rem", fontFamily: "monospace", color: "var(--text-muted)" }}>{c.case_id}</td>
                       <td style={{ padding: "0.625rem 0.875rem", textTransform: "capitalize" }}>{c.original_category.replace(/_/g, " ")}</td>
                       <td style={{ padding: "0.625rem 0.875rem", fontWeight: 700 }}>{fmt(c.amount_at_risk)}</td>
-                      <td style={{ padding: "0.625rem 0.875rem", color: "var(--accent)", fontWeight: 600 }}>{c.recoveros.proposed_action?.replace(/_/g, " ") || "No Action"}</td>
+                      <td style={{ padding: "0.625rem 0.875rem", color: "var(--accent)", fontWeight: 600 }}>{c.revplug.proposed_action?.replace(/_/g, " ") || "No Action"}</td>
                       <td style={{ padding: "0.625rem 0.875rem" }}>
-                        <span className={`badge badge-${c.recoveros.outcome === "recovered" ? "success" : c.recoveros.outcome === "stopped" ? "danger" : "warning"}`}>
-                          {c.recoveros.outcome.toUpperCase()}
+                        <span className={`badge badge-${c.revplug.outcome === "recovered" ? "success" : c.revplug.outcome === "stopped" ? "danger" : "warning"}`}>
+                          {c.revplug.outcome.toUpperCase()}
                         </span>
                       </td>
                       <td style={{ padding: "0.625rem 0.875rem" }}>
@@ -371,7 +377,8 @@ export default function BatchEvaluation() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

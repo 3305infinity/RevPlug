@@ -39,7 +39,7 @@ export default function LandingFooter() {
             R
           </div>
           <span style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#f8fafc" }}>
-            RecoverOS
+            RevPlug
           </span>
           <span style={{ color: "var(--border)", opacity: 0.5 }}>|</span>
           <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
@@ -63,7 +63,7 @@ export default function LandingFooter() {
           fontSize: "0.6875rem",
           color: "var(--text-muted)",
         }}>
-          RecoverOS Infrastructure · AI Intelligence with Deterministic Economic Guardrails & Financial Payment Verification
+          RevPlug Infrastructure · AI Intelligence with Deterministic Economic Guardrails & Financial Payment Verification
         </div>
       </div>
     </footer>

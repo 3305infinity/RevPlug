@@ -1,19 +1,19 @@
 """Batch Evaluation Service.
 
-Orchestrates the comparison between RecoverOS and the Baseline Evaluator
+Orchestrates the comparison between RevPlug and the Baseline Evaluator
 over a shared seeded dataset.
 
 Architecture:
     generate_dataset(count, seed)
-        -> for each case: RecoveryOrchestrator.run()   [RecoverOS path]
+        -> for each case: RecoveryOrchestrator.run()   [RevPlug path]
         -> for each case: BaselineEvaluator.evaluate() [Baseline path]
-        -> aggregate RecoverOS metrics
+        -> aggregate RevPlug metrics
         -> aggregate Baseline metrics
         -> compute comparison
         -> return EvaluationRunResult
 
 Key invariants:
-1. Both RecoverOS and Baseline receive THE EXACT SAME dataset items.
+1. Both RevPlug and Baseline receive THE EXACT SAME dataset items.
 2. Actual recovery = verified RecoveryOutcome records (InMemory for evaluation).
 3. LLM failures are isolated per-case; batch continues on individual failure.
 4. Fatal infrastructure errors surface as status="failed", not silent success.
@@ -48,7 +48,7 @@ from app.services.recovery_orchestrator import RecoveryOrchestrator
 
 @dataclass
 class RecoveryOSCaseResult:
-    """Result of RecoverOS for one evaluation case."""
+    """Result of RevPlug for one evaluation case."""
 
     case_id: str
     amount_at_risk: int
@@ -71,7 +71,7 @@ class RecoveryOSCaseResult:
 
 @dataclass
 class RecoveryOSBatchResult:
-    """Aggregated RecoverOS evaluation metrics."""
+    """Aggregated RevPlug evaluation metrics."""
 
     cases_evaluated: int = 0
     cases_completed: int = 0
@@ -131,12 +131,12 @@ class RecoveryOSBatchResult:
 
 @dataclass
 class EvaluationComparison:
-    """Head-to-head comparison between RecoverOS and Baseline."""
+    """Head-to-head comparison between RevPlug and Baseline."""
 
-    absolute_recovery_difference: int  # RecoverOS - Baseline
-    recovery_rate_difference: float    # RecoverOS rate - Baseline rate
-    relative_improvement: float | None  # (RecoverOS - Baseline) / Baseline (None if baseline=0)
-    recoveros_beat_baseline: bool
+    absolute_recovery_difference: int  # RevPlug - Baseline
+    recovery_rate_difference: float    # RevPlug rate - Baseline rate
+    relative_improvement: float | None  # (RevPlug - Baseline) / Baseline (None if baseline=0)
+    revplug_beat_baseline: bool
     honest_summary: str               # Human-readable, never manipulated
 
 
@@ -151,7 +151,7 @@ class EvaluationRunResult:
     started_at: str
     completed_at: str | None
     dataset_info: dict[str, Any]
-    recoveros: RecoveryOSBatchResult
+    revplug: RecoveryOSBatchResult
     baseline: Any  # BaselineBatchResult
     comparison: EvaluationComparison
     per_case: list[dict[str, Any]]
@@ -177,10 +177,10 @@ _INTERVENTION_COST_MODEL = _CostModel()
 
 
 # ---------------------------------------------------------------------------
-# RecoverOS per-case runner
+# RevPlug per-case runner
 # ---------------------------------------------------------------------------
 
-def _run_recoveros_case(
+def _run_revplug_case(
     item: RecoveryItem,
     orchestrator: RecoveryOrchestrator,
     scorer: ExpectedValueScorer,
@@ -326,12 +326,12 @@ def _run_recoveros_case(
 # ---------------------------------------------------------------------------
 
 class EvaluationService:
-    """Orchestrates the RecoverOS vs Baseline batch comparison.
+    """Orchestrates the RevPlug vs Baseline batch comparison.
 
     Supports A/B policy evaluation:
     - Policy A: Baseline fixed retry policy
-    - Policy B: RecoverOS Control Plane with AI Reasoning (RealRecoveryDecisionAgent)
-    - Policy C: RecoverOS Control Plane Deterministic Only (MockRecoveryDecisionAgent)
+    - Policy B: RevPlug Control Plane with AI Reasoning (RealRecoveryDecisionAgent)
+    - Policy C: RevPlug Control Plane Deterministic Only (MockRecoveryDecisionAgent)
     """
 
     def __init__(
@@ -396,7 +396,7 @@ class EvaluationService:
         count: int = 50,
         seed: int = 42,
     ) -> EvaluationRunResult:
-        """Run the full batch evaluation: RecoverOS vs Baseline.
+        """Run the full batch evaluation: RevPlug vs Baseline.
 
         Args:
             count: Number of cases (1–500).
@@ -424,7 +424,7 @@ class EvaluationService:
                 started_at=started_at,
                 completed_at=datetime.now(timezone.utc).isoformat(),
                 dataset_info={},
-                recoveros=RecoveryOSBatchResult(),
+                revplug=RecoveryOSBatchResult(),
                 baseline=None,
                 comparison=EvaluationComparison(0, 0.0, None, False, "Dataset generation failed"),
                 per_case=[],
@@ -449,7 +449,7 @@ class EvaluationService:
             "case_ids": [i.id for i in items],
         }
 
-        # ---- 2. Run RecoverOS on each case ----
+        # ---- 2. Run RevPlug on each case ----
         audit_log = InMemoryAuditLog()
         from app.db.container import _InMemoryPromiseRepository
         from app.domain.models import Promise
@@ -480,7 +480,7 @@ class EvaluationService:
 
         for idx, item in enumerate(items):
             try:
-                case_result = _run_recoveros_case(
+                case_result = _run_revplug_case(
                     item=item,
                     orchestrator=orchestrator,
                     scorer=self._scorer,
@@ -547,7 +547,7 @@ class EvaluationService:
 
         dataset_info["safety_statistics"] = safety_stats
 
-        # Compute RecoverOS decision quality metrics against ground truth
+        # Compute RevPlug decision quality metrics against ground truth
         rc_matches = 0
         prop_matches = 0
         final_matches = 0
@@ -661,7 +661,7 @@ class EvaluationService:
             "expected_vs_actual_error": round(total_err / total_c, 2),
         }
 
-        # Compute RecoverOS STAGE 2 aggregated metrics
+        # Compute RevPlug STAGE 2 aggregated metrics
         ros_result.net_recovered = ros_result.actual_recovered - ros_result.intervention_cost
         ros_result.eligible_cases = len([c for c in ros_per_case if (c.metadata.get("ground_truth") or {}).get("recoverable", True)])
         if ros_result.total_amount_at_risk > 0:
@@ -707,12 +707,12 @@ class EvaluationService:
         # Honest summary — never manipulate
         if ros_beat:
             honest_summary = (
-                f"RecoverOS net recovery ₹{net_diff/100:.0f} higher than baseline "
+                f"RevPlug net recovery ₹{net_diff/100:.0f} higher than baseline "
                 f"(Net ₹{ros_result.net_recovered/100:.0f} vs ₹{(baseline_result.actual_recovered - baseline_result.intervention_cost)/100:.0f})."
             )
         else:
             honest_summary = (
-                f"Baseline net recovery ₹{-net_diff/100:.0f} higher than RecoverOS "
+                f"Baseline net recovery ₹{-net_diff/100:.0f} higher than RevPlug "
                 f"(Net ₹{(baseline_result.actual_recovered - baseline_result.intervention_cost)/100:.0f} vs ₹{ros_result.net_recovered/100:.0f}). "
                 f"Honest result reported."
             )
@@ -721,7 +721,7 @@ class EvaluationService:
             absolute_recovery_difference=abs_diff,
             recovery_rate_difference=rate_diff,
             relative_improvement=rel_improvement,
-            recoveros_beat_baseline=ros_beat,
+            revplug_beat_baseline=ros_beat,
             honest_summary=honest_summary,
         )
 
@@ -739,7 +739,7 @@ class EvaluationService:
                 "amount_at_risk": ros_case.amount_at_risk,
                 "customer_id": ros_case.metadata.get("customer_id", ""),
                 "ground_truth": ros_case.metadata.get("ground_truth"),
-                "recoveros": {
+                "revplug": {
                     "proposed_action": ros_case.proposed_action,
                     "safety_decision": ros_case.safety_decision,
                     "outcome": ros_case.outcome,
@@ -776,7 +776,7 @@ class EvaluationService:
             started_at=started_at,
             completed_at=completed_at,
             dataset_info=dataset_info,
-            recoveros=ros_result,
+            revplug=ros_result,
             baseline=baseline_result,
             comparison=comparison,
             per_case=per_case_combined,
@@ -789,7 +789,7 @@ class EvaluationService:
         bl_evaluator = BaselineEvaluator()
         bl_dict = bl_evaluator.to_dict(result.baseline) if result.baseline else {}
 
-        ros = result.recoveros
+        ros = result.revplug
         ros_dict = {
             "cases_evaluated": ros.cases_evaluated,
             "cases_completed": ros.cases_completed,
@@ -834,7 +834,7 @@ class EvaluationService:
             "absolute_recovery_difference": comp.absolute_recovery_difference,
             "recovery_rate_difference": round(comp.recovery_rate_difference, 6),
             "relative_improvement": round(comp.relative_improvement, 4) if comp.relative_improvement is not None else None,
-            "recoveros_beat_baseline": comp.recoveros_beat_baseline,
+            "revplug_beat_baseline": comp.revplug_beat_baseline,
             "honest_summary": comp.honest_summary,
         }
 
@@ -846,6 +846,7 @@ class EvaluationService:
             "started_at": result.started_at,
             "completed_at": result.completed_at,
             "dataset": result.dataset_info,
+            "revplug": ros_dict,
             "recoveros": ros_dict,
             "baseline": bl_dict,
             "comparison": comp_dict,

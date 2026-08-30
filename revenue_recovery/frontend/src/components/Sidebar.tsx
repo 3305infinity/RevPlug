@@ -56,7 +56,7 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
     } catch {
       // ignore
     }
-    localStorage.removeItem("recoveros_user");
+    localStorage.removeItem("revplug_user");
     if (onLogout) {
       onLogout();
     } else {
@@ -87,7 +87,7 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
           </div>
           <div>
             <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
-              RecoverOS
+              RevPlug
             </div>
             <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               Revenue Recovery

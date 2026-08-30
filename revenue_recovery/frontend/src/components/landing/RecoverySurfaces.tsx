@@ -58,7 +58,7 @@ export default function RecoverySurfaces() {
           Supported Revenue Surfaces
         </h2>
         <p style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          RecoverOS handles diverse revenue failure modes through dedicated domain handlers.
+          RevPlug handles diverse revenue failure modes through dedicated domain handlers.
         </p>
       </div>
 

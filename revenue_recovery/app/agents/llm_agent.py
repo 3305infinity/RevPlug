@@ -28,6 +28,7 @@ class AgentTrace:
     validation_passed: bool = False
     validation_error: str | None = None
     fallback_used: bool = False
+    decision_path: str = "groq"
     latency_ms: int = 0
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -35,17 +36,17 @@ class AgentTrace:
 from app.agents.ai_router import AIRouter
 from app.agents.ai_schemas import AIRecommendation, AISchemaValidationError, RankedCandidate
 from app.agents.decision_agent import MockRecoveryDecisionAgent, RecoveryDecisionAgent
-from app.agents.llm_provider import MockLLMProvider, LLMProvider
+from app.agents.llm_provider import MockLLMProvider, LLMProvider, get_llm_provider
 from app.domain.failures import FailureCategory
 
 
 class RealRecoveryDecisionAgent:
-    """Real LLM-backed recovery decision agent with candidate-ranking and safe fallback.
+    """Real LLM-backed recovery decision agent with Groq primary, Gemini optional, candidate-ranking, and safe fallback.
 
     Architecture:
-        1. ROUTING          — AIRouter checks clear vs ambiguous case
+        1. ROUTING          — AIRouter & Deterministic check (opt-out bypasses LLM completely)
         2. CANDIDATE GEN    — Deterministic generation of valid candidate actions
-        3. LLM RANKING      — Call LLM to rank candidate actions
+        3. LLM RANKING      — Call Groq/Gemini to rank candidate actions
         4. SCHEMA VALIDATION— Structured parsing and range validation (0..1 confidence)
         5. CONFIDENCE POLICY— Low confidence (< threshold) triggers fallback
         6. POLICY GATE      — Hard deterministic safety rules enforce final boundary
@@ -63,8 +64,7 @@ class RealRecoveryDecisionAgent:
         max_tokens: int = 500,
         temperature: float = 0.1,
     ) -> None:
-        from app.agents.llm_client import DeterministicLLMClient
-        self._llm = llm_client or DeterministicLLMClient()
+        self._llm = llm_client if llm_client is not None else get_llm_provider()
         self._prompt_builder = prompt_builder or RecoveryPromptBuilder()
         self._fallback = fallback_agent
         self._router = router or AIRouter(force_ai=True)
@@ -80,7 +80,11 @@ class RealRecoveryDecisionAgent:
 
     @property
     def model_name(self) -> str:
-        return getattr(self._llm, "model_name", "mock-llm")
+        return getattr(self._llm, "model_name", "groq-llama3")
+
+    @property
+    def provider_name(self) -> str:
+        return getattr(self._llm, "provider_name", "groq")
 
     @property
     def last_trace(self) -> AgentTrace | None:
@@ -90,7 +94,9 @@ class RealRecoveryDecisionAgent:
         """Run the full multi-stage agent workflow."""
         start = time.monotonic()
 
-        # Stage 1: AIRouting check
+        # Check Deterministic Safety Bypass FIRST (Do not call LLM for opted-out users or budget exhaustion)
+        is_deterministic_bypass = context.customer_opt_out or (context.attempt_count >= context.max_attempts)
+
         routing = self._router.route(context)
 
         context_summary = {
@@ -98,21 +104,24 @@ class RealRecoveryDecisionAgent:
             "retryable": context.retryable,
             "attempt": context.attempt_count,
             "amount": context.amount_minor,
-            "use_ai": routing.use_ai,
-            "routing_reason": routing.reason,
+            "use_ai": routing.use_ai and not is_deterministic_bypass,
+            "routing_reason": "deterministic_safety_bypass" if is_deterministic_bypass else routing.reason,
+            "provider": self.provider_name,
         }
 
-        # If clear case -> skip LLM and use deterministic fallback agent
-        if not routing.use_ai:
+        # If opted out or budget exhausted or routing says no AI -> skip LLM and use deterministic fallback agent
+        if is_deterministic_bypass or not routing.use_ai:
             fallback = self._fallback or MockRecoveryDecisionAgent()
             proposal = fallback.propose(context)
             self._last_trace = AgentTrace(
                 recovery_item_id=context.item_id,
                 agent_name=self._name,
                 model_name="deterministic-rules",
+                prompt_version=RecoveryPromptBuilder.PROMPT_VERSION,
                 context_summary=context_summary,
                 validation_passed=True,
                 fallback_used=False,
+                decision_path="deterministic",
                 latency_ms=int((time.monotonic() - start) * 1000),
             )
             return proposal
@@ -120,7 +129,7 @@ class RealRecoveryDecisionAgent:
         # Stage 2: Candidate Generation (Deterministic)
         candidate_actions = self._generate_candidate_actions(context)
 
-        # Stage 3: LLM Candidate Ranking
+        # Stage 3: LLM Candidate Ranking (Groq / Gemini / Mock)
         system_prompt = self._prompt_builder.SYSTEM_PROMPT_RANKING_V1
         user_prompt = self._prompt_builder.build_ranking_prompt(context, candidate_actions)
 
@@ -180,13 +189,15 @@ class RealRecoveryDecisionAgent:
                 proposed_retry=(selected_act == RecoveryAction.RETRY_PAYMENT),
                 model_name=self.model_name,
                 evidence={
+                    "provider": self.provider_name,
+                    "model": self.model_name,
                     "routing_factors": routing.ambiguity_factors,
                     "ranked_candidates": parsed.get("ranked_candidates", []),
                     "prompt_version": RecoveryPromptBuilder.PROMPT_VERSION,
-                    "input_tokens": response.input_tokens,
-                    "output_tokens": response.output_tokens,
+                    "input_tokens": getattr(response, "input_tokens", 0),
+                    "output_tokens": getattr(response, "output_tokens", 0),
                 },
-                diagnosis={"diagnosis_source": "llm", "confidence": conf_val},
+                diagnosis={"diagnosis_source": self.provider_name, "confidence": conf_val},
             )
 
             self._last_trace = AgentTrace(
@@ -198,6 +209,7 @@ class RealRecoveryDecisionAgent:
                 raw_response=response.content[:1000],
                 parsed_proposal=parsed,
                 validation_passed=True,
+                decision_path=self.provider_name,
                 latency_ms=latency,
             )
 
@@ -251,6 +263,7 @@ class RealRecoveryDecisionAgent:
             validation_passed=False,
             validation_error=error,
             fallback_used=True,
+            decision_path="deterministic_fallback",
             latency_ms=latency,
         )
         return proposal

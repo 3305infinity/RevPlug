@@ -37,11 +37,11 @@ def test_step4_rules_vs_llm_classification():
     service = EvaluationService()
     result = service.run_batch_evaluation(count=50, seed=42)
 
-    assert result.recoveros.cases_completed == 50
+    assert result.revplug.cases_completed == 50
     response_dict = service.to_response_dict(result)
-    assert "rules_classified_count" in response_dict["recoveros"]
-    assert "llm_classified_count" in response_dict["recoveros"]
-    assert "llm_fallback_count" in response_dict["recoveros"]
+    assert "rules_classified_count" in response_dict["revplug"]
+    assert "llm_classified_count" in response_dict["revplug"]
+    assert "llm_fallback_count" in response_dict["revplug"]
 
 
 def test_step4_closed_action_set_enforcement():
@@ -226,7 +226,7 @@ def test_step4_cost_per_recovery_and_unnecessary_interventions():
     service = EvaluationService()
     result = service.run_batch_evaluation(count=50, seed=42)
 
-    ros = result.recoveros
+    ros = result.revplug
     assert ros.cases_evaluated == 50
     assert ros.actual_recovered > 0
     assert ros.cost_per_recovery >= 0

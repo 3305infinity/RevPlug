@@ -41,7 +41,7 @@ export default function LandingHeader() {
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "0.4rem" }}>
             <span style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#f8fafc", letterSpacing: "-0.01em" }}>
-              RecoverOS
+              RevPlug
             </span>
             <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>·</span>
             <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 500 }}>

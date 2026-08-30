@@ -37,7 +37,7 @@ def test_auth_complete_regression_suite_a_to_j():
     res_signup = client.post(
         "/api/auth/signup",
         json={
-            "email": "user_reg@recoveros.io",
+            "email": "user_reg@revplug.io",
             "password": "StrongPassword123",
             "full_name": "Reg Test User",
         },
@@ -45,13 +45,13 @@ def test_auth_complete_regression_suite_a_to_j():
     assert res_signup.status_code == 201
     signup_token = res_signup.json().get("session_token")
     assert signup_token is not None
-    assert "recoveros_session" in res_signup.cookies
+    assert "revplug_session" in res_signup.cookies
 
     # J. Duplicate signup returns 409
     res_dup = client.post(
         "/api/auth/signup",
         json={
-            "email": "user_reg@recoveros.io",
+            "email": "user_reg@revplug.io",
             "password": "StrongPassword123",
             "full_name": "Reg Test User",
         },
@@ -66,20 +66,20 @@ def test_auth_complete_regression_suite_a_to_j():
     # F. Invalid credentials return 401
     res_invalid_pwd = client.post(
         "/api/auth/login",
-        json={"email": "user_reg@recoveros.io", "password": "WrongPassword"},
+        json={"email": "user_reg@revplug.io", "password": "WrongPassword"},
     )
     assert res_invalid_pwd.status_code == 401
 
     res_invalid_email = client.post(
         "/api/auth/login",
-        json={"email": "nonexistent@recoveros.io", "password": "StrongPassword123"},
+        json={"email": "nonexistent@revplug.io", "password": "StrongPassword123"},
     )
     assert res_invalid_email.status_code == 401
 
     # B. Login with correct credentials returns 200
     res_login = client.post(
         "/api/auth/login",
-        json={"email": "user_reg@recoveros.io", "password": "StrongPassword123"},
+        json={"email": "user_reg@revplug.io", "password": "StrongPassword123"},
     )
     assert res_login.status_code == 200
     login_data = res_login.json()
@@ -87,13 +87,13 @@ def test_auth_complete_regression_suite_a_to_j():
     # C. Login response establishes usable session token & cookie
     token = login_data.get("session_token")
     assert token is not None
-    assert login_data["user"]["email"] == "user_reg@recoveros.io"
-    assert "recoveros_session" in res_login.cookies
+    assert login_data["user"]["email"] == "user_reg@revplug.io"
+    assert "revplug_session" in res_login.cookies
 
     # D. Authenticated /api/auth/me returns 200 with correct user via Cookie
     res_me_cookie = client.get("/api/auth/me")
     assert res_me_cookie.status_code == 200
-    assert res_me_cookie.json()["user"]["email"] == "user_reg@recoveros.io"
+    assert res_me_cookie.json()["user"]["email"] == "user_reg@revplug.io"
 
     # D & G. Authenticated /api/auth/me returns 200 via Bearer header (simulating refreshed browser)
     client.cookies.clear()
@@ -102,7 +102,7 @@ def test_auth_complete_regression_suite_a_to_j():
         headers={"Authorization": f"Bearer {token}"},
     )
     assert res_me_bearer.status_code == 200
-    assert res_me_bearer.json()["user"]["email"] == "user_reg@recoveros.io"
+    assert res_me_bearer.json()["user"]["email"] == "user_reg@revplug.io"
 
     # I. Authenticated API requests continue working after login
     res_health = client.get("/health")

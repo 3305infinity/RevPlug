@@ -1,17 +1,17 @@
 """Stage 8 Mandatory Test Suite — Financial Proof, Counterfactual ROI & Hackathon-Grade Evaluation.
 
 Tests all 20 required Stage 8 evaluation and reconciliation invariants:
-1. Same batch dataset is received by both Baseline and RecoverOS.
+1. Same batch dataset is received by both Baseline and RevPlug.
 2. Same seed produces identical case payloads and ground truth.
-3. Baseline operates in isolation without accessing RecoverOS decisions.
-4. RecoverOS operates without accessing future ground truth lookups.
+3. Baseline operates in isolation without accessing RevPlug decisions.
+4. RevPlug operates without accessing future ground truth lookups.
 5. Ground truth outcome tables remain independent of chosen action.
 6. Verified recovery is strictly based on settlement outcomes.
 7. Dispatched execution is NOT counted as actual recovery.
 8. Duplicate settlement does not increase financial recovery.
 9. Negative recovery values cannot appear in evaluation output.
 10. Unsupported currency codes are rejected.
-11. Incremental recovery formula (RecoverOS - Baseline) is exact.
+11. Incremental recovery formula (RevPlug - Baseline) is exact.
 12. Net recovery formula (Verified Recovery - Costs) is exact.
 13. Stopped cases remain fully included in evaluation totals.
 14. Failed cases remain fully included in evaluation totals.
@@ -33,10 +33,10 @@ from app.services.evaluation_service import EvaluationService
 
 
 def test_1_same_batch_used_for_all_policies():
-    """Test 1: Both Baseline and RecoverOS receive the exact same dataset items."""
+    """Test 1: Both Baseline and RevPlug receive the exact same dataset items."""
     svc = EvaluationService()
     res = svc.run_batch_evaluation(count=20, seed=42)
-    assert res.recoveros.cases_evaluated == 20
+    assert res.revplug.cases_evaluated == 20
     assert res.baseline.cases_evaluated == 20
 
 
@@ -48,8 +48,8 @@ def test_2_same_seed_produces_identical_cases():
     assert [x.amount_minor for x in b1] == [x.amount_minor for x in b2]
 
 
-def test_3_baseline_cannot_access_recoveros_decisions():
-    """Test 3: Baseline operates independently without importing RecoverOS decision state."""
+def test_3_baseline_cannot_access_revplug_decisions():
+    """Test 3: Baseline operates independently without importing RevPlug decision state."""
     be = BaselineEvaluator()
     items = generate_evaluation_dataset(count=5, seed=42)
     res = be.evaluate_batch(items)
@@ -57,7 +57,7 @@ def test_3_baseline_cannot_access_recoveros_decisions():
     assert hasattr(res, "per_case") and len(res.per_case) == 5
 
 
-def test_4_recoveros_cannot_access_future_ground_truth():
+def test_4_revplug_cannot_access_future_ground_truth():
     """Test 4: Context creation does not include future ground truth outcome lookups."""
     items = generate_evaluation_dataset(count=5, seed=42)
     for item in items:
@@ -107,7 +107,7 @@ def test_10_currency_mismatch_rejected():
 
 
 def test_11_incremental_recovery_formula_correct():
-    """Test 11: Incremental recovery equals RecoverOS minus Baseline verified recovery."""
+    """Test 11: Incremental recovery equals RevPlug minus Baseline verified recovery."""
     ros_recovered = 3500000
     base_recovered = 2500000
     incremental = ros_recovered - base_recovered
@@ -126,21 +126,21 @@ def test_13_stopped_cases_remain_included():
     """Test 13: Stopped cases are included in total cases_evaluated."""
     svc = EvaluationService()
     res = svc.run_batch_evaluation(count=20, seed=42)
-    assert res.recoveros.cases_evaluated == 20
+    assert res.revplug.cases_evaluated == 20
 
 
 def test_14_failed_cases_remain_included():
     """Test 14: Failed cases remain counted in cases_evaluated total."""
     svc = EvaluationService()
     res = svc.run_batch_evaluation(count=20, seed=42)
-    assert res.recoveros.cases_evaluated == 20
+    assert res.revplug.cases_evaluated == 20
 
 
 def test_15_ai_failures_remain_included():
     """Test 15: AI fallback / failures remain fully counted in total cases."""
     svc = EvaluationService()
     res = svc.run_batch_evaluation(count=20, seed=42)
-    assert res.recoveros.cases_completed == 20
+    assert res.revplug.cases_completed == 20
 
 
 def test_16_no_hidden_filtering_occurs():
@@ -148,22 +148,22 @@ def test_16_no_hidden_filtering_occurs():
     svc = EvaluationService()
     res = svc.run_batch_evaluation(count=30, seed=42)
     assert res.count == 30
-    assert res.recoveros.cases_evaluated == 30
+    assert res.revplug.cases_evaluated == 30
 
 
 def test_17_case_level_totals_reconcile_with_batch_totals():
     """Test 17: Sum of per-case actual recovered equals batch total actual recovered."""
     svc = EvaluationService()
     res = svc.run_batch_evaluation(count=25, seed=42)
-    sum_cases = sum(c.actual_recovered for c in res.recoveros.per_case)
-    assert sum_cases == res.recoveros.actual_recovered
+    sum_cases = sum(c.actual_recovered for c in res.revplug.per_case)
+    assert sum_cases == res.revplug.actual_recovered
 
 
 def test_18_dashboard_totals_reconcile_with_evaluation_report():
     """Test 18: Standalone benchmark output matches EvaluationService response dict."""
     from app.eval.run_benchmark import run_benchmark
     resp = run_benchmark(count=10, seed=42)
-    assert "recoveros" in resp
+    assert "revplug" in resp
     assert "baseline" in resp
     assert "comparison" in resp
 
@@ -173,7 +173,7 @@ def test_19_rerunning_deterministic_evaluation_produces_identical_result():
     svc = EvaluationService()
     r1 = svc.run_batch_evaluation(count=15, seed=42)
     r2 = svc.run_batch_evaluation(count=15, seed=42)
-    assert r1.recoveros.actual_recovered == r2.recoveros.actual_recovered
+    assert r1.revplug.actual_recovered == r2.revplug.actual_recovered
     assert r1.baseline.actual_recovered == r2.baseline.actual_recovered
 
 

@@ -25,7 +25,7 @@ export default function MoneyOutcome() {
             Measure money recovered, not actions taken.
           </h2>
           <p style={{ fontSize: "1.0625rem", color: "var(--text-secondary)", lineHeight: 1.65, margin: 0 }}>
-            RecoverOS separates expected economic value from actual verified recovery.
+            RevPlug separates expected economic value from actual verified recovery.
           </p>
         </div>
 
@@ -100,7 +100,7 @@ export default function MoneyOutcome() {
           color: "var(--text-muted)",
           fontFamily: "monospace",
         }}>
-          [Illustrative Benchmark Comparison — Derived from RecoverOS Evaluation Protocol]
+          [Illustrative Benchmark Comparison — Derived from RevPlug Evaluation Protocol]
         </div>
       </div>
     </section>

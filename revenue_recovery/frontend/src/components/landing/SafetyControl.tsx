@@ -52,7 +52,7 @@ export default function SafetyControl() {
             lineHeight: 1.65,
             margin: 0,
           }}>
-            RecoverOS is designed so that AI can propose actions without receiving unrestricted authority to execute them.
+            RevPlug is designed so that AI can propose actions without receiving unrestricted authority to execute them.
           </p>
         </div>
 

@@ -3,7 +3,7 @@
 Tests all 20 required Stage 9 judge UX and polish invariants:
 1. Operations Dashboard loads cleanly with summary payload.
 2. Benchmark metrics rendered accurately from evaluation report.
-3. Baseline vs RecoverOS values match evaluation artifact.
+3. Baseline vs RevPlug values match evaluation artifact.
 4. Demo preset case selectors available in demo runner.
 5. Recovery workflow sequence renders cleanly.
 6. AI recommendation renders cleanly in outcome views.
@@ -45,14 +45,14 @@ def test_1_dashboard_loads_cleanly():
 def test_2_benchmark_metrics_rendered():
     """Test 2: Benchmark report metrics load cleanly."""
     report = run_benchmark(count=10, seed=42)
-    assert "recoveros" in report
+    assert "revplug" in report
     assert "baseline" in report
 
 
-def test_3_baseline_vs_recoveros_values_match_artifact():
-    """Test 3: RecoverOS verified recovery >= baseline recovery."""
+def test_3_baseline_vs_revplug_values_match_artifact():
+    """Test 3: RevPlug verified recovery >= baseline recovery."""
     report = run_benchmark(count=10, seed=42)
-    assert report["recoveros"]["actual_recovered"] >= report["baseline"]["actual_recovered"]
+    assert report["revplug"]["actual_recovered"] >= report["baseline"]["actual_recovered"]
 
 
 def test_4_demo_preset_case_selector_available():

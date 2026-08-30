@@ -196,7 +196,7 @@ export async function fetchAPI<T>(path: string, options?: RequestInit): Promise<
   };
 
   if (typeof window !== "undefined") {
-    const token = localStorage.getItem("recoveros_session_token");
+    const token = localStorage.getItem("revplug_session_token");
     if (token && !headers["Authorization"]) {
       headers["Authorization"] = `Bearer ${token}`;
     }
@@ -268,7 +268,7 @@ export interface EvaluationRunResult {
     opted_out_customer_count: number;
     case_ids: string[];
   };
-  recoveros: {
+  revplug: {
     cases_evaluated: number;
     cases_completed: number;
     cases_failed_processing: number;
@@ -287,6 +287,22 @@ export interface EvaluationRunResult {
     llm_classified_count?: number;
     llm_fallback_count?: number;
     unnecessary_intervention_definition?: string;
+  };
+  recoveros?: {
+    cases_evaluated: number;
+    cases_completed: number;
+    cases_failed_processing: number;
+    total_amount_at_risk: number;
+    expected_recovery: number;
+    actual_recovered: number;
+    recovery_rate: number;
+    recovered_count: number;
+    stopped_count: number;
+    escalated_count: number;
+    total_interventions: number;
+    intervention_cost: number;
+    cost_per_recovery: number;
+    unnecessary_interventions: number;
   };
   baseline: {
     cases_evaluated: number;
@@ -308,7 +324,7 @@ export interface EvaluationRunResult {
     absolute_recovery_difference: number;
     recovery_rate_difference: number;
     relative_improvement: number | null;
-    recoveros_beat_baseline: boolean;
+    revplug_beat_baseline: boolean;
     honest_summary: string;
   };
   per_case: Array<{
@@ -318,7 +334,7 @@ export interface EvaluationRunResult {
     original_category: string;
     amount_at_risk: number;
     customer_id: string;
-    recoveros: {
+    revplug: {
       proposed_action: string | null;
       safety_decision: string | null;
       outcome: string;
@@ -422,8 +438,8 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (typeof window !== "undefined") {
-      if (res.session_token) localStorage.setItem("recoveros_session_token", res.session_token);
-      if (res.user) localStorage.setItem("recoveros_user", JSON.stringify(res.user));
+      if (res.session_token) localStorage.setItem("revplug_session_token", res.session_token);
+      if (res.user) localStorage.setItem("revplug_user", JSON.stringify(res.user));
     }
     return res;
   },
@@ -433,8 +449,8 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (typeof window !== "undefined") {
-      if (res.session_token) localStorage.setItem("recoveros_session_token", res.session_token);
-      if (res.user) localStorage.setItem("recoveros_user", JSON.stringify(res.user));
+      if (res.session_token) localStorage.setItem("revplug_session_token", res.session_token);
+      if (res.user) localStorage.setItem("revplug_user", JSON.stringify(res.user));
     }
     return res;
   },
@@ -445,8 +461,8 @@ export const api = {
       });
     } finally {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("recoveros_session_token");
-        localStorage.removeItem("recoveros_user");
+        localStorage.removeItem("revplug_session_token");
+        localStorage.removeItem("revplug_user");
       }
     }
     return { status: "success", message: "Logged out" };

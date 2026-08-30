@@ -52,7 +52,7 @@ export default function LeakageSurfaces() {
             One recovery system. Multiple leakage points.
           </h2>
           <p style={{ fontSize: "1rem", color: "var(--text-secondary)", lineHeight: 1.6, margin: 0 }}>
-            Every revenue failure point feeds directly into the same canonical RecoverOS scoring, policy, and verification workflow.
+            Every revenue failure point feeds directly into the same canonical RevPlug scoring, policy, and verification workflow.
           </p>
         </div>
 

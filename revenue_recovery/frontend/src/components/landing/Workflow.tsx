@@ -79,7 +79,7 @@ export default function Workflow() {
           color: "#fff",
           marginBottom: "1rem",
         }}>
-          How RecoverOS Processes a Case
+          How RevPlug Processes a Case
         </h2>
         <p style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
           Every case flows through an 8-stage pipeline where AI intelligence is continuously validated by strict safety controls.

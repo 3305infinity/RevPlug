@@ -1,6 +1,6 @@
 # Bounded Autonomous Agent Trust Model & Autonomy Boundaries
 
-RecoverOS operates as a **bounded autonomous agent**. It performs closed-loop revenue recovery while guaranteeing that safety, policy constraints, financial ledger integrity, and stopping conditions are strictly enforced by deterministic, non-bypassable code.
+RevPlug operates as a **bounded autonomous agent**. It performs closed-loop revenue recovery while guaranteeing that safety, policy constraints, financial ledger integrity, and stopping conditions are strictly enforced by deterministic, non-bypassable code.
 
 ---
 

@@ -1,6 +1,6 @@
 """Benchmark Runner for Reproducible Counterfactual Batch Evaluation.
 
-Executes a seeded evaluation batch (default count=50, seed=42) comparing RecoverOS
+Executes a seeded evaluation batch (default count=50, seed=42) comparing RevPlug
 against a deterministic fixed-strategy baseline.
 
 Outputs:
@@ -20,7 +20,7 @@ from app.services.evaluation_service import EvaluationService
 
 def run_benchmark(count: int = 50, seed: int = 42) -> dict:
     """Run counterfactual batch evaluation and output report artifacts."""
-    print(f"Running RecoverOS counterfactual benchmark (count={count}, seed={seed})...")
+    print(f"Running RevPlug counterfactual benchmark (count={count}, seed={seed})...")
     eval_svc = EvaluationService(max_retry_attempts=3)
     result = eval_svc.run_batch_evaluation(count=count, seed=seed)
     resp = eval_svc.to_response_dict(result)
@@ -32,14 +32,14 @@ def run_benchmark(count: int = 50, seed: int = 42) -> dict:
     print(f"Saved JSON evaluation report to {json_path.resolve()}")
 
     # 2. Write Markdown artifact
-    ros = resp.get("recoveros", {})
+    ros = resp.get("revplug", {})
     base = resp.get("baseline", {})
     comp = resp.get("comparison", {})
     best = resp.get("counterfactual_best_safe", {})
 
     fmt = lambda minor: f"₹{minor / 100:,.2f}"
 
-    md_content = f"""# RecoverOS Benchmark & Counterfactual ROI Report
+    md_content = f"""# RevPlug Benchmark & Counterfactual ROI Report
 
 **Generated At:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
 **Dataset Config:** {count} cases | Seed `{seed}` | Version `1.0`
@@ -48,15 +48,15 @@ def run_benchmark(count: int = 50, seed: int = 42) -> dict:
 
 ## 1. Executive Summary
 
-RecoverOS is a **bounded autonomous revenue recovery agent** designed to maximize settlement-verified revenue while strictly adhering to safety policies and retry budgets.
+RevPlug is a **bounded autonomous revenue recovery agent** designed to maximize settlement-verified revenue while strictly adhering to safety policies and retry budgets.
 
-In this reproducible benchmark of **{count} cases**, RecoverOS demonstrated a **{comp.get('recovery_rate_uplift_pct', 25.7):.1f}% recovery rate uplift** over a standard fixed-retry baseline, recovering an incremental **{fmt(comp.get('incremental_actual_recovered_minor', 2800000))}** with **ZERO safety policy violations**.
+In this reproducible benchmark of **{count} cases**, RevPlug demonstrated a **{comp.get('recovery_rate_uplift_pct', 25.7):.1f}% recovery rate uplift** over a standard fixed-retry baseline, recovering an incremental **{fmt(comp.get('incremental_actual_recovered_minor', 2800000))}** with **ZERO safety policy violations**.
 
 ---
 
 ## 2. Benchmark Financial Proof
 
-| Metric | Deterministic Baseline | RecoverOS AI Agent | Counterfactual Best Safe | Incremental Uplift |
+| Metric | Deterministic Baseline | RevPlug AI Agent | Counterfactual Best Safe | Incremental Uplift |
 | :--- | :--- | :--- | :--- | :--- |
 | **Total Revenue at Risk** | {fmt(base.get('total_amount_at_risk', 10000000))} | {fmt(ros.get('total_amount_at_risk', 10000000))} | {fmt(best.get('total_amount_at_risk', 10000000))} | — |
 | **Verified Recovered Revenue** | {fmt(base.get('actual_recovered', 2500000))} | {fmt(ros.get('actual_recovered', 3500000))} | {fmt(best.get('actual_recovered', 3800000))} | **+{fmt(comp.get('incremental_actual_recovered_minor', 1000000))}** |
@@ -69,7 +69,7 @@ In this reproducible benchmark of **{count} cases**, RecoverOS demonstrated a **
 
 ## 3. Safety & Compliance Scorecard
 
-Unlike naive fixed-retry systems, RecoverOS enforces non-bypassable safety gates:
+Unlike naive fixed-retry systems, RevPlug enforces non-bypassable safety gates:
 - **Fraud Signal Protection:** 0 retries attempted on fraud-flagged items.
 - **Opt-Out Compliance:** 0 communications sent to opted-out customers.
 - **Hard Decline Immunity:** 0 retries attempted on permanent bank declines.

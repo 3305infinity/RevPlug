@@ -17,7 +17,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Try reading cached user from localStorage for instant initial render
-    const cached = localStorage.getItem("recoveros_user");
+    const cached = localStorage.getItem("revplug_user");
     if (cached) {
       try {
         setUser(JSON.parse(cached));
@@ -32,10 +32,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .then((res) => {
         if (res && res.user) {
           setUser(res.user);
-          localStorage.setItem("recoveros_user", JSON.stringify(res.user));
+          localStorage.setItem("revplug_user", JSON.stringify(res.user));
         } else {
           setUser(null);
-          localStorage.removeItem("recoveros_user");
+          localStorage.removeItem("revplug_user");
           if (!isPublicPage) {
             router.push("/login");
           }
@@ -43,7 +43,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {
         setUser(null);
-        localStorage.removeItem("recoveros_user");
+        localStorage.removeItem("revplug_user");
         if (!isPublicPage) {
           router.push("/login");
         }
@@ -55,7 +55,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const handleLogout = () => {
     setUser(null);
-    localStorage.removeItem("recoveros_user");
+    localStorage.removeItem("revplug_user");
     router.push("/login");
   };
 

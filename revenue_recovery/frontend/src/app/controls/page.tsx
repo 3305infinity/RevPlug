@@ -127,7 +127,7 @@ export default function ControlsPage() {
       <div style={{ marginBottom: "1.5rem" }}>
         <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em" }}>Safety Controls</h1>
         <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>
-          Active recovery controls enforced by RecoverOS
+          Active recovery controls enforced by RevPlug
         </p>
       </div>
 

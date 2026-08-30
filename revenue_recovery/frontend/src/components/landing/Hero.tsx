@@ -52,7 +52,7 @@ export default function Hero() {
             maxWidth: 680,
             margin: "0 0 2rem 0",
           }}>
-            RecoverOS detects revenue leakage, chooses the safest eligible intervention, and verifies what actually came back.
+            RevPlug detects revenue leakage, chooses the safest eligible intervention, and verifies what actually came back.
           </p>
 
           {/* Action CTAs */}

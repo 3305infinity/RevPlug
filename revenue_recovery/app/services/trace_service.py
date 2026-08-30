@@ -1,4 +1,4 @@
-"""Canonical Decision Trace and Auditability Service for RecoverOS.
+"""Canonical Decision Trace and Auditability Service for RevPlug.
 
 Provides complete end-to-end lifecycle reconstruction, context snapshot hashing,
 AI vs Policy separation, candidate tracking, settlement evidence, and replay capabilities.

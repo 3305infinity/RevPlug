@@ -102,7 +102,7 @@ export default function ControlPlaneSurfaces() {
               fontFamily: "monospace",
               marginBottom: "1.5rem",
             }}>
-              RECOVEROS ENGINE
+              REVPLUG ENGINE
             </div>
 
             <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace", marginBottom: "1.5rem" }}>

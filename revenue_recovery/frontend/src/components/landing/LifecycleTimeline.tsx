@@ -5,7 +5,7 @@ export default function LifecycleTimeline() {
     {
       num: "01",
       title: "Detect",
-      desc: "Revenue-risk event enters RecoverOS via webhook or system trigger.",
+      desc: "Revenue-risk event enters RevPlug via webhook or system trigger.",
       tech: "Webhook Service & Idempotency",
     },
     {

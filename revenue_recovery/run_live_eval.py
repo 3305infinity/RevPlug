@@ -12,18 +12,18 @@ def run_live_eval():
     
     print("\n--- RESULTS ---")
     print(f"Total Cases: {result.dataset_info['count']}")
-    print(f"Total Amount at Risk: Rs. {result.recoveros.total_amount_at_risk/100:,.2f}\n")
+    print(f"Total Amount at Risk: Rs. {result.revplug.total_amount_at_risk/100:,.2f}\n")
     
     print("[ BASELINE (Dumb Fixed-Strategy) ]")
     print(f"Recovery Rate: {result.baseline.recovery_rate * 100:.2f}%")
     print(f"Actual Recovered: Rs. {result.baseline.actual_recovered/100:,.2f}")
     print(f"Intervention Cost: Rs. {result.baseline.intervention_cost/100:,.2f}\n")
     
-    print("[ RECOVEROS (Intelligent Orchestrator) ]")
-    print(f"Recovery Rate: {result.recoveros.recovery_rate * 100:.2f}%")
-    print(f"Actual Recovered: Rs. {result.recoveros.actual_recovered/100:,.2f}")
-    print(f"Intervention Cost: Rs. {result.recoveros.intervention_cost/100:,.2f}")
-    print(f"Unnecessary Interventions: {result.recoveros.unnecessary_interventions}\n")
+    print("[ REVPLUG (Intelligent Orchestrator) ]")
+    print(f"Recovery Rate: {result.revplug.recovery_rate * 100:.2f}%")
+    print(f"Actual Recovered: Rs. {result.revplug.actual_recovered/100:,.2f}")
+    print(f"Intervention Cost: Rs. {result.revplug.intervention_cost/100:,.2f}")
+    print(f"Unnecessary Interventions: {result.revplug.unnecessary_interventions}\n")
     
     print("[ COMPARISON ]")
     print(result.comparison.honest_summary.replace("₹", "Rs. "))

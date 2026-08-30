@@ -1,7 +1,7 @@
-# RecoverOS AI Architecture & Boundary Definition
+# RevPlug AI Architecture & Boundary Definition
 
 ## 1. Core Architectural Principle
-RecoverOS follows a strict **hybrid control plane** architecture:
+RevPlug follows a strict **hybrid control plane** architecture:
 
 > **AI may recommend, classify, reason, and rank candidates, but AI MUST NOT override hard safety constraints, retry limits, opt-out rules, fraud blocks, state transitions, or financial calculations.**
 

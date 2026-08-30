@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "RecoverOS — Autonomous Revenue Recovery Infrastructure",
+  title: "RevPlug — Autonomous Revenue Recovery Infrastructure",
   description: "AI-assisted revenue recovery engine with deterministic safety controls and payment verification",
 };
 

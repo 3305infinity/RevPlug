@@ -62,7 +62,7 @@ export default function AuditabilityTrace() {
               <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#f59e0b", opacity: 0.7 }} />
               <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", opacity: 0.7 }} />
               <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace", marginLeft: 8 }}>
-                RecoverOS Audit Stream — Event Log Trace [Item: pay_demo_1787993826]
+                RevPlug Audit Stream — Event Log Trace [Item: pay_demo_1787993826]
               </span>
             </div>
             <span style={{ fontSize: "0.6875rem", color: "var(--success)", fontWeight: 600, fontFamily: "monospace" }}>
