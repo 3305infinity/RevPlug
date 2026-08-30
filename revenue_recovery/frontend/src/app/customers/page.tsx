@@ -32,7 +32,7 @@ export default function Customers() {
     [customers, selectedCustomerId]
   );
 
-  const fmt = (n: number) => "Rs" + (n / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const fmt = (n: number) => "₹" + (n / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   if (status === "error") {
     return (

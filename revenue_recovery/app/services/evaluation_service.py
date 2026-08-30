@@ -87,6 +87,9 @@ class RecoveryOSBatchResult:
     intervention_cost: int = 0
     cost_per_recovery: float = 0.0
     unnecessary_interventions: int = 0
+    rules_classified_count: int = 0
+    llm_classified_count: int = 0
+    llm_fallback_count: int = 0
     per_case: list[RecoveryOSCaseResult] = field(default_factory=list)
 
 
@@ -350,14 +353,18 @@ class EvaluationService:
 
         # Dataset info
         categories: dict[str, int] = {}
+        surfaces: dict[str, int] = {}
         for item in items:
             cat = item.metadata.get("original_category", item.root_cause or "unknown")
             categories[str(cat)] = categories.get(str(cat), 0) + 1
+            surf = item.source_type.value if hasattr(item.source_type, "value") else str(item.source_type)
+            surfaces[surf] = surfaces.get(surf, 0) + 1
 
         dataset_info = {
             "count": len(items),
             "seed": seed,
             "categories": categories,
+            "surfaces": surfaces,
             "opted_out_customer_count": len(opted_out),
             "case_ids": [i.id for i in items],
         }
@@ -369,6 +376,8 @@ class EvaluationService:
         ros_result = RecoveryOSBatchResult()
         ros_result.cases_evaluated = len(items)
         ros_per_case: list[RecoveryOSCaseResult] = []
+
+        safety_stats: dict[str, int] = {"ALLOWED": 0, "STOPPED": 0, "DENY": 0, "ESCALATE": 0}
 
         for idx, item in enumerate(items):
             try:
@@ -397,6 +406,18 @@ class EvaluationService:
                 if case_result.unnecessary_intervention:
                     ros_result.unnecessary_interventions += 1
 
+                # Track rules vs LLM classifications
+                if case_result.diagnosis_path == "rules":
+                    ros_result.rules_classified_count += 1
+                elif case_result.diagnosis_path == "llm":
+                    ros_result.llm_classified_count += 1
+                else:
+                    ros_result.llm_fallback_count += 1
+
+                # Track safety decision stats
+                dec = case_result.safety_decision or "UNKNOWN"
+                safety_stats[dec] = safety_stats.get(dec, 0) + 1
+
             except Exception as exc:
                 ros_result.cases_failed_processing += 1
                 status = "partial"
@@ -415,6 +436,8 @@ class EvaluationService:
                     processing_error=str(exc),
                     metadata={"traceback": traceback.format_exc()[-500:]},
                 ))
+
+        dataset_info["safety_statistics"] = safety_stats
 
         # Compute RecoverOS rates
         if ros_result.total_amount_at_risk > 0:
@@ -542,6 +565,9 @@ class EvaluationService:
             "intervention_cost": ros.intervention_cost,
             "cost_per_recovery": round(ros.cost_per_recovery, 2),
             "unnecessary_interventions": ros.unnecessary_interventions,
+            "rules_classified_count": ros.rules_classified_count,
+            "llm_classified_count": ros.llm_classified_count,
+            "llm_fallback_count": ros.llm_fallback_count,
             "unnecessary_intervention_definition": (
                 "action=retry_payment AND outcome!=recovered"
             ),

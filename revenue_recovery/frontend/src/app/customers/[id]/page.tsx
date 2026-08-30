@@ -216,6 +216,55 @@ export default function CustomerDetail() {
         </div>
       )}
 
+      {/* Customer History Timeline */}
+      <div style={{ marginBottom: "2rem" }}>
+        <h3 style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
+          Customer Event & Recovery History ({data.timeline?.length || 0})
+        </h3>
+        {(!data.timeline || data.timeline.length === 0) ? (
+          <div className="card" style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
+            No recorded history events for this customer yet.
+          </div>
+        ) : (
+          <div className="card" style={{ padding: "1.25rem 1.5rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", position: "relative" }}>
+              {data.timeline.map((evt, idx) => (
+                <div key={evt.id || idx} style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
+                  <div style={{
+                    width: 10, height: 10, borderRadius: "50%", marginTop: 5, flexShrink: 0,
+                    background: evt.action?.includes("succeeded") || evt.action?.includes("recovered") ? "var(--success)"
+                              : evt.action?.includes("stopped") || evt.action?.includes("denied") ? "var(--danger)"
+                              : evt.action?.includes("execution") ? "var(--accent)"
+                              : "var(--text-muted)",
+                  }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.2rem" }}>
+                      <div style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--text-primary)" }}>
+                        {evt.label || evt.action?.replace(/_/g, " ")}
+                      </div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
+                        {evt.timestamp ? new Date(evt.timestamp).toLocaleString("en-IN") : ""}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                      <span>Case: <Link href={`/recovery/${evt.item_id}`} style={{ color: "#f97316", textDecoration: "none", fontFamily: "monospace" }}>{evt.item_id}</Link></span>
+                      <span>·</span>
+                      <span>Amount: {fmt(evt.amount_minor || 0)}</span>
+                      {evt.actor && <span>· Actor: <span style={{ textTransform: "capitalize" }}>{evt.actor}</span></span>}
+                    </div>
+                    {evt.reason && (
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.2rem", fontStyle: "italic" }}>
+                        {evt.reason}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {data.cases.length === 0 && (
         <div className="card" style={{ padding: "4rem", textAlign: "center", color: "var(--text-muted)" }}>
           <p style={{ fontSize: "0.875rem" }}>No recovery cases for this customer.</p>

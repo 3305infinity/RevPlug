@@ -593,26 +593,62 @@ def build_customer_economics(container, customer_id: str) -> dict[str, Any]:
             if p:
                 promises.append(_promise_to_dict(p))
 
-    # Last action from audit events
-    last_action = None
-    last_action_at = None
+    # Build rich canonical timeline events for customer history
+    raw_timeline: list[dict[str, Any]] = []
+
+    # 1. Audit log events
     audit_events = []
     for item in items:
         for e in _get_audit_events(container, item.id):
             if hasattr(e, "action"):
-                audit_events.append(e)
-    if audit_events:
-        audit_events.sort(key=lambda e: e.timestamp)
-        last_event = audit_events[-1]
-        last_action = getattr(last_event, "action", None)
-        last_action_at = last_event.timestamp.isoformat()
+                audit_events.append((item, e))
 
-    # Timeline: last 10 events across all items
-    timeline = sorted(
-        [_audit_to_dict(e) for e in audit_events],
-        key=lambda x: x["timestamp"],
-        reverse=True,
-    )[:10]
+    for item, e in audit_events:
+        ts = e.timestamp.isoformat() if hasattr(e.timestamp, "isoformat") else str(e.timestamp)
+        action_name = e.action
+        actor = getattr(e, "actor", "system")
+        reason = getattr(e, "reason", "") or ""
+        meta = getattr(e, "metadata", {}) or {}
+
+        # Friendly event mapping
+        label = action_name.replace("_", " ").title()
+        if action_name == "recovery_item_created":
+            label = "Payment Failure Detected"
+        elif action_name == "failure_classified":
+            label = f"Diagnosis: {meta.get('category', item.root_cause or 'unknown')}"
+        elif action_name == "guard_evaluate":
+            allowed = meta.get("allowed")
+            rule = meta.get("rule") or meta.get("reason_code")
+            label = f"Policy Decision: {'ALLOWED' if allowed else 'BLOCKED'} ({rule})"
+        elif action_name == "execution_requested":
+            label = f"Intervention Executed: {meta.get('action', 'retry_payment')}"
+        elif action_name == "execution_succeeded":
+            label = "Payment Verified & Recovered"
+        elif action_name == "recovery_stopped":
+            label = f"Recovery Stopped: {reason}"
+        elif action_name == "human_approved":
+            label = "Human Operator Approved Action"
+        elif action_name == "human_approval_denied_by_policy":
+            label = f"Policy Guard Denied Human Approval: {reason}"
+
+        raw_timeline.append({
+            "id": getattr(e, "id", f"evt_{item.id}_{action_name}"),
+            "timestamp": ts,
+            "item_id": item.id,
+            "source_type": item.source_type.value if hasattr(item.source_type, "value") else str(item.source_type),
+            "amount_minor": item.amount_minor,
+            "action": action_name,
+            "label": label,
+            "actor": actor,
+            "reason": reason,
+            "metadata": meta,
+        })
+
+    # Sort timeline newest first
+    timeline = sorted(raw_timeline, key=lambda x: x["timestamp"], reverse=True)[:50]
+
+    last_action = timeline[0]["action"] if timeline else None
+    last_action_at = timeline[0]["timestamp"] if timeline else None
 
     # Opt-out check
     opt_out = any(i.metadata.get("opted_out") for i in items)

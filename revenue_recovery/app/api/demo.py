@@ -125,6 +125,33 @@ async def api_demo_payment_failure(
                     db_item.metadata.update(payload["metadata"])
                 if payload.get("event_type"):
                     db_item.metadata["event_type"] = payload["event_type"]
+                if payload.get("customer_id"):
+                    db_item = db_item.__class__(
+                        id=db_item.id,
+                        source_type=db_item.source_type,
+                        external_id=db_item.external_id,
+                        customer_id=str(payload["customer_id"]).strip(),
+                        amount_minor=db_item.amount_minor,
+                        currency=db_item.currency,
+                        created_at=db_item.created_at,
+                        due_at=db_item.due_at,
+                        status=db_item.status,
+                        root_cause=db_item.root_cause,
+                        recovery_probability=db_item.recovery_probability,
+                        expected_recovery_value=db_item.expected_recovery_value,
+                        intervention_cost=db_item.intervention_cost,
+                        failure_category=db_item.failure_category,
+                        provider=db_item.provider,
+                        provider_event_id=db_item.provider_event_id,
+                        actual_recovery_value=db_item.actual_recovery_value,
+                        recovery_status=db_item.recovery_status,
+                        score_version=db_item.score_version,
+                        scoring_reason=db_item.scoring_reason,
+                        priority=db_item.priority,
+                        stopped_reason=db_item.stopped_reason,
+                        stopped_rule=db_item.stopped_rule,
+                        metadata=db_item.metadata,
+                    )
                 container.recovery_items.save(db_item)
                 item = db_item
                 

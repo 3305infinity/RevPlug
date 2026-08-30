@@ -215,6 +215,9 @@ export interface AuditEvent {
   reason: string | null;
   metadata: Record<string, unknown>;
   timestamp: string;
+  label?: string;
+  item_id?: string;
+  amount_minor?: number;
 }
 
 export interface BatchSimulationResult {
@@ -252,6 +255,8 @@ export interface EvaluationRunResult {
     count: number;
     seed: number;
     categories: Record<string, number>;
+    surfaces?: Record<string, number>;
+    safety_statistics?: Record<string, number>;
     opted_out_customer_count: number;
     case_ids: string[];
   };
@@ -270,6 +275,10 @@ export interface EvaluationRunResult {
     intervention_cost: number;
     cost_per_recovery: number;
     unnecessary_interventions: number;
+    rules_classified_count?: number;
+    llm_classified_count?: number;
+    llm_fallback_count?: number;
+    unnecessary_intervention_definition?: string;
   };
   baseline: {
     cases_evaluated: number;
