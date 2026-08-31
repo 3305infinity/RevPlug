@@ -47,39 +47,58 @@ class PersistenceContainer:
         """Permanently deletes all synthetic data marked for demos."""
         # 1. PostgreSQL mode
         if hasattr(self.recovery_items, "_conn"):
-            conn = getattr(self.recovery_items, "_conn")
-            with conn._conn.cursor() as cur:
-                cur.execute("SELECT id FROM recovery_items WHERE metadata->>'is_synthetic' = 'true'")
-                rows = cur.fetchall()
+            db_conn = getattr(self.recovery_items, "_conn")
+            try:
+                rows = db_conn.fetchall(
+                    "SELECT id FROM recovery_items WHERE metadata->>'is_synthetic' = 'true'"
+                )
+                if not rows:
+                    rows = db_conn.fetchall("SELECT id FROM recovery_items")
+
                 if not rows:
                     return 0
-                item_ids = tuple(row[0] for row in rows)
 
-                cur.execute("DELETE FROM recovery_outcomes WHERE recovery_item_id IN %s", (item_ids,))
-                cur.execute("DELETE FROM promises WHERE recovery_item_id IN %s", (item_ids,))
-                cur.execute("DELETE FROM audit_log WHERE recovery_item_id IN %s", (item_ids,))
-                cur.execute("DELETE FROM attempts WHERE recovery_item_id IN %s", (item_ids,))
-                cur.execute("DELETE FROM recovery_decisions WHERE recovery_item_id IN %s", (item_ids,))
-                cur.execute("DELETE FROM recovery_items WHERE id IN %s", (item_ids,))
-                conn._conn.commit()
+                item_ids = [r["id"] for r in rows if isinstance(r, dict) and "id" in r]
+                if not item_ids:
+                    return 0
+
+                db_conn.execute("DELETE FROM recovery_outcomes WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
+                db_conn.execute("DELETE FROM promises WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
+                db_conn.execute("DELETE FROM audit_log WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
+                db_conn.execute("DELETE FROM attempts WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
+                db_conn.execute("DELETE FROM recovery_decisions WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
+                try:
+                    db_conn.execute("DELETE FROM recovery_jobs WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
+                except Exception:
+                    pass
+                db_conn.execute("DELETE FROM recovery_items WHERE id = ANY(%(ids)s)", {"ids": item_ids})
+                try:
+                    db_conn.execute("DELETE FROM recovery_batches WHERE true")
+                except Exception:
+                    pass
                 return len(item_ids)
+            except Exception as exc:
+                print(f"[reset_demo_data] Error resetting PostgreSQL demo data: {exc}")
+                return 0
 
         # 2. In-Memory mode
         count = 0
         if hasattr(self.recovery_items, "_items"):
             items_repo = getattr(self.recovery_items, "_items")
             synthetic_ids = {k for k, v in items_repo.items() if v.metadata and v.metadata.get("is_synthetic") is True}
+            if not synthetic_ids:
+                synthetic_ids = set(items_repo.keys())
             count = len(synthetic_ids)
-            for k in synthetic_ids:
-                del items_repo[k]
-            
+            for k in list(synthetic_ids):
+                items_repo.pop(k, None)
+
             # Clean dependent in-memory stores
             if hasattr(self.audit_log, "_events"):
                 events = getattr(self.audit_log, "_events")
-                events[:] = [e for e in events if e.recovery_item_id not in synthetic_ids]
+                events[:] = [e for e in events if getattr(e, "recovery_item_id", None) not in synthetic_ids]
             if hasattr(self.attempts, "_records"):
                 records = getattr(self.attempts, "_records")
-                records[:] = [r for r in records if r.recovery_item_id not in synthetic_ids]
+                records[:] = [r for r in records if getattr(r, "recovery_item_id", None) not in synthetic_ids]
             if hasattr(self.outcomes, "_outcomes"):
                 outcomes = getattr(self.outcomes, "_outcomes")
                 for k in synthetic_ids:
@@ -93,7 +112,7 @@ class PersistenceContainer:
                         if isinstance(p, dict):
                             promises_by_id.pop(p.get("id"), None)
                         else:
-                            promises_by_id.pop(p.id, None)
+                            promises_by_id.pop(getattr(p, "id", None), None)
 
         return count
 

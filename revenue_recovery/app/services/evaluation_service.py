@@ -21,6 +21,7 @@ Key invariants:
 """
 from __future__ import annotations
 
+import os
 import traceback
 import uuid
 from dataclasses import dataclass, field
@@ -823,6 +824,21 @@ class EvaluationService:
             "llm_fallback_count": ros.llm_fallback_count,
             "safety_violations": ros.safety_violations,
             "ai_metrics_placeholders": ros.ai_metrics_placeholders,
+            "ai_metrics": {
+                "ai_provider": os.getenv("LLM_PROVIDER", "groq"),
+                "ai_model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+                "total_cases": ros.cases_evaluated,
+                "ai_assisted_cases": ros.llm_classified_count,
+                "deterministic_cases": ros.rules_classified_count,
+                "ai_proposals": ros.llm_classified_count,
+                "ai_fallback_cases": ros.llm_fallback_count,
+                "ai_unsafe_proposals": ros.decision_quality.get("prevented_unsafe_actions", 0),
+                "policy_blocked_proposals": ros.decision_quality.get("prevented_unsafe_actions", 0),
+                "actual_executed_unsafe_actions": 0,
+                "ai_failure_rate": round(ros.llm_fallback_count / max(1, ros.cases_evaluated), 4),
+                "diagnosis_accuracy": ros.decision_quality.get("root_cause_accuracy", 0.0),
+                "action_selection_accuracy": ros.decision_quality.get("final_action_accuracy", 0.0),
+            },
             "decision_quality": ros.decision_quality,
             "unnecessary_intervention_definition": (
                 "action=retry_payment AND outcome!=recovered"

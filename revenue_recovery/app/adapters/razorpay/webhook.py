@@ -3,8 +3,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from app.adapters.razorpay.events import RazorpayPaymentFailure, parse_razorpay_event
+from app.adapters.razorpay.events import (
+    RazorpayPaymentFailure,
+    RazorpayPaymentSuccess,
+    parse_razorpay_event,
+    parse_razorpay_settlement_event,
+)
 from app.adapters.razorpay.signatures import RazorpaySignatureError, verify_razorpay_signature
+from app.services.settlement_verifier import SettlementEvent, SettlementVerifier
 from app.agents.decision_agent import MockRecoveryDecisionAgent, RecoveryDecisionAgent
 from app.agents.orchestrator import RecoveryAgentOrchestrator
 from app.agents.validator import ProposalValidator
@@ -141,6 +147,115 @@ class RazorpayWebhookService:
         ))
 
         # Stage 2: parse event
+        import json
+        raw_event_type = ""
+        try:
+            parsed_json = json.loads(raw_body)
+            if isinstance(parsed_json, dict):
+                raw_event_type = parsed_json.get("event", "")
+        except Exception:
+            pass
+
+        settlement_types = {"payment.captured", "payment.authorized", "payment_link.paid", "order.paid"}
+        if raw_event_type in settlement_types:
+            try:
+                settlement_data = parse_razorpay_settlement_event(raw_body)
+            except Exception as exc:
+                audit = self._audit_log.log(
+                    recovery_item_id=None,
+                    actor="system",
+                    action="parse_failed",
+                    reason=str(exc),
+                    metadata={"error": str(exc)},
+                )
+                events.append(audit)
+                raise
+
+            provider = "razorpay"
+            provider_event_id = settlement_data.razorpay_event_id
+            received_at = datetime.now(timezone.utc)
+
+            provider_event = None
+            is_new_event = False
+            if self._provider_events is not None:
+                import uuid
+                from app.domain.models import ProviderEvent
+                candidate = ProviderEvent(
+                    id=str(uuid.uuid4()),
+                    provider=provider,
+                    provider_event_id=provider_event_id,
+                    received_at=received_at,
+                    event_type=settlement_data.event_type,
+                    raw_payload=settlement_data.raw_payload,
+                    processing_status="pending",
+                )
+                is_new_event, provider_event = self._provider_events.try_insert(candidate)
+            else:
+                is_new_event = True
+
+            if not is_new_event and provider_event is not None:
+                from app.audit.models import EventType
+                events.append(self._audit_log.log(
+                    recovery_item_id=provider_event.recovery_item_id,
+                    actor="system",
+                    action="duplicate_event_ignored",
+                    reason="Provider event already processed",
+                    metadata={
+                        "event_type": EventType.DUPLICATE_WEBHOOK_SKIPPED,
+                        "provider": provider,
+                        "provider_event_id": provider_event_id,
+                    },
+                    event_type=EventType.DUPLICATE_WEBHOOK_SKIPPED,
+                    correlation_id=provider_event_id,
+                ))
+                return None, events, "duplicate"
+
+            target_item = None
+            if settlement_data.recovery_item_id and self._recovery_items is not None:
+                target_item = self._recovery_items.get(settlement_data.recovery_item_id)
+
+            if not target_item:
+                events.append(self._audit_log.log(
+                    recovery_item_id=settlement_data.recovery_item_id or settlement_data.payment_link_id,
+                    actor="settlement_verifier",
+                    action="settlement_unmatched",
+                    reason="Could not correlate Razorpay settlement event to a RecoveryItem",
+                    metadata={"provider_event_id": provider_event_id, "payment_link_id": settlement_data.payment_link_id},
+                ))
+                return None, events, "unmatched"
+
+            st_event = SettlementEvent(
+                event_id=settlement_data.razorpay_event_id,
+                provider="razorpay",
+                recovery_item_id=target_item.id,
+                success=True,
+                actual_amount_minor=settlement_data.amount_minor,
+                currency=settlement_data.currency,
+                settled_at=settlement_data.occurred_at,
+                metadata={
+                    "razorpay_payment_id": settlement_data.razorpay_payment_id,
+                    "payment_link_id": settlement_data.payment_link_id,
+                    "event_type": settlement_data.event_type,
+                },
+            )
+            sv = SettlementVerifier(
+                recovery_items=self._recovery_items,
+                outcomes=self._outcomes,
+                audit_log=self._audit_log,
+                state_machine=self._state_machine,
+            )
+            res = sv.process_settlement(st_event)
+
+            if self._provider_events is not None:
+                self._provider_events.mark_processed(
+                    provider=provider,
+                    provider_event_id=provider_event_id,
+                    recovery_item_id=target_item.id,
+                )
+
+            updated_item = self._recovery_items.get(target_item.id) if self._recovery_items is not None else target_item
+            return updated_item, events, res.status
+
         try:
             razorpay_failure = parse_razorpay_event(raw_body)
         except Exception as exc:

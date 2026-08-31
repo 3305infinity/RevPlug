@@ -1,10 +1,10 @@
 {
-  "evaluation_id": "ae29fa61-1832-4571-aba0-d1a650233f71",
+  "evaluation_id": "f90aa8f3-9229-43e9-9a30-8d3f79feb303",
   "seed": 42,
   "count": 10,
   "status": "completed",
-  "started_at": "2026-08-31T05:51:52.342356+00:00",
-  "completed_at": "2026-08-31T05:51:52.351084+00:00",
+  "started_at": "2026-08-31T09:10:35.722239+00:00",
+  "completed_at": "2026-08-31T09:10:35.729783+00:00",
   "dataset": {
     "count": 10,
     "seed": 42,
@@ -126,6 +126,21 @@
       "ai_fallback_cases": 0,
       "human_escalations": 0
     },
+    "ai_metrics": {
+      "ai_provider": "groq",
+      "ai_model": "llama-3.3-70b-versatile",
+      "total_cases": 10,
+      "ai_assisted_cases": 0,
+      "deterministic_cases": 10,
+      "ai_proposals": 0,
+      "ai_fallback_cases": 0,
+      "ai_unsafe_proposals": 0,
+      "policy_blocked_proposals": 0,
+      "actual_executed_unsafe_actions": 0,
+      "ai_failure_rate": 0.0,
+      "diagnosis_accuracy": 1.0,
+      "action_selection_accuracy": 0.7
+    },
     "decision_quality": {
       "root_cause_accuracy": 1.0,
       "proposal_action_accuracy": 0.8,
@@ -189,6 +204,21 @@
       "ai_proposals_rejected_by_policy": 0,
       "ai_fallback_cases": 0,
       "human_escalations": 0
+    },
+    "ai_metrics": {
+      "ai_provider": "groq",
+      "ai_model": "llama-3.3-70b-versatile",
+      "total_cases": 10,
+      "ai_assisted_cases": 0,
+      "deterministic_cases": 10,
+      "ai_proposals": 0,
+      "ai_fallback_cases": 0,
+      "ai_unsafe_proposals": 0,
+      "policy_blocked_proposals": 0,
+      "actual_executed_unsafe_actions": 0,
+      "ai_failure_rate": 0.0,
+      "diagnosis_accuracy": 1.0,
+      "action_selection_accuracy": 0.7
     },
     "decision_quality": {
       "root_cause_accuracy": 1.0,

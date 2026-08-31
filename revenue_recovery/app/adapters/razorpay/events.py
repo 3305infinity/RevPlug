@@ -127,3 +127,109 @@ def parse_razorpay_event(raw_body: bytes) -> RazorpayPaymentFailure:
         raw_payload=payload,
         customer_id=customer_id,
     )
+
+@dataclass(frozen=True, slots=True)
+class RazorpayPaymentSuccess:
+    """Razorpay settlement/successful payment details."""
+
+    razorpay_event_id: str
+    razorpay_payment_id: str
+    amount_minor: int
+    currency: str
+    event_type: str
+    payment_link_id: str | None
+    order_id: str | None
+    recovery_item_id: str | None
+    occurred_at: datetime
+    raw_payload: dict[str, Any]
+    customer_id: str | None = None
+
+
+def parse_razorpay_settlement_event(raw_body: bytes) -> RazorpayPaymentSuccess:
+    """Parse a Razorpay settlement/successful payment webhook payload.
+
+    Supports payment.captured, payment.authorized, payment_link.paid, order.paid.
+    """
+    try:
+        payload = json.loads(raw_body)
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise RazorpayEventError("Invalid JSON payload") from exc
+
+    if not isinstance(payload, dict):
+        raise RazorpayEventError("Payload must be a JSON object")
+
+    event_type = payload.get("event")
+    allowed_types = {"payment.captured", "payment.authorized", "payment_link.paid", "order.paid"}
+    if event_type not in allowed_types:
+        raise RazorpayEventError(f"Unsupported settlement event type: {event_type!r}")
+
+    razorpay_event_id = payload.get("id")
+    if not razorpay_event_id or not isinstance(razorpay_event_id, str):
+        raise RazorpayEventError("Missing or invalid event id")
+
+    payment_entity = _get_nested(payload, "payload", "payment", "entity") or {}
+    payment_link_entity = _get_nested(payload, "payload", "payment_link", "entity") or {}
+    order_entity = _get_nested(payload, "payload", "order", "entity") or {}
+
+    payment_id = payment_entity.get("id") or payload.get("razorpay_payment_id") or f"pay_{razorpay_event_id}"
+    payment_link_id = payment_link_entity.get("id") or payment_entity.get("payment_link_id")
+    order_id = order_entity.get("id") or payment_entity.get("order_id")
+
+    amount_minor = (
+        payment_entity.get("amount")
+        or payment_link_entity.get("amount_paid")
+        or payment_link_entity.get("amount")
+        or order_entity.get("amount_paid")
+        or order_entity.get("amount", 0)
+    )
+    if not isinstance(amount_minor, int):
+        amount_minor = int(amount_minor or 0)
+
+    currency = payment_entity.get("currency") or payment_link_entity.get("currency") or order_entity.get("currency") or "INR"
+
+    occurred_at = (
+        _parse_iso_timestamp(payment_entity.get("created_at"))
+        or _parse_iso_timestamp(payment_link_entity.get("updated_at"))
+        or datetime.now(timezone.utc)
+    )
+
+    # Extract correlation recovery_item_id
+    recovery_item_id = None
+    notes = {}
+    if isinstance(payment_link_entity.get("notes"), dict):
+        notes.update(payment_link_entity["notes"])
+    if isinstance(payment_entity.get("notes"), dict):
+        notes.update(payment_entity["notes"])
+    if isinstance(order_entity.get("notes"), dict):
+        notes.update(order_entity["notes"])
+    if isinstance(payload.get("notes"), dict):
+        notes.update(payload["notes"])
+
+    recovery_item_id = (
+        notes.get("recovery_item_id")
+        or notes.get("item_id")
+    )
+    if not recovery_item_id and payment_link_entity.get("reference_id"):
+        ref_id = str(payment_link_entity["reference_id"])
+        if ref_id.startswith("rec_") or ref_id.startswith("item_") or len(ref_id) > 5:
+            recovery_item_id = ref_id
+
+    customer_id = (
+        payload.get("customer_id")
+        or payment_entity.get("customer_id")
+        or payment_link_entity.get("customer", {}).get("email")
+    )
+
+    return RazorpayPaymentSuccess(
+        razorpay_event_id=razorpay_event_id,
+        razorpay_payment_id=payment_id,
+        amount_minor=amount_minor,
+        currency=currency,
+        event_type=event_type,
+        payment_link_id=payment_link_id,
+        order_id=order_id,
+        recovery_item_id=recovery_item_id,
+        occurred_at=occurred_at,
+        raw_payload=payload,
+        customer_id=customer_id,
+    )

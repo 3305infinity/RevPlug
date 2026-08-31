@@ -3,11 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import HomeHero from "@/components/home/HomeHero";
+import RecoveryFlow from "@/components/home/RecoveryFlow";
 import RecoveryCase from "@/components/home/RecoveryCase";
-import WhyNotRetry from "@/components/home/WhyNotRetry";
+import ProductExplanation from "@/components/home/ProductExplanation";
+import DecisionPipeline from "@/components/home/DecisionPipeline";
+import SmartStopSection from "@/components/home/SmartStopSection";
+import VerifiedSettlementSection from "@/components/home/VerifiedSettlementSection";
 import BenchmarkProof from "@/components/home/BenchmarkProof";
+import RazorpayConnectionSection from "@/components/home/RazorpayConnectionSection";
 import HomeCTA from "@/components/home/HomeCTA";
-import { AnimatedSection } from "@/components/home/motion";
 import NavbarAuth from "@/components/home/NavbarAuth";
 
 export default function ProductHomePage() {
@@ -21,7 +25,7 @@ export default function ProductHomePage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0d1117", color: "#f0f6fc", fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
-      {/* MINIMAL HEADER */}
+      {/* 1. MINIMAL PRODUCT HEADER */}
       <header
         style={{
           borderBottom: "1px solid #21262d",
@@ -49,89 +53,90 @@ export default function ProductHomePage() {
             </Link>
 
             <nav style={{ display: "flex", gap: "1.5rem", fontSize: "0.8125rem" }}>
-              <Link href="/dashboard" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Overview
-              </Link>
+              <a href="#visual-flow" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
+                How it works
+              </a>
               <Link href="/run-recovery" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
                 Recovery
               </Link>
               <Link href="/batch-recovery" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Benchmarks
-              </Link>
-              <Link href="/recovery" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Audit
+                Benchmark
               </Link>
             </nav>
           </div>
 
-          {/* SYSTEM HEALTHY LIVE STATUS PULSE DOT & AUTH PROFILE */}
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem", fontSize: "0.75rem", color: "#6e7681", fontFamily: "monospace" }}>
-            <span>Razorpay Test Mode</span>
-            <span style={{ color: "#21262d" }}>|</span>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.75rem", color: "#6e7681", fontFamily: "monospace" }}>
               <span
-                className="live-pulse"
                 style={{
                   width: 7,
                   height: 7,
                   borderRadius: "50%",
                   background: apiOnline ? "#10b981" : "#ef4444",
-                  boxShadow: apiOnline ? "0 0 8px rgba(16, 185, 129, 0.6)" : "0 0 8px rgba(239, 68, 68, 0.6)",
+                  display: "inline-block",
                 }}
               />
               <span style={{ color: apiOnline ? "#10b981" : "#ef4444", fontWeight: 600 }}>
-                {apiOnline ? "System Healthy" : "Offline"}
+                {apiOnline ? "Razorpay Test Mode" : "Offline"}
               </span>
             </div>
-            <span style={{ color: "#21262d" }}>|</span>
+
             <NavbarAuth />
+
+            <Link
+              href="/run-recovery"
+              style={{
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                padding: "0.4rem 0.85rem",
+                borderRadius: 6,
+                background: "#2563eb",
+                color: "#ffffff",
+                textDecoration: "none",
+              }}
+            >
+              Run a recovery
+            </Link>
           </div>
         </div>
       </header>
 
-      {/* ZONE 1: HERO INTRO MARKETING ZONE (#0d1117) */}
-      <section style={{ background: "#0d1117", borderBottom: "1px solid #21262d" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
-          <AnimatedSection>
-            <HomeHero />
-          </AnimatedSection>
-        </div>
-      </section>
+      {/* CONTINUOUS MAIN STORY CONTAINER */}
+      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
+        {/* 2. HERO */}
+        <HomeHero />
 
-      {/* ZONE 2: LIVE PRODUCT DATA ZONE (#10151e — SUBTLE SHIFT IN BACKGROUND SHADE) */}
-      <section style={{ background: "#10151e" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
-          {/* CENTRAL RECOVERY CASE & WATCH RECOVERY INTERACTION */}
-          <AnimatedSection delayMs={100}>
-            <RecoveryCase />
-          </AnimatedSection>
+        {/* 3 & 4. VISUAL RECOVERY FLOW & INTERACTIVE FLOW */}
+        <RecoveryFlow />
 
-          <hr style={{ border: 0, borderTop: "1px solid #21262d", margin: "1rem 0" }} />
+        {/* 5. PRODUCT PREVIEW (SHOW THE ACTUAL APP) */}
+        <RecoveryCase />
 
-          {/* WHY THIS WASN'T A RETRY (TERMINAL LOG VIEWER STREAM) */}
-          <AnimatedSection delayMs={100}>
-            <WhyNotRetry />
-          </AnimatedSection>
+        {/* 6. PRODUCT EXPLANATION (3 COLUMNS) */}
+        <ProductExplanation />
 
-          <hr style={{ border: 0, borderTop: "1px solid #21262d", margin: "1rem 0" }} />
+        {/* 7. DECISION PIPELINE */}
+        <DecisionPipeline />
 
-          {/* BENCHMARK PROOF STATEMENT & TABLE */}
-          <AnimatedSection delayMs={100}>
-            <BenchmarkProof />
-          </AnimatedSection>
+        {/* 8. SMART STOP SECTION */}
+        <SmartStopSection />
 
-          <hr style={{ border: 0, borderTop: "1px solid #21262d", margin: "1rem 0" }} />
+        {/* 9. VERIFIED SETTLEMENT SECTION */}
+        <VerifiedSettlementSection />
 
-          {/* FINAL CTA */}
-          <AnimatedSection delayMs={100}>
-            <HomeCTA />
-          </AnimatedSection>
-        </div>
-      </section>
+        {/* 10. BENCHMARK PROOF */}
+        <BenchmarkProof />
+
+        {/* 11. RAZORPAY CONNECTION */}
+        <RazorpayConnectionSection />
+
+        {/* 12. FINAL CTA */}
+        <HomeCTA />
+      </main>
 
       {/* FOOTER */}
       <footer style={{ borderTop: "1px solid #21262d", background: "#0d1117", padding: "1.5rem", textAlign: "center", fontSize: "0.75rem", color: "#6e7681", fontFamily: "monospace" }}>
-        RevPlug Autonomous Revenue Recovery Infrastructure · Powered by Groq Primary AI &amp; Razorpay Test Mode Integration
+        RevPlug Product Launch · Bounded Revenue Recovery Engine · Powered by Groq Primary AI &amp; Razorpay Test Mode Integration
       </footer>
     </div>
   );

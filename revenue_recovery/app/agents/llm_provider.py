@@ -322,6 +322,54 @@ class MockLLMProvider:
                 "ranked_candidates": [{"action": "stop_recovery", "confidence": 0.95, "reason": "Security stop"}],
                 "fallback_required": False,
             })
+        elif "fraud_flag: true" in prompt_lower or "high_fraud_risk" in prompt_lower or ("timeout" in prompt_lower and ("attempt count: 2" in prompt_lower or "attempt count: 3" in prompt_lower or "attempt count: 4" in prompt_lower)):
+            # Case B: Timeout with high fraud risk / multiple attempts -> stop
+            content = json.dumps({
+                "selected_action": "stop_recovery",
+                "confidence": 0.92,
+                "reasoning_summary": "High risk fraud indicators or repeated timeout failures; stop automated recovery.",
+                "evidence": ["High risk fraud flag or attempt count threshold"],
+                "ranked_candidates": [{"action": "stop_recovery", "confidence": 0.92, "reason": "Fraud prevention stop"}],
+                "fallback_required": False,
+            })
+        elif "timeout" in prompt_lower or "gateway_timeout" in prompt_lower:
+            # Case A: Timeout with low fraud risk & healthy history -> send payment link
+            content = json.dumps({
+                "selected_action": "send_payment_link",
+                "confidence": 0.88,
+                "reasoning_summary": "Network timeout on healthy customer; send payment link to complete transaction.",
+                "evidence": ["Gateway timeout", "Healthy customer history"],
+                "ranked_candidates": [
+                    {"action": "send_payment_link", "confidence": 0.88, "reason": "Direct recovery link"},
+                    {"action": "retry_payment", "confidence": 0.70, "reason": "Token retry"},
+                ],
+                "fallback_required": False,
+            })
+        elif "checkout_abandonment" in prompt_lower or "checkout_stage" in prompt_lower:
+            # Case C: Checkout abandonment -> payment link
+            content = json.dumps({
+                "selected_action": "send_payment_link",
+                "confidence": 0.89,
+                "reasoning_summary": "Recent high-value checkout abandonment; send recovery link.",
+                "evidence": ["Abandoned checkout stage", "Recent activity"],
+                "ranked_candidates": [
+                    {"action": "send_payment_link", "confidence": 0.89, "reason": "Checkout recovery link"},
+                ],
+                "fallback_required": False,
+            })
+        elif "overdue_receivable" in prompt_lower or "days_overdue" in prompt_lower or "promise_date" in prompt_lower or "promise_status" in prompt_lower:
+            # Case D: Overdue receivable + prior promise -> send reminder
+            content = json.dumps({
+                "selected_action": "send_reminder",
+                "confidence": 0.87,
+                "reasoning_summary": "Overdue invoice with prior promise-to-pay; send targeted invoice reminder.",
+                "evidence": ["Overdue invoice", "Promise-to-pay record"],
+                "ranked_candidates": [
+                    {"action": "send_reminder", "confidence": 0.87, "reason": "Targeted promise reminder"},
+                    {"action": "send_payment_link", "confidence": 0.75, "reason": "Payment link"},
+                ],
+                "fallback_required": False,
+            })
         elif "ambiguous" in prompt_lower or "conflicting" in prompt_lower or "unknown" in prompt_lower:
             content = json.dumps({
                 "selected_action": "escalate_human",

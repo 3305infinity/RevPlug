@@ -7,7 +7,7 @@ const COMPARISONS = [
     dim: "Diagnosis",
     trad: "Generic retry schedule on any failure code",
     ros: "Contextual failure telemetry diagnosis via Groq LLM",
-    detail: "Naive retries ignore failure cause, repeatedly hitting card decline loops. RecoverOS classifies root causes before taking action.",
+    detail: "Naive retries ignore failure cause, repeatedly hitting card decline loops. RevPlug classifies root causes before taking action.",
   },
   {
     dim: "Decision",
@@ -53,7 +53,7 @@ export default function InteractiveComparison() {
           Architectural Comparison
         </div>
         <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#f8fafc" }}>
-          Traditional Naive Retry vs RecoverOS
+          Traditional Naive Retry vs RevPlug
         </h2>
         <p style={{ fontSize: "0.8125rem", color: "#94a3b8", marginTop: 2 }}>
           Click any architectural dimension to compare operational behaviors.

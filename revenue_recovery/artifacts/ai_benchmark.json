@@ -3,7 +3,7 @@
   "seed": 42,
   "count": 50,
   "prompt_version": "v1-stage3",
-  "timestamp": "2026-08-30T17:31:44.628713+00:00",
+  "timestamp": "2026-08-31T06:42:44.619514+00:00",
   "providers": {
     "deterministic": {
       "provider": "deterministic",
@@ -578,14 +578,14 @@
       "provider": "groq",
       "total_cases": 50,
       "total_at_risk_minor": 4267400,
-      "total_recovered_minor": 1843457,
-      "recovery_rate": 0.432,
+      "total_recovered_minor": 2022207,
+      "recovery_rate": 0.4739,
       "safe_decision_rate": 1.0,
       "policy_violations": 0,
       "ai_not_required_rate": 0.14,
       "ai_calls": 43,
-      "fallback_count": 15,
-      "abstention_rate": 0.38,
+      "fallback_count": 6,
+      "abstention_rate": 0.2,
       "average_latency_ms": 0.0,
       "elapsed_seconds": 0.01,
       "case_traces": [
@@ -669,12 +669,12 @@
         {
           "case_id": "eval_42_0007",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 5000,
-          "actual_recovered": 0,
+          "actual_recovered": 3250,
           "latency_ms": 0
         },
         {
@@ -691,12 +691,12 @@
         {
           "case_id": "eval_42_0009",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 250000,
-          "actual_recovered": 0,
+          "actual_recovered": 162500,
           "latency_ms": 0
         },
         {
@@ -735,12 +735,12 @@
         {
           "case_id": "eval_42_0013",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 10000,
-          "actual_recovered": 0,
+          "actual_recovered": 6500,
           "latency_ms": 0
         },
         {
@@ -801,10 +801,10 @@
         {
           "case_id": "eval_42_0019",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 25000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -856,10 +856,10 @@
         {
           "case_id": "eval_42_0024",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 250000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -922,12 +922,12 @@
         {
           "case_id": "eval_42_0030",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 10000,
-          "actual_recovered": 0,
+          "actual_recovered": 6500,
           "latency_ms": 0
         },
         {
@@ -977,10 +977,10 @@
         {
           "case_id": "eval_42_0035",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 10000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -1054,10 +1054,10 @@
         {
           "case_id": "eval_42_0042",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 10000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -1087,10 +1087,10 @@
         {
           "case_id": "eval_42_0045",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 10000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -1140,21 +1140,21 @@
           "latency_ms": 0
         }
       ],
-      "incremental_recovery_minor": -396630,
-      "recovery_uplift_percent": -17.71
+      "incremental_recovery_minor": -217880,
+      "recovery_uplift_percent": -9.73
     },
     "gemini": {
       "provider": "gemini",
       "total_cases": 50,
       "total_at_risk_minor": 4267400,
-      "total_recovered_minor": 1843457,
-      "recovery_rate": 0.432,
+      "total_recovered_minor": 2022207,
+      "recovery_rate": 0.4739,
       "safe_decision_rate": 1.0,
       "policy_violations": 0,
       "ai_not_required_rate": 0.14,
       "ai_calls": 43,
-      "fallback_count": 15,
-      "abstention_rate": 0.38,
+      "fallback_count": 6,
+      "abstention_rate": 0.2,
       "average_latency_ms": 0.0,
       "elapsed_seconds": 0.01,
       "case_traces": [
@@ -1238,12 +1238,12 @@
         {
           "case_id": "eval_42_0007",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 5000,
-          "actual_recovered": 0,
+          "actual_recovered": 3250,
           "latency_ms": 0
         },
         {
@@ -1260,12 +1260,12 @@
         {
           "case_id": "eval_42_0009",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 250000,
-          "actual_recovered": 0,
+          "actual_recovered": 162500,
           "latency_ms": 0
         },
         {
@@ -1304,12 +1304,12 @@
         {
           "case_id": "eval_42_0013",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 10000,
-          "actual_recovered": 0,
+          "actual_recovered": 6500,
           "latency_ms": 0
         },
         {
@@ -1370,10 +1370,10 @@
         {
           "case_id": "eval_42_0019",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 25000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -1425,10 +1425,10 @@
         {
           "case_id": "eval_42_0024",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 250000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -1491,12 +1491,12 @@
         {
           "case_id": "eval_42_0030",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 10000,
-          "actual_recovered": 0,
+          "actual_recovered": 6500,
           "latency_ms": 0
         },
         {
@@ -1546,10 +1546,10 @@
         {
           "case_id": "eval_42_0035",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 10000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -1623,10 +1623,10 @@
         {
           "case_id": "eval_42_0042",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 10000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -1656,10 +1656,10 @@
         {
           "case_id": "eval_42_0045",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 10000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -1709,21 +1709,21 @@
           "latency_ms": 0
         }
       ],
-      "incremental_recovery_minor": -396630,
-      "recovery_uplift_percent": -17.71
+      "incremental_recovery_minor": -217880,
+      "recovery_uplift_percent": -9.73
     },
     "hybrid": {
       "provider": "hybrid",
       "total_cases": 50,
       "total_at_risk_minor": 4267400,
-      "total_recovered_minor": 1843457,
-      "recovery_rate": 0.432,
+      "total_recovered_minor": 2022207,
+      "recovery_rate": 0.4739,
       "safe_decision_rate": 1.0,
       "policy_violations": 0,
       "ai_not_required_rate": 0.58,
       "ai_calls": 21,
-      "fallback_count": 15,
-      "abstention_rate": 0.3,
+      "fallback_count": 6,
+      "abstention_rate": 0.12,
       "average_latency_ms": 0.0,
       "elapsed_seconds": 0.0,
       "case_traces": [
@@ -1807,12 +1807,12 @@
         {
           "case_id": "eval_42_0007",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 5000,
-          "actual_recovered": 0,
+          "actual_recovered": 3250,
           "latency_ms": 0
         },
         {
@@ -1829,12 +1829,12 @@
         {
           "case_id": "eval_42_0009",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 250000,
-          "actual_recovered": 0,
+          "actual_recovered": 162500,
           "latency_ms": 0
         },
         {
@@ -1873,12 +1873,12 @@
         {
           "case_id": "eval_42_0013",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 10000,
-          "actual_recovered": 0,
+          "actual_recovered": 6500,
           "latency_ms": 0
         },
         {
@@ -1939,10 +1939,10 @@
         {
           "case_id": "eval_42_0019",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 25000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -1994,10 +1994,10 @@
         {
           "case_id": "eval_42_0024",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 250000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -2060,12 +2060,12 @@
         {
           "case_id": "eval_42_0030",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_payment_link",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.89,
           "amount_at_risk": 10000,
-          "actual_recovered": 0,
+          "actual_recovered": 6500,
           "latency_ms": 0
         },
         {
@@ -2115,10 +2115,10 @@
         {
           "case_id": "eval_42_0035",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 10000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -2192,10 +2192,10 @@
         {
           "case_id": "eval_42_0042",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 10000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -2225,10 +2225,10 @@
         {
           "case_id": "eval_42_0045",
           "category": "unknown",
-          "proposed_action": "escalate_human",
+          "proposed_action": "send_reminder",
           "policy_allowed": true,
           "policy_rule": "allow_outbound",
-          "confidence": 0.6,
+          "confidence": 0.87,
           "amount_at_risk": 10000,
           "actual_recovered": 0,
           "latency_ms": 0
@@ -2278,8 +2278,8 @@
           "latency_ms": 0
         }
       ],
-      "incremental_recovery_minor": -396630,
-      "recovery_uplift_percent": -17.71
+      "incremental_recovery_minor": -217880,
+      "recovery_uplift_percent": -9.73
     }
   }
 }

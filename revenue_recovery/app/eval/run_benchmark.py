@@ -25,6 +25,23 @@ def run_benchmark(count: int = 50, seed: int = 42) -> dict:
     result = eval_svc.run_batch_evaluation(count=count, seed=seed)
     resp = eval_svc.to_response_dict(result)
 
+    # Invariant assertions
+    ros = resp.get("revplug", {})
+    base = resp.get("baseline", {})
+    comp = resp.get("comparison", {})
+    ai = ros.get("ai_metrics", {})
+
+    if ros.get("actual_recovered", 0) > ros.get("total_amount_at_risk", 0):
+        raise ValueError(f"Benchmark validation error: actual_recovered ({ros.get('actual_recovered')}) > total_amount_at_risk ({ros.get('total_amount_at_risk')})")
+    if ros.get("actual_recovered", 0) < 0:
+        raise ValueError("Benchmark validation error: negative actual_recovered")
+
+    # Reproducibility check: run second pass with same seed and verify identity
+    result_second = eval_svc.run_batch_evaluation(count=count, seed=seed)
+    resp_second = eval_svc.to_response_dict(result_second)
+    if resp["revplug"]["actual_recovered"] != resp_second["revplug"]["actual_recovered"]:
+        raise ValueError("Benchmark reproducibility failure: consecutive runs with seed=42 yielded different actual_recovered")
+
     # 1. Write JSON artifact
     json_path = Path("evaluation_report.json")
     with open(json_path, "w", encoding="utf-8") as f:

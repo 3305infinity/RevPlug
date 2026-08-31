@@ -323,7 +323,7 @@ class TestMalformedPayload:
 
     def test_unsupported_event_type_returns_422(self, client):
         payload = copy.deepcopy(_SOFT_FAILURE_PAYLOAD)
-        payload["event"] = "payment.captured"
+        payload["event"] = "payment.unknown_unsupported_event"
         body = json.dumps(payload).encode()
         sig = _sign(body)
         resp = client.post(

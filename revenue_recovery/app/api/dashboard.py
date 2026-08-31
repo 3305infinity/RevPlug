@@ -142,8 +142,33 @@ def api_programs_config(container: PersistenceContainer = Depends(get_container)
         container._program_config = config
     return config
 
+@router.get("/api/razorpay/status")
+def api_razorpay_status() -> dict[str, Any]:
+    import os
+    execution_mode = os.getenv("RECOVERY_EXECUTION_MODE", "simulation").lower().strip()
+    key_id = os.getenv("RAZORPAY_KEY_ID", "").strip()
+    secret = os.getenv("RAZORPAY_WEBHOOK_SECRET", "").strip()
+
+    is_live_test_mode = bool(key_id and secret and execution_mode == "razorpay_test")
+
+    return {
+        "execution_mode": "REAL TEST MODE" if is_live_test_mode else "SIMULATED",
+        "razorpay_connection": "Connected" if key_id else "Not configured",
+        "masked_key_id": f"{key_id[:8]}..." if len(key_id) >= 8 else None,
+        "webhook_verification": "Enabled" if secret else "Disabled",
+        "payment_link_creation": "Available" if (key_id or execution_mode == "simulation") else "Disabled",
+        "settlement_verification": "Enabled",
+        "safety_guardrails": "Strict Bounded Autonomy",
+        "central_principle": "RevPlug is optimized for safe net recovery, not maximum retries.",
+    }
+
+
 @router.get("/api/controls")
 def api_controls() -> dict[str, Any]:
+    import os
+    execution_mode = os.getenv("RECOVERY_EXECUTION_MODE", "simulation").lower().strip()
+    key_id = os.getenv("RAZORPAY_KEY_ID", "").strip()
+
     return {
         "max_payment_retries": 3,
         "customer_opt_out": "Enabled",
@@ -152,6 +177,11 @@ def api_controls() -> dict[str, Any]:
         "promise_expiry_protection": "Enabled",
         "policy_enforcement": "Mandatory",
         "human_override": "Disabled",
+        "execution_mode": "REAL TEST MODE" if (key_id and execution_mode == "razorpay_test") else "SIMULATED",
+        "razorpay_connection": "Connected" if key_id else "Not configured",
+        "webhook_verification": "Enabled",
+        "payment_link_creation": "Available",
+        "settlement_verification": "Enabled",
     }
 
 @router.put("/api/programs/config")

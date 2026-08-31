@@ -35,6 +35,27 @@ async def razorpay_webhook(
                 content={"status": "rejected", "reason": "signature_verification_failed"},
             )
 
+        import json
+        event_type = ""
+        try:
+            event_type = json.loads(raw_body).get("event", "")
+        except Exception:
+            pass
+
+        if event_type in {"payment.captured", "payment.authorized", "payment_link.paid", "order.paid"}:
+            item, audit_events, status = service.process_webhook(
+                raw_body=raw_body,
+                signature_header=x_razorpay_signature,
+            )
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": status,
+                    "recovery_item_id": item.id if item else None,
+                    "actual_recovery_value": item.actual_recovery_value if item else 0,
+                },
+            )
+
         from app.adapters.razorpay.events import parse_razorpay_event
         try:
             razorpay_failure = parse_razorpay_event(raw_body)
