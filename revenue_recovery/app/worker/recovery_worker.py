@@ -178,6 +178,9 @@ class RecoveryWorker:
         except ValueError:
             failure_category = FailureCategory.UNKNOWN
 
+        obs_list = list(item.metadata.get("observations", []))
+        prev_acts = [o.get("action") for o in obs_list if o.get("action")]
+
         ctx = RecoveryContext(
             item_id=item.id,
             failure_category=failure_category,
@@ -186,6 +189,8 @@ class RecoveryWorker:
             currency=item.currency,
             attempt_count=int(item.metadata.get("attempt_count", 0)),
             customer_opt_out=False,
+            previous_actions=prev_acts,
+            observations=obs_list,
             max_attempts=self._max_attempts,
             expected_recovery_value=item.expected_recovery_value or 0,
         )
@@ -302,6 +307,20 @@ class RecoveryWorker:
 
         attempt_number = int(item.metadata.get("attempt_count", 0)) + 1
         exec_result = self._executor.execute(item, proposal.action.value, attempt_number=attempt_number)
+
+        # Record structured observation
+        obs = {
+            "action": proposal.action.value,
+            "status": "success" if exec_result.success else "failed",
+            "reason": exec_result.reason,
+            "amount": item.amount_minor,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "attempt_number": attempt_number,
+            "retry_eligible": exec_result.retry_eligible,
+        }
+        obs_list.append(obs)
+        from dataclasses import replace
+        item = replace(item, metadata={**item.metadata, "attempt_count": attempt_number, "observations": obs_list})
 
         if self._attempts is not None:
             self._attempts.record(AttemptRecord(

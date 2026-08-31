@@ -167,3 +167,35 @@ class ExpectedValueScorer:
         # Sort by net_expected_recovery descending
         scored_candidates.sort(key=lambda c: c["net_expected_recovery"], reverse=True)
         return scored_candidates
+
+
+def compare_action_vs_wait_vs_no_action(
+    amount_minor: int,
+    action_net_ev: int,
+    wait_net_ev: int = 0,
+) -> dict[str, Any]:
+    """Expose structured financial comparison: ACTION vs WAIT vs NO-ACTION."""
+    no_action_ev = 0
+    cost_of_doing_nothing = max(0, action_net_ev - no_action_ev)
+    cost_of_waiting = max(0, action_net_ev - wait_net_ev)
+
+    selected = "ACTION"
+    if action_net_ev <= 0 and wait_net_ev <= 0:
+        selected = "NO_ACTION"
+    elif wait_net_ev > action_net_ev:
+        selected = "WAIT"
+
+    return {
+        "action_net_ev_minor": action_net_ev,
+        "wait_net_ev_minor": wait_net_ev,
+        "no_action_net_ev_minor": no_action_ev,
+        "cost_of_doing_nothing_minor": cost_of_doing_nothing,
+        "cost_of_waiting_minor": cost_of_waiting,
+        "selected_choice": selected,
+        "evidence_summary": [
+            f"Action EV: ₹{action_net_ev / 100:.2f}",
+            f"Wait EV: ₹{wait_net_ev / 100:.2f}",
+            f"No-Action EV: ₹0.00",
+            f"Cost of Inaction: ₹{cost_of_doing_nothing / 100:.2f}",
+        ],
+    }

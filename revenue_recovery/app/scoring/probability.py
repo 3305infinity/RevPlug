@@ -117,6 +117,19 @@ class RecoveryProbabilityModel:
                 # Customer has good payment history
                 probability += 0.05
 
+            # Empirical historical evidence adjustments
+            past_link = ctx.get("past_link_success_rate")
+            if past_link is not None and action == "send_payment_link":
+                probability += (float(past_link) - 0.5) * 0.20
+
+            past_retry = ctx.get("past_retry_success_rate")
+            if past_retry is not None and action == "retry_payment":
+                probability += (float(past_retry) - 0.5) * 0.20
+
+            pref_channel = ctx.get("preferred_channel")
+            if pref_channel and action in (pref_channel, "alternate_channel" if pref_channel == "whatsapp" else pref_channel):
+                probability += 0.10
+
             # Numerical safety checks
             if math.isnan(probability) or math.isinf(probability):
                 probability = 0.10

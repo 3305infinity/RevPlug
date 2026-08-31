@@ -231,64 +231,25 @@ def _run_revplug_case(
         attempt_number=attempt_count + 1,
     )
 
-    gt = item.metadata.get("ground_truth")
-    actual_recovered = 0
-    exec_res = run_result.execution_result
-    if isinstance(exec_res, dict):
-        executed = bool(exec_res.get("executed", False) or exec_res.get("success", False))
-    elif exec_res is not None:
-        executed = bool(getattr(exec_res, "executed", False) or getattr(exec_res, "success", False))
-    else:
-        executed = False
-    final_outcome = "failed"
+    # Calculate actual outcome and total intervention cost across closed-loop steps
     int_cost = 0
+    actions_executed = []
+    for ev in run_result.audit_events:
+        act_name = getattr(ev, "action", "")
+        if act_name == "execution_requested":
+            act = (ev.metadata or {}).get("action", "unknown")
+            if act and act != "unknown":
+                actions_executed.append(act)
+                int_cost += _INTERVENTION_COST_MODEL.estimate(act)
 
-    if run_result.safety_decision in ("STOP", "DENY", "ESCALATE") or not executed:
-        if run_result.safety_decision == "ESCALATE":
-            final_outcome = "escalated"
-        else:
-            final_outcome = "stopped"
-        actual_recovered = 0
-        int_cost = 0
-    else:
-        if gt and "action_outcomes" in gt:
-            from app.datasets.synthetic import lookup_counterfactual_outcome
-            succ, rec_amt, c_cost = lookup_counterfactual_outcome(gt, proposed_action, attempt_count + 1)
-            int_cost = c_cost
-            if succ:
-                actual_recovered = rec_amt
-                final_outcome = "recovered"
-            else:
-                actual_recovered = 0
-                final_outcome = "failed"
-        else:
-            prob = prob_model.estimate(
-                failure_category=failure_category,
-                proposed_action=proposed_action,
-                attempt_number=attempt_count + 1,
-            )
-            rng = _random.Random(rng_seed + case_index * 31337)
-            if rng.random() < prob:
-                actual_recovered = item.amount_minor
-                final_outcome = "recovered"
-            else:
-                actual_recovered = 0
-                final_outcome = "failed"
-            int_cost = _INTERVENTION_COST_MODEL.estimate(proposed_action) if executed else 0
+    final_outcome = run_result.final_state or "failed"
+    actual_recovered = (run_result.actual_recovery_value or item.amount_minor) if final_outcome == "recovered" else 0
 
-    # Unnecessary intervention: proposed retry AND outcome != recovered
-    unnecessary = (proposed_action == "retry_payment") and (final_outcome != "recovered")
+    # Unnecessary intervention: retry_payment proposed AND outcome != recovered
+    unnecessary = ("retry_payment" in actions_executed) and (final_outcome != "recovered")
 
     # Diagnosis path — read from audit event metadata (set by agent)
-    # The orchestrator logs a 'diagnosis_created' event with the actual source
-    # from the proposal's diagnosis dict (set by MockRecoveryDecisionAgent/RealAgent).
-    diagnosis_path = "rules"  # safe default: mock agent is rules-based
-    for ev in run_result.audit_events:
-        if getattr(ev, "action", None) == "diagnosis_created":
-            src = (ev.metadata or {}).get("evidence", "")
-            # Evidence is a list; check for 'rules' or 'llm' annotation if present
-            # Fall through to agent_proposal_created check below
-            break
+    diagnosis_path = "rules"
     for ev in run_result.audit_events:
         if getattr(ev, "action", None) == "agent_proposal_created":
             model = (ev.metadata or {}).get("model", "mock")
@@ -318,6 +279,7 @@ def _run_revplug_case(
             "customer_id": item.customer_id,
             "score_version": score.score_version,
             "ground_truth": item.metadata.get("ground_truth"),
+            "actions_executed": actions_executed,
         },
     )
 

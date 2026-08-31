@@ -89,6 +89,21 @@ def api_customer_detail(customer_id: str, container: PersistenceContainer = Depe
         return JSONResponse(status_code=404, content={"error": "Customer not found"})
     return JSONResponse(status_code=200, content=data)
 
+@router.get("/api/recovery-items/{item_id}/trace")
+def api_case_trace(item_id: str, container: PersistenceContainer = Depends(get_container)) -> Response:
+    from app.services.trace_service import build_case_trace
+    data = build_case_trace(item_id, container)
+    if not data:
+        return JSONResponse(status_code=404, content={"error": "Item trace not found"})
+    return JSONResponse(status_code=200, content=data)
+
+@router.get("/api/benchmark/latest")
+def api_benchmark_latest() -> Response:
+    from dataclasses import asdict
+    from app.evaluation.benchmark import run_benchmark_suite
+    report = run_benchmark_suite(cases=100, seeds=[42, 43, 44, 45, 46, 47, 48, 49, 50, 51])
+    return JSONResponse(status_code=200, content=asdict(report))
+
 @router.get("/api/recovery-items/{item_id}/lifecycle")
 def api_lifecycle(item_id: str, container: PersistenceContainer = Depends(get_container)) -> Response:
     from app.dashboard_api import build_lifecycle

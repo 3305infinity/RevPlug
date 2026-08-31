@@ -104,19 +104,9 @@ _MAX_RETRIES = 2               # baseline is fixed at 2 attempts, always
 
 
 class BaselineEvaluator:
-    """Dumb fixed-strategy comparator.
-
-    Applies retry -> retry -> stop to every case, regardless of:
-    - fraud signals
-    - opt-out status
-    - retry budget
-    - failure category appropriateness
-
-    Uses the same RecoveryProbabilityModel as RevPlug to determine whether
-    a retry attempt succeeds. This ensures the comparison is fair -- both
-    systems face the same underlying payment success probabilities.
-
-    The baseline is a comparator only. It must never be used in production.
+    """Fixed-strategy comparator supporting:
+    - Mode 'naive' (Baseline A): Naive fixed retry without policy checks.
+    - Mode 'safe'  (Baseline B): Policy-compliant fixed retry respecting safety constraints.
     """
 
     def __init__(
@@ -125,37 +115,75 @@ class BaselineEvaluator:
         cost_per_intervention: int = _COST_PER_INTERVENTION,
         max_retries: int = _MAX_RETRIES,
         rng_seed: int = 0,
+        mode: str = "naive",
     ) -> None:
         self._probability_model = probability_model or RecoveryProbabilityModel()
         self._cost_per_intervention = cost_per_intervention
         self._max_retries = max_retries
         self._rng_seed = rng_seed
+        self._mode = mode.lower()
 
     def evaluate_case(self, item: RecoveryItem, case_index: int) -> BaselineCaseResult:
-        """Apply fixed retry strategy to one case.
+        """Apply fixed strategy to one case.
 
-        Args:
-            item: The recovery item to evaluate.
-            case_index: Stable index within the batch (used for RNG salt).
-
-        Returns:
-            BaselineCaseResult with observable outcome data.
+        Supports:
+        - mode 'naive': Naive fixed retry without policy checks.
+        - mode 'safe': Safe fixed retry respecting policy constraints.
+        - mode 'best_fixed': Best single failure-matched fixed action, non-adaptive.
         """
         import random as _random
         rng = _random.Random(self._rng_seed + case_index * 31337)
 
         failure_category = item.root_cause or "unknown"
+        orig_cat = str(item.metadata.get("original_category", "")).lower()
+        cat = str(failure_category).lower()
+        is_optout = bool(item.metadata.get("customer_opted_out"))
+        is_fraud = cat in ("fraud", "security_or_fraud") or orig_cat == "fraud" or item.metadata.get("fraud_flag")
+        is_disputed = bool(item.metadata.get("disputed"))
+        is_cancelled = bool(item.metadata.get("cancelled"))
+
+        # Baseline B (Safe Fixed Retry) & Baseline C (Best Fixed Action): Block unsafe cases deterministically
+        if self._mode in {"safe", "best_fixed"} and (is_fraud or is_optout or is_disputed or is_cancelled or cat in ("soft_optout", "soft_promise_active")):
+            return BaselineCaseResult(
+                case_id=item.id,
+                amount_at_risk=item.amount_minor,
+                failure_category=failure_category,
+                attempts_made=0,
+                outcome="stopped",
+                actual_recovered=0,
+                intervention_cost=0,
+                unnecessary_intervention=False,
+                stop_reason="policy_blocked",
+                actions_taken=[],
+                metadata={
+                    "is_synthetic": item.metadata.get("is_synthetic", True),
+                    "original_category": item.metadata.get("original_category", failure_category),
+                    "customer_id": item.customer_id,
+                    "case_index": case_index,
+                    "baseline_mode": self._mode,
+                },
+            )
+
         attempts_made = 0
         actions_taken: list[str] = []
         total_cost = 0
         recovered = False
 
+        # Determine fixed action for Baseline C vs A/B
+        fixed_action = "retry_payment"
+        if self._mode == "best_fixed":
+            if cat in ("authentication_required", "expired_card", "card_update"):
+                fixed_action = "send_payment_link"
+            elif cat in ("overdue_receivable", "invoice_overdue"):
+                fixed_action = "send_reminder"
+
         gt = item.metadata.get("ground_truth")
 
         for attempt_num in range(1, self._max_retries + 1):
-            actions_taken.append("retry_payment")
+            actions_taken.append(fixed_action)
             attempts_made += 1
-            total_cost += self._cost_per_intervention
+            action_cost = 2500 if fixed_action == "send_payment_link" else self._cost_per_intervention
+            total_cost += action_cost
 
             if gt and "action_outcomes" in gt:
                 from app.datasets.synthetic import lookup_counterfactual_outcome
@@ -196,6 +224,7 @@ class BaselineEvaluator:
                 "original_category": item.metadata.get("original_category", failure_category),
                 "customer_id": item.customer_id,
                 "case_index": case_index,
+                "baseline_mode": self._mode,
             },
         )
 
@@ -232,49 +261,50 @@ class BaselineEvaluator:
                 if case_result.unnecessary_intervention:
                     result.unnecessary_interventions += 1
 
-                # Track baseline safety/policy violations across 10 categories
-                cat = (item.root_cause or "").lower()
-                orig_cat = str(item.metadata.get("original_category", "")).lower()
-                is_optout = bool(item.metadata.get("customer_opted_out"))
-                att_count = int(item.metadata.get("attempt_count", 0))
-                is_promise = item.metadata.get("promise_status") == "promised"
-                is_expired = item.metadata.get("promise_status") == "expired" or orig_cat == "soft_promise_expired"
-                is_disputed = bool(item.metadata.get("disputed"))
-                is_cancelled = bool(item.metadata.get("cancelled"))
-                status_str = item.status.value if hasattr(item.status, "value") else str(item.status)
-                is_terminal = status_str in ("recovered", "stopped", "escalated")
+                # Track baseline safety/policy violations across categories (only if retries were attempted)
+                if case_result.attempts_made > 0:
+                    cat = (item.root_cause or "").lower()
+                    orig_cat = str(item.metadata.get("original_category", "")).lower()
+                    is_optout = bool(item.metadata.get("customer_opted_out"))
+                    att_count = int(item.metadata.get("attempt_count", 0))
+                    is_promise = item.metadata.get("promise_status") == "promised"
+                    is_expired = item.metadata.get("promise_status") == "expired" or orig_cat == "soft_promise_expired"
+                    is_disputed = bool(item.metadata.get("disputed"))
+                    is_cancelled = bool(item.metadata.get("cancelled"))
+                    status_str = item.status.value if hasattr(item.status, "value") else str(item.status)
+                    is_terminal = status_str in ("recovered", "stopped", "escalated")
 
-                if cat in ("fraud", "security_or_fraud") or orig_cat == "fraud" or item.metadata.get("fraud_flag"):
-                    result.baseline_policy_violations["fraud_retry"] += 1
-                    result.baseline_policy_violations["total_policy_violations"] += 1
-                if is_optout:
-                    result.baseline_policy_violations["do_not_contact_violation"] += 1
-                    result.baseline_policy_violations["total_policy_violations"] += 1
-                if cat in ("hard", "hard_decline") or orig_cat == "hard":
-                    result.baseline_policy_violations["hard_decline_retry"] += 1
-                    result.baseline_policy_violations["total_policy_violations"] += 1
-                if att_count >= 3 or orig_cat == "soft_exhausted":
-                    result.baseline_policy_violations["retry_budget_violation"] += 1
-                    result.baseline_policy_violations["total_policy_violations"] += 1
-                if is_promise or orig_cat == "soft_promise_active":
-                    result.baseline_policy_violations["promise_contact_violation"] += 1
-                    result.baseline_policy_violations["total_policy_violations"] += 1
-                if is_expired:
-                    result.baseline_policy_violations.setdefault("expired_case_violations", 0)
-                    result.baseline_policy_violations["expired_case_violations"] += 1
-                    result.baseline_policy_violations["total_policy_violations"] += 1
-                if is_disputed:
-                    result.baseline_policy_violations.setdefault("disputed_invoice_violations", 0)
-                    result.baseline_policy_violations["disputed_invoice_violations"] += 1
-                    result.baseline_policy_violations["total_policy_violations"] += 1
-                if is_cancelled:
-                    result.baseline_policy_violations.setdefault("cancelled_subscription_violations", 0)
-                    result.baseline_policy_violations["cancelled_subscription_violations"] += 1
-                    result.baseline_policy_violations["total_policy_violations"] += 1
-                if is_terminal:
-                    result.baseline_policy_violations.setdefault("terminal_state_violations", 0)
-                    result.baseline_policy_violations["terminal_state_violations"] += 1
-                    result.baseline_policy_violations["total_policy_violations"] += 1
+                    if cat in ("fraud", "security_or_fraud") or orig_cat == "fraud" or item.metadata.get("fraud_flag"):
+                        result.baseline_policy_violations["fraud_retry"] += 1
+                        result.baseline_policy_violations["total_policy_violations"] += 1
+                    if is_optout:
+                        result.baseline_policy_violations["do_not_contact_violation"] += 1
+                        result.baseline_policy_violations["total_policy_violations"] += 1
+                    if cat in ("hard", "hard_decline") or orig_cat == "hard":
+                        result.baseline_policy_violations["hard_decline_retry"] += 1
+                        result.baseline_policy_violations["total_policy_violations"] += 1
+                    if att_count >= 3 or orig_cat == "soft_exhausted":
+                        result.baseline_policy_violations["retry_budget_violation"] += 1
+                        result.baseline_policy_violations["total_policy_violations"] += 1
+                    if is_promise or orig_cat == "soft_promise_active":
+                        result.baseline_policy_violations["promise_contact_violation"] += 1
+                        result.baseline_policy_violations["total_policy_violations"] += 1
+                    if is_expired:
+                        result.baseline_policy_violations.setdefault("expired_case_violations", 0)
+                        result.baseline_policy_violations["expired_case_violations"] += 1
+                        result.baseline_policy_violations["total_policy_violations"] += 1
+                    if is_disputed:
+                        result.baseline_policy_violations.setdefault("disputed_invoice_violations", 0)
+                        result.baseline_policy_violations["disputed_invoice_violations"] += 1
+                        result.baseline_policy_violations["total_policy_violations"] += 1
+                    if is_cancelled:
+                        result.baseline_policy_violations.setdefault("cancelled_subscription_violations", 0)
+                        result.baseline_policy_violations["cancelled_subscription_violations"] += 1
+                        result.baseline_policy_violations["total_policy_violations"] += 1
+                    if is_terminal:
+                        result.baseline_policy_violations.setdefault("terminal_state_violations", 0)
+                        result.baseline_policy_violations["terminal_state_violations"] += 1
+                        result.baseline_policy_violations["total_policy_violations"] += 1
 
             except Exception as exc:
                 result.cases_failed_processing += 1

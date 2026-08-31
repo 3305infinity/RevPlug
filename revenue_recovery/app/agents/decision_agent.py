@@ -150,6 +150,13 @@ class MockRecoveryDecisionAgent:
                 diagnosis={"diagnosis_source": "rules"},
             )
 
+        # Check observation history for replanning after failures
+        last_obs = context.last_observation or {}
+        last_action = last_obs.get("action")
+        last_status = last_obs.get("status")
+        last_reason = last_obs.get("reason", "")
+        prev_actions = set(context.previous_actions)
+
         # 5. Standard Payment Failure & General Rules
         if context.failure_category == FailureCategory.FRAUD:
             return RecoveryProposal(
@@ -162,6 +169,15 @@ class MockRecoveryDecisionAgent:
             )
 
         if context.failure_category == FailureCategory.AUTHENTICATION_REQUIRED:
+            if "send_payment_link" in prev_actions and last_status == "failed":
+                return RecoveryProposal(
+                    action=RecoveryAction.ESCALATE_HUMAN,
+                    reason="Payment link sent for re-authentication failed; escalate to human",
+                    confidence=0.85,
+                    model_name=self._model_name,
+                    evidence={"category": context.failure_category.value, "last_status": last_status},
+                    diagnosis={"diagnosis_source": "rules"},
+                )
             return RecoveryProposal(
                 action=RecoveryAction.SEND_PAYMENT_LINK,
                 reason="Customer must re-authenticate; send a payment link to resume",
@@ -181,6 +197,41 @@ class MockRecoveryDecisionAgent:
                     evidence={"category": context.failure_category.value, "customer_opt_out": True},
                     diagnosis={"diagnosis_source": "rules"},
                 )
+
+            # Re-plan logic: if retry_payment failed or was attempted
+            if "retry_payment" in prev_actions and last_status == "failed":
+                if "send_payment_link" not in prev_actions:
+                    return RecoveryProposal(
+                        action=RecoveryAction.SEND_PAYMENT_LINK,
+                        reason=f"Payment retry failed ({last_reason or 'insufficient_funds'}); pivot to direct payment link",
+                        confidence=0.85,
+                        model_name=self._model_name,
+                        evidence={
+                            "category": context.failure_category.value,
+                            "previous_action": "retry_payment",
+                            "last_reason": last_reason,
+                        },
+                        diagnosis={"diagnosis_source": "rules"},
+                    )
+                elif "alternate_channel" not in prev_actions:
+                    return RecoveryProposal(
+                        action=RecoveryAction.ALTERNATE_CHANNEL,
+                        reason="Payment link failed; attempt recovery via alternate notification channel",
+                        confidence=0.75,
+                        model_name=self._model_name,
+                        evidence={"category": context.failure_category.value},
+                        diagnosis={"diagnosis_source": "rules"},
+                    )
+                else:
+                    return RecoveryProposal(
+                        action=RecoveryAction.ESCALATE_HUMAN,
+                        reason="Multiple recovery interventions failed; escalate for human assistance",
+                        confidence=0.90,
+                        model_name=self._model_name,
+                        evidence={"category": context.failure_category.value, "attempts_exhausted": True},
+                        diagnosis={"diagnosis_source": "rules"},
+                    )
+
             if context.retryable and context.attempt_count < context.max_attempts:
                 return RecoveryProposal(
                     action=RecoveryAction.RETRY_PAYMENT,
@@ -204,6 +255,15 @@ class MockRecoveryDecisionAgent:
             )
 
         if context.failure_category == FailureCategory.HARD:
+            if "send_payment_link" in prev_actions and last_status == "failed":
+                return RecoveryProposal(
+                    action=RecoveryAction.ESCALATE_HUMAN,
+                    reason="Hard failure payment link attempt failed; escalate to human review",
+                    confidence=0.85,
+                    model_name=self._model_name,
+                    evidence={"category": context.failure_category.value},
+                    diagnosis={"diagnosis_source": "rules"},
+                )
             if context.attempt_count >= 2:
                 return RecoveryProposal(
                     action=RecoveryAction.ESCALATE_HUMAN,

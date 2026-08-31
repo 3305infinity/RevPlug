@@ -165,11 +165,13 @@ class RealRecoveryDecisionAgent:
                     f"Schema violation: confidence {conf_val} outside [0..1]", latency,
                 )
 
-            # Reject action if not in allowed candidate set (prevents hallucinated tools)
-            if selected_act_str not in [a.value for a in RecoveryAction]:
+            from app.domain.actions import ActionRegistry
+
+            # Reject action if not in ActionRegistry or RecoveryAction enum (prevents hallucinated tools)
+            if not ActionRegistry.is_valid(selected_act_str) or selected_act_str not in [a.value for a in RecoveryAction]:
                 return self._fallback_with_trace(
                     context, context_summary, response.content, parsed,
-                    f"Hallucinated action rejected: {selected_act_str!r}", latency,
+                    f"Action contract violation / Hallucinated action rejected: {selected_act_str!r}", latency,
                 )
 
             selected_act = RecoveryAction(selected_act_str)

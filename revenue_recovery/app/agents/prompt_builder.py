@@ -97,6 +97,9 @@ OUTPUT JSON SCHEMA:
             lines.append(f"Gateway error text [UNTRUSTED]: \"{sanitized_reason}\"")
         if context.previous_actions:
             lines.append(f"Previous attempts: {', '.join(context.previous_actions)}")
+        if context.observations:
+            sanitized_obs = json.dumps(context.observations, default=str)[:600]
+            lines.append(f"Execution Observations History: {sanitized_obs}")
 
         cust_notes = context.metadata.get("customer_notes") or context.metadata.get("customer_message")
         if cust_notes:

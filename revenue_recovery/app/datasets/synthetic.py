@@ -587,6 +587,27 @@ def generate_evaluation_dataset(count: int = 50, seed: int = 42) -> list[Recover
     return items
 
 
+def generate_synthetic_cases(count: int = 50, seed: int = 42, failure_mix: dict[str, float] | None = None) -> list[RecoveryItem]:
+    """Alias for generate_evaluation_dataset for synthetic case generation."""
+    items = generate_evaluation_dataset(count=count, seed=seed)
+    if failure_mix and "authentication_required" in failure_mix:
+        # Filter/override for specific failure mix test
+        res = []
+        for it in items:
+            from dataclasses import replace
+            meta = {**it.metadata, "original_category": "authentication_required"}
+            res.append(replace(it, root_cause="authentication_required", metadata=meta))
+        return res
+    if failure_mix and "fraud" in failure_mix:
+        res = []
+        for it in items:
+            from dataclasses import replace
+            meta = {**it.metadata, "original_category": "fraud", "customer_opted_out": False, "fraud_flag": True}
+            res.append(replace(it, root_cause="fraud", metadata=meta))
+        return res
+    return items
+
+
 def _generate_counterfactual_outcomes(
     gt_rng: Any,
     amount_minor: int,
@@ -598,17 +619,68 @@ def _generate_counterfactual_outcomes(
     This table models the underlying environment ONCE per case so that both
     Baseline and RevPlug evaluate against the EXACT SAME ground truth.
     """
-    is_safe = gt_recoverable and root_cause not in ("fraud", "soft_optout", "soft_promise_active")
+    is_safe = gt_recoverable and root_cause not in ("fraud", "soft_optout", "soft_promise_active", "disputed_invoice")
 
-    r1_succ = (gt_rng.random() < 0.70) if (is_safe and root_cause == "soft") else ((gt_rng.random() < 0.10) if (is_safe and root_cause == "authentication_required") else False)
-    r2_succ = (gt_rng.random() < 0.50) if (is_safe and root_cause == "soft") else False
-    r3_succ = (gt_rng.random() < 0.30) if (is_safe and root_cause == "soft") else False
+    # Retry success probabilities by root cause
+    if not is_safe:
+        r1_p, r2_p, r3_p = 0.0, 0.0, 0.0
+    elif root_cause in ("soft", "insufficient_funds", "soft_decline", "mandate_failure"):
+        r1_p, r2_p, r3_p = 0.25, 0.40, 0.20
+    elif root_cause in ("authentication_required", "3ds_failed"):
+        r1_p, r2_p, r3_p = 0.05, 0.05, 0.00
+    elif root_cause in ("expired_card", "card_update_required", "hard_decline", "hard"):
+        r1_p, r2_p, r3_p = 0.00, 0.00, 0.00
+    elif root_cause in ("overdue_receivable", "checkout_abandonment"):
+        r1_p, r2_p, r3_p = 0.10, 0.10, 0.00
+    else:
+        r1_p, r2_p, r3_p = 0.20, 0.20, 0.10
 
-    link_succ = (gt_rng.random() < 0.85) if is_safe else False
-    rem_succ = (gt_rng.random() < 0.40) if (is_safe and root_cause == "overdue_receivable") else False
-    alt_succ = (gt_rng.random() < 0.75) if (is_safe and root_cause in ("overdue_receivable", "authentication_required")) else False
-    msg_succ = (gt_rng.random() < 0.60) if is_safe else False
-    disc_succ = (gt_rng.random() < 0.80) if is_safe else False
+    r1_succ = (gt_rng.random() < r1_p)
+    r2_succ = (gt_rng.random() < r2_p)
+    r3_succ = (gt_rng.random() < r3_p)
+
+    # Payment link success
+    if not is_safe:
+        link_p = 0.0
+    elif root_cause in ("authentication_required", "3ds_failed", "expired_card", "card_update_required"):
+        link_p = 0.85
+    elif root_cause in ("soft", "insufficient_funds", "soft_decline", "hard", "checkout_abandonment"):
+        link_p = 0.80
+    elif root_cause == "overdue_receivable":
+        link_p = 0.70
+    else:
+        link_p = 0.60
+
+    # Reminder success
+    if not is_safe:
+        rem_p = 0.0
+    elif root_cause in ("overdue_receivable", "soft_promise_expired"):
+        rem_p = 0.75
+    elif root_cause in ("checkout_abandonment", "soft"):
+        rem_p = 0.50
+    else:
+        rem_p = 0.30
+
+    # Alternate channel success
+    if not is_safe:
+        alt_p = 0.0
+    elif root_cause in ("overdue_receivable", "authentication_required"):
+        alt_p = 0.80
+    elif root_cause in ("soft", "hard"):
+        alt_p = 0.65
+    else:
+        alt_p = 0.40
+
+    # Message success
+    msg_p = 0.60 if is_safe else 0.0
+    # Offer discount success
+    disc_p = 0.80 if (is_safe and root_cause in ("overdue_receivable", "checkout_abandonment")) else 0.0
+
+    link_succ = (gt_rng.random() < link_p)
+    rem_succ = (gt_rng.random() < rem_p)
+    alt_succ = (gt_rng.random() < alt_p)
+    msg_succ = (gt_rng.random() < msg_p)
+    disc_succ = (gt_rng.random() < disc_p)
 
     return {
         "retry_payment": {

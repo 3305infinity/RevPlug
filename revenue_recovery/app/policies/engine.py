@@ -62,6 +62,16 @@ class InterventionPolicy:
         self._opted_out_customer_ids = opted_out_customer_ids
 
     def evaluate(self, item: RecoveryItem, proposed_action: str) -> PolicyDecision:
+        if proposed_action != "stop_recovery" and item.status.value in {"recovered", "stopped"}:
+            return PolicyDecision(
+                allowed=False,
+                requires_human_approval=False,
+                reason=f"Recovery item is in terminal state '{item.status.value}'",
+                policy_rule="terminal_state_block",
+                action=proposed_action,
+                reason_code="terminal_state",
+            )
+
         if proposed_action != "stop_recovery" and item.customer_id in self._opted_out_customer_ids:
             return PolicyDecision(
                 allowed=False,
@@ -150,6 +160,17 @@ class InterventionPolicy:
         )
 
     def _evaluate_outbound(self, item: RecoveryItem, proposed_action: str) -> PolicyDecision:
+        recent_contacts = int(item.metadata.get("recent_contact_count", 0))
+        if recent_contacts >= 2:
+            return PolicyDecision(
+                allowed=False,
+                requires_human_approval=True,
+                reason="Contact frequency limit reached (2 contacts within 24h window)",
+                policy_rule="contact_frequency_limit",
+                action=proposed_action,
+                reason_code="CONTACT_FREQUENCY_LIMIT",
+            )
+
         attempt_count = int(item.metadata.get("contact_attempt_count", 0))
         max_contacts = int(item.metadata.get("max_contacts", 5))
         if attempt_count >= max_contacts:

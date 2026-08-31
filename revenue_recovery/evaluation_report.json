@@ -1,10 +1,10 @@
 {
-  "evaluation_id": "f90aa8f3-9229-43e9-9a30-8d3f79feb303",
+  "evaluation_id": "3351c337-7d57-4963-8563-96e5d54d2bf1",
   "seed": 42,
   "count": 10,
   "status": "completed",
-  "started_at": "2026-08-31T09:10:35.722239+00:00",
-  "completed_at": "2026-08-31T09:10:35.729783+00:00",
+  "started_at": "2026-08-31T11:36:35.370121+00:00",
+  "completed_at": "2026-08-31T11:36:35.380515+00:00",
   "dataset": {
     "count": 10,
     "seed": 42,
@@ -34,11 +34,11 @@
       "eval_42_0009"
     ],
     "safety_statistics": {
-      "ALLOWED": 7,
+      "ALLOWED": 8,
       "STOPPED": 0,
       "DENY": 0,
       "ESCALATE": 0,
-      "STOP": 3
+      "STOP": 2
     },
     "calibration_buckets": {
       "0.0-0.2": {
@@ -58,8 +58,8 @@
       },
       "0.6-0.8": {
         "count": 5,
-        "avg_predicted_probability": 0.7,
-        "actual_recovery_rate": 0.6
+        "avg_predicted_probability": 0.64,
+        "actual_recovery_rate": 0.4
       },
       "0.8-1.0": {
         "count": 0,
@@ -68,9 +68,9 @@
       }
     },
     "economic_metrics": {
-      "net_revenue_recovered": 306600,
-      "roi": 90.1765,
-      "expected_vs_actual_error": 17360.5
+      "net_revenue_recovered": 270000,
+      "roi": 54.0,
+      "expected_vs_actual_error": 18410.5
     }
   },
   "revplug": {
@@ -79,28 +79,28 @@
     "cases_failed_processing": 0,
     "eligible_cases": 9,
     "total_amount_at_risk": 840150,
-    "expected_recovery": 203599,
-    "actual_recovered": 310000,
-    "net_recovered": 306600,
-    "recovery_rate": 0.368982,
-    "case_recovery_rate": 0.555556,
-    "recovered_count": 5,
-    "stopped_count": 3,
-    "escalated_count": 0,
+    "expected_recovery": 195999,
+    "actual_recovered": 275000,
+    "net_recovered": 270000,
+    "recovery_rate": 0.327323,
+    "case_recovery_rate": 0.444444,
+    "recovered_count": 4,
+    "stopped_count": 2,
+    "escalated_count": 4,
     "pending_verification_count": 0,
     "failed_count": 0,
-    "total_interventions": 7,
+    "total_interventions": 8,
     "executed_interventions": 0,
     "successful_interventions": 0,
     "failed_interventions": 0,
-    "intervention_cost": 3400,
-    "cost_per_recovery": 680.0,
-    "cost_per_rupee_recovered": 0.011,
-    "net_recovery_margin": 0.989,
+    "intervention_cost": 5000,
+    "cost_per_recovery": 1250.0,
+    "cost_per_rupee_recovered": 0.0182,
+    "net_recovery_margin": 0.9818,
     "unnecessary_interventions": 2,
-    "no_action_cases": 3,
+    "no_action_cases": 2,
     "negative_ev_no_action_cases": 1,
-    "policy_stop_cases": 3,
+    "policy_stop_cases": 2,
     "rules_classified_count": 10,
     "llm_classified_count": 0,
     "llm_fallback_count": 0,
@@ -124,7 +124,7 @@
       "ai_proposals_accepted": 0,
       "ai_proposals_rejected_by_policy": 0,
       "ai_fallback_cases": 0,
-      "human_escalations": 0
+      "human_escalations": 4
     },
     "ai_metrics": {
       "ai_provider": "groq",
@@ -139,13 +139,13 @@
       "actual_executed_unsafe_actions": 0,
       "ai_failure_rate": 0.0,
       "diagnosis_accuracy": 1.0,
-      "action_selection_accuracy": 0.7
+      "action_selection_accuracy": 0.4
     },
     "decision_quality": {
       "root_cause_accuracy": 1.0,
-      "proposal_action_accuracy": 0.8,
-      "final_action_accuracy": 0.7,
-      "intervention_accuracy": 0.7,
+      "proposal_action_accuracy": 0.5,
+      "final_action_accuracy": 0.4,
+      "intervention_accuracy": 0.4,
       "escalation_precision": 0.0,
       "stopping_rule_compliance": 1.0,
       "prevented_unsafe_actions": 0
@@ -158,28 +158,28 @@
     "cases_failed_processing": 0,
     "eligible_cases": 9,
     "total_amount_at_risk": 840150,
-    "expected_recovery": 203599,
-    "actual_recovered": 310000,
-    "net_recovered": 306600,
-    "recovery_rate": 0.368982,
-    "case_recovery_rate": 0.555556,
-    "recovered_count": 5,
-    "stopped_count": 3,
-    "escalated_count": 0,
+    "expected_recovery": 195999,
+    "actual_recovered": 275000,
+    "net_recovered": 270000,
+    "recovery_rate": 0.327323,
+    "case_recovery_rate": 0.444444,
+    "recovered_count": 4,
+    "stopped_count": 2,
+    "escalated_count": 4,
     "pending_verification_count": 0,
     "failed_count": 0,
-    "total_interventions": 7,
+    "total_interventions": 8,
     "executed_interventions": 0,
     "successful_interventions": 0,
     "failed_interventions": 0,
-    "intervention_cost": 3400,
-    "cost_per_recovery": 680.0,
-    "cost_per_rupee_recovered": 0.011,
-    "net_recovery_margin": 0.989,
+    "intervention_cost": 5000,
+    "cost_per_recovery": 1250.0,
+    "cost_per_rupee_recovered": 0.0182,
+    "net_recovery_margin": 0.9818,
     "unnecessary_interventions": 2,
-    "no_action_cases": 3,
+    "no_action_cases": 2,
     "negative_ev_no_action_cases": 1,
-    "policy_stop_cases": 3,
+    "policy_stop_cases": 2,
     "rules_classified_count": 10,
     "llm_classified_count": 0,
     "llm_fallback_count": 0,
@@ -203,7 +203,7 @@
       "ai_proposals_accepted": 0,
       "ai_proposals_rejected_by_policy": 0,
       "ai_fallback_cases": 0,
-      "human_escalations": 0
+      "human_escalations": 4
     },
     "ai_metrics": {
       "ai_provider": "groq",
@@ -218,13 +218,13 @@
       "actual_executed_unsafe_actions": 0,
       "ai_failure_rate": 0.0,
       "diagnosis_accuracy": 1.0,
-      "action_selection_accuracy": 0.7
+      "action_selection_accuracy": 0.4
     },
     "decision_quality": {
       "root_cause_accuracy": 1.0,
-      "proposal_action_accuracy": 0.8,
-      "final_action_accuracy": 0.7,
-      "intervention_accuracy": 0.7,
+      "proposal_action_accuracy": 0.5,
+      "final_action_accuracy": 0.4,
+      "intervention_accuracy": 0.4,
       "escalation_precision": 0.0,
       "stopping_rule_compliance": 1.0,
       "prevented_unsafe_actions": 0
@@ -237,17 +237,17 @@
     "cases_failed_processing": 0,
     "total_amount_at_risk": 840150,
     "expected_recovery": null,
-    "actual_recovered": 160000,
-    "recovery_rate": 0.190442,
-    "recovered_count": 3,
-    "stopped_count": 7,
+    "actual_recovered": 175150,
+    "recovery_rate": 0.208475,
+    "recovered_count": 4,
+    "stopped_count": 6,
     "escalated_count": 0,
-    "total_interventions": 17,
-    "intervention_cost": 8500,
-    "cost_per_recovery": 2833.33,
-    "unnecessary_interventions": 7,
-    "raw_retry_attempts": 17,
-    "raw_retries_that_failed": 14,
+    "total_interventions": 19,
+    "intervention_cost": 9500,
+    "cost_per_recovery": 2375.0,
+    "unnecessary_interventions": 6,
+    "raw_retry_attempts": 19,
+    "raw_retries_that_failed": 15,
     "baseline_policy_violations": {
       "hard_decline_retry": 2,
       "fraud_retry": 1,
@@ -259,11 +259,11 @@
     "unnecessary_intervention_definition": "action=retry_payment AND outcome!=recovered"
   },
   "comparison": {
-    "absolute_recovery_difference": 150000,
-    "recovery_rate_difference": 0.17854,
-    "relative_improvement": 0.9375,
+    "absolute_recovery_difference": 99850,
+    "recovery_rate_difference": 0.118848,
+    "relative_improvement": 0.5701,
     "revplug_beat_baseline": true,
-    "honest_summary": "RevPlug net recovery \u20b91551 higher than baseline (Net \u20b93066 vs \u20b91515)."
+    "honest_summary": "RevPlug net recovery \u20b91044 higher than baseline (Net \u20b92700 vs \u20b91656)."
   },
   "per_case": [
     {
@@ -289,8 +289,8 @@
           "retry_payment": {
             "attempts": {
               "1": {
-                "success": true,
-                "actual_recovery_minor": 50000,
+                "success": false,
+                "actual_recovery_minor": 0,
                 "cost_minor": 500
               },
               "2": {
@@ -306,8 +306,8 @@
             }
           },
           "send_payment_link": {
-            "success": true,
-            "actual_recovery_minor": 50000,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 200
           },
           "send_reminder": {
@@ -316,18 +316,18 @@
             "cost_minor": 100
           },
           "alternate_channel": {
-            "success": false,
-            "actual_recovery_minor": 0,
+            "success": true,
+            "actual_recovery_minor": 50000,
             "cost_minor": 300
           },
           "send_customer_message": {
-            "success": true,
-            "actual_recovery_minor": 50000,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 150
           },
           "offer_discount": {
-            "success": true,
-            "actual_recovery_minor": 45000,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 500
           },
           "stop_recovery": {
@@ -343,27 +343,27 @@
         }
       },
       "revplug": {
-        "proposed_action": "retry_payment",
+        "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
-        "outcome": "recovered",
-        "actual_recovered": 50000,
-        "expected_recovery": 34500,
-        "intervention_cost": 500,
-        "net_recovered": 49500,
-        "unnecessary_intervention": false,
-        "stop_reason": null,
-        "escalation_reason": null,
+        "outcome": "escalated",
+        "actual_recovered": 0,
+        "expected_recovery": 29800,
+        "intervention_cost": 700,
+        "net_recovered": -700,
+        "unnecessary_intervention": true,
+        "stop_reason": "human_escalation_required",
+        "escalation_reason": "human_escalation_required",
         "diagnosis_path": "rules",
-        "audit_event_count": 9,
+        "audit_event_count": 19,
         "processing_error": null
       },
       "baseline": {
         "proposed_action": "retry_payment",
         "outcome": "recovered",
         "actual_recovered": 50000,
-        "intervention_cost": 500,
-        "net_recovered": 49500,
-        "attempts_made": 1,
+        "intervention_cost": 1000,
+        "net_recovered": 49000,
+        "attempts_made": 2,
         "unnecessary_intervention": false,
         "stop_reason": null
       }
@@ -419,13 +419,13 @@
             "cost_minor": 100
           },
           "alternate_channel": {
-            "success": false,
-            "actual_recovery_minor": 0,
+            "success": true,
+            "actual_recovery_minor": 100000,
             "cost_minor": 300
           },
           "send_customer_message": {
-            "success": true,
-            "actual_recovery_minor": 100000,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 150
           },
           "offer_discount": {
@@ -457,7 +457,7 @@
         "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "rules",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -494,8 +494,8 @@
           "retry_payment": {
             "attempts": {
               "1": {
-                "success": false,
-                "actual_recovery_minor": 0,
+                "success": true,
+                "actual_recovery_minor": 150,
                 "cost_minor": 500
               },
               "2": {
@@ -531,8 +531,8 @@
             "cost_minor": 150
           },
           "offer_discount": {
-            "success": true,
-            "actual_recovery_minor": 135,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 500
           },
           "stop_recovery": {
@@ -555,8 +555,8 @@
         "expected_recovery": 0,
         "intervention_cost": 0,
         "net_recovered": 0,
-        "unnecessary_intervention": true,
-        "stop_reason": null,
+        "unnecessary_intervention": false,
+        "stop_reason": "ev_gate_enforcement",
         "escalation_reason": null,
         "diagnosis_path": "rules",
         "audit_event_count": 7,
@@ -564,13 +564,13 @@
       },
       "baseline": {
         "proposed_action": "retry_payment",
-        "outcome": "stopped",
-        "actual_recovered": 0,
-        "intervention_cost": 1000,
-        "net_recovered": -1000,
-        "attempts_made": 2,
-        "unnecessary_intervention": true,
-        "stop_reason": "max_retries"
+        "outcome": "recovered",
+        "actual_recovered": 150,
+        "intervention_cost": 500,
+        "net_recovered": -350,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
       }
     },
     {
@@ -659,10 +659,10 @@
         "intervention_cost": 0,
         "net_recovered": 0,
         "unnecessary_intervention": false,
-        "stop_reason": null,
+        "stop_reason": "fraud_detected",
         "escalation_reason": null,
         "diagnosis_path": "rules",
-        "audit_event_count": 7,
+        "audit_event_count": 6,
         "processing_error": null
       },
       "baseline": {
@@ -704,8 +704,8 @@
                 "cost_minor": 500
               },
               "2": {
-                "success": false,
-                "actual_recovery_minor": 0,
+                "success": true,
+                "actual_recovery_minor": 25000,
                 "cost_minor": 500
               },
               "3": {
@@ -736,8 +736,8 @@
             "cost_minor": 150
           },
           "offer_discount": {
-            "success": true,
-            "actual_recovery_minor": 22500,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 500
           },
           "stop_recovery": {
@@ -753,29 +753,29 @@
         }
       },
       "revplug": {
-        "proposed_action": "retry_payment",
+        "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
-        "outcome": "failed",
-        "actual_recovered": 0,
-        "expected_recovery": 17000,
-        "intervention_cost": 500,
-        "net_recovered": -500,
-        "unnecessary_intervention": true,
+        "outcome": "recovered",
+        "actual_recovered": 25000,
+        "expected_recovery": 14800,
+        "intervention_cost": 700,
+        "net_recovered": 24300,
+        "unnecessary_intervention": false,
         "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "rules",
-        "audit_event_count": 9,
+        "audit_event_count": 19,
         "processing_error": null
       },
       "baseline": {
         "proposed_action": "retry_payment",
-        "outcome": "stopped",
-        "actual_recovered": 0,
+        "outcome": "recovered",
+        "actual_recovered": 25000,
         "intervention_cost": 1000,
-        "net_recovered": -1000,
+        "net_recovered": 24000,
         "attempts_made": 2,
-        "unnecessary_intervention": true,
-        "stop_reason": "max_retries"
+        "unnecessary_intervention": false,
+        "stop_reason": null
       }
     },
     {
@@ -801,8 +801,8 @@
           "retry_payment": {
             "attempts": {
               "1": {
-                "success": true,
-                "actual_recovery_minor": 10000,
+                "success": false,
+                "actual_recovery_minor": 0,
                 "cost_minor": 500
               },
               "2": {
@@ -811,8 +811,8 @@
                 "cost_minor": 500
               },
               "3": {
-                "success": true,
-                "actual_recovery_minor": 10000,
+                "success": false,
+                "actual_recovery_minor": 0,
                 "cost_minor": 500
               }
             }
@@ -828,8 +828,8 @@
             "cost_minor": 100
           },
           "alternate_channel": {
-            "success": false,
-            "actual_recovery_minor": 0,
+            "success": true,
+            "actual_recovery_minor": 10000,
             "cost_minor": 300
           },
           "send_customer_message": {
@@ -838,8 +838,8 @@
             "cost_minor": 150
           },
           "offer_discount": {
-            "success": true,
-            "actual_recovery_minor": 9000,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 500
           },
           "stop_recovery": {
@@ -855,29 +855,29 @@
         }
       },
       "revplug": {
-        "proposed_action": "retry_payment",
+        "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
-        "outcome": "recovered",
-        "actual_recovered": 10000,
-        "expected_recovery": 6500,
-        "intervention_cost": 500,
-        "net_recovered": 9500,
-        "unnecessary_intervention": false,
-        "stop_reason": null,
-        "escalation_reason": null,
+        "outcome": "escalated",
+        "actual_recovered": 0,
+        "expected_recovery": 5800,
+        "intervention_cost": 700,
+        "net_recovered": -700,
+        "unnecessary_intervention": true,
+        "stop_reason": "human_escalation_required",
+        "escalation_reason": "human_escalation_required",
         "diagnosis_path": "rules",
-        "audit_event_count": 9,
+        "audit_event_count": 19,
         "processing_error": null
       },
       "baseline": {
         "proposed_action": "retry_payment",
-        "outcome": "recovered",
-        "actual_recovered": 10000,
-        "intervention_cost": 500,
-        "net_recovered": 9500,
-        "attempts_made": 1,
-        "unnecessary_intervention": false,
-        "stop_reason": null
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
       }
     },
     {
@@ -931,18 +931,18 @@
             "cost_minor": 100
           },
           "alternate_channel": {
-            "success": false,
-            "actual_recovery_minor": 0,
+            "success": true,
+            "actual_recovery_minor": 50000,
             "cost_minor": 300
           },
           "send_customer_message": {
-            "success": true,
-            "actual_recovery_minor": 50000,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 150
           },
           "offer_discount": {
-            "success": true,
-            "actual_recovery_minor": 45000,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 500
           },
           "stop_recovery": {
@@ -969,7 +969,7 @@
         "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "rules",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -1028,8 +1028,8 @@
             "cost_minor": 200
           },
           "send_reminder": {
-            "success": false,
-            "actual_recovery_minor": 0,
+            "success": true,
+            "actual_recovery_minor": 5000,
             "cost_minor": 100
           },
           "alternate_channel": {
@@ -1038,8 +1038,8 @@
             "cost_minor": 300
           },
           "send_customer_message": {
-            "success": false,
-            "actual_recovery_minor": 0,
+            "success": true,
+            "actual_recovery_minor": 5000,
             "cost_minor": 150
           },
           "offer_discount": {
@@ -1061,17 +1061,17 @@
       },
       "revplug": {
         "proposed_action": "escalate_human",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
+        "safety_decision": "ALLOWED",
+        "outcome": "escalated",
         "actual_recovered": 0,
         "expected_recovery": 0,
-        "intervention_cost": 0,
-        "net_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
         "unnecessary_intervention": false,
-        "stop_reason": null,
-        "escalation_reason": null,
+        "stop_reason": "human_escalation_required",
+        "escalation_reason": "human_escalation_required",
         "diagnosis_path": "rules",
-        "audit_event_count": 7,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -1108,8 +1108,8 @@
           "retry_payment": {
             "attempts": {
               "1": {
-                "success": true,
-                "actual_recovery_minor": 100000,
+                "success": false,
+                "actual_recovery_minor": 0,
                 "cost_minor": 500
               },
               "2": {
@@ -1130,23 +1130,23 @@
             "cost_minor": 200
           },
           "send_reminder": {
-            "success": false,
-            "actual_recovery_minor": 0,
+            "success": true,
+            "actual_recovery_minor": 100000,
             "cost_minor": 100
           },
           "alternate_channel": {
-            "success": false,
-            "actual_recovery_minor": 0,
+            "success": true,
+            "actual_recovery_minor": 100000,
             "cost_minor": 300
           },
           "send_customer_message": {
-            "success": true,
-            "actual_recovery_minor": 100000,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 150
           },
           "offer_discount": {
-            "success": true,
-            "actual_recovery_minor": 90000,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 500
           },
           "stop_recovery": {
@@ -1173,16 +1173,16 @@
         "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "rules",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
         "proposed_action": "retry_payment",
         "outcome": "recovered",
         "actual_recovered": 100000,
-        "intervention_cost": 500,
-        "net_recovered": 99500,
-        "attempts_made": 1,
+        "intervention_cost": 1000,
+        "net_recovered": 99000,
+        "attempts_made": 2,
         "unnecessary_intervention": false,
         "stop_reason": null
       }
@@ -1242,13 +1242,13 @@
             "cost_minor": 300
           },
           "send_customer_message": {
-            "success": true,
-            "actual_recovery_minor": 250000,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 150
           },
           "offer_discount": {
-            "success": true,
-            "actual_recovery_minor": 225000,
+            "success": false,
+            "actual_recovery_minor": 0,
             "cost_minor": 500
           },
           "stop_recovery": {
@@ -1266,16 +1266,16 @@
       "revplug": {
         "proposed_action": "escalate_human",
         "safety_decision": "ALLOWED",
-        "outcome": "failed",
+        "outcome": "escalated",
         "actual_recovered": 0,
         "expected_recovery": 24000,
         "intervention_cost": 1000,
         "net_recovered": -1000,
         "unnecessary_intervention": false,
-        "stop_reason": null,
-        "escalation_reason": null,
+        "stop_reason": "human_escalation_required",
+        "escalation_reason": "human_escalation_required",
         "diagnosis_path": "rules",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {

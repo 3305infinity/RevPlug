@@ -110,7 +110,7 @@ def _register_routes(
     target_app: FastAPI,
     service: RazorpayWebhookService,
 ) -> None:
-    from app.api import webhooks, jobs, promises, dashboard, evaluations, demo, auth
+    from app.api import webhooks, jobs, promises, dashboard, evaluations, demo, auth, escalations, failure_injection
     target_app.include_router(webhooks.router)
     target_app.include_router(jobs.router)
     target_app.include_router(promises.router)
@@ -118,6 +118,8 @@ def _register_routes(
     target_app.include_router(evaluations.router)
     target_app.include_router(demo.router)
     target_app.include_router(auth.router)
+    target_app.include_router(escalations.router)
+    target_app.include_router(failure_injection.router)
 
     @target_app.get("/health")
     def health_check():

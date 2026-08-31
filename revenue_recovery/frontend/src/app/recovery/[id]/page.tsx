@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api, CaseDetail } from "@/lib/api";
+import { api, CaseDetail, CaseTrace } from "@/lib/api";
+import DecisionTraceView from "@/components/recovery/DecisionTraceView";
+import DecisionCardCenterpiece from "@/components/recovery/DecisionCardCenterpiece";
+import TrustPanel from "@/components/recovery/TrustPanel";
 
 const fmt = (n: number) =>
   "₹" + (n / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -327,11 +330,13 @@ export default function CaseWorkspace() {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [techOpen, setTechOpen] = useState<boolean>(false);
   const [liveDetail, setLiveDetail] = useState<CaseDetail | null>(null);
+  const [liveTrace, setLiveTrace] = useState<CaseTrace | null>(null);
 
   useEffect(() => {
     if (id && id !== "demo_case_4999" && id !== "demo_case_18200") {
       setMode("live");
       api.itemDetail(id).then(setLiveDetail).catch(() => {});
+      api.caseTrace(id).then(setLiveTrace).catch(() => {});
     }
   }, [id]);
 
@@ -365,6 +370,17 @@ export default function CaseWorkspace() {
         <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 600 }}>
           RevPlug Case Replay Engine
         </div>
+      </div>
+
+      {/* DECISION CARD CENTERPIECE */}
+      <DecisionCardCenterpiece trace={liveTrace} detail={liveDetail} />
+
+      {/* TRUST & SAFETY PANEL */}
+      <TrustPanel />
+
+      {/* DECISION TRACE CENTERPIECE */}
+      <div style={{ marginBottom: "2rem" }}>
+        <DecisionTraceView trace={liveTrace} detail={liveDetail} />
       </div>
 
       {/* SHOWCASE PRESET SELECTOR */}

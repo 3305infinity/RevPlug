@@ -1,0 +1,182 @@
+"use client";
+
+import React, { useState } from "react";
+import { api, SimulationResult } from "@/lib/api";
+
+interface ScenarioDef {
+  id: string;
+  title: string;
+  badge: string;
+  description: string;
+  payload: Record<string, unknown>;
+}
+
+const PRESET_SCENARIOS: ScenarioDef[] = [
+  {
+    id: "scen_1",
+    title: "Scenario 1: Soft Auth Failure → Dynamic Pivot → Recovered",
+    badge: "CLOSED-LOOP PIVOT",
+    description: "Gateway authentication error. Retry payment fails; agent dynamically pivots to Payment Link.",
+    payload: {
+      amount_minor: 499900,
+      currency: "INR",
+      error_reason: "authentication_required",
+      method: "card",
+      customer_id: "cust_demo_pivot_101",
+      metadata: { failure_category: "authentication_required" },
+    },
+  },
+  {
+    id: "scen_2",
+    title: "Scenario 2: Hard Card Decline → Multi-Step → Bounded Stop",
+    badge: "BOUNDED STOP",
+    description: "Expired card decline. Multi-step payment link attempt fails; agent stops automatically without budget waste.",
+    payload: {
+      amount_minor: 1250000,
+      currency: "INR",
+      error_reason: "expired_card",
+      method: "card",
+      customer_id: "cust_demo_hard_202",
+      metadata: { failure_category: "hard", attempt_count: 2 },
+    },
+  },
+  {
+    id: "scen_3",
+    title: "Scenario 3: Disputed Invoice → Policy Engine Blocks → Human Escalation",
+    badge: "POLICY SHIELD",
+    description: "Customer filed invoice dispute. Agent proposes collection; Policy Engine blocks automated collection.",
+    payload: {
+      amount_minor: 850000,
+      currency: "INR",
+      error_reason: "disputed_invoice",
+      method: "upi",
+      customer_id: "cust_demo_dispute_303",
+      metadata: { disputed: true, failure_category: "soft" },
+    },
+  },
+  {
+    id: "scen_4",
+    title: "Scenario 4: Fraud Flag → Automated Prohibited → Policy Stop",
+    badge: "FRAUD GUARD",
+    description: "Fraud risk flag active on account. Policy engine halts recovery with 0 retries and 0 policy violations.",
+    payload: {
+      amount_minor: 2500000,
+      currency: "INR",
+      error_reason: "fraud_detected",
+      method: "card",
+      customer_id: "cust_demo_fraud_404",
+      metadata: { fraud_flag: true, failure_category: "fraud" },
+    },
+  },
+];
+
+export default function DemoScenariosSection() {
+  const [runningId, setRunningId] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, SimulationResult>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  const handleRunScenario = async (scen: ScenarioDef) => {
+    try {
+      setRunningId(scen.id);
+      setError(null);
+      const res = await api.triggerDemo(scen.payload);
+      setResults((prev) => ({ ...prev, [scen.id]: res }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to run scenario");
+    } finally {
+      setRunningId(null);
+    }
+  };
+
+  return (
+    <div style={{ padding: "1.25rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <div>
+          <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)" }}>
+            DETERMINISTIC JUDGING DEMO SCENARIOS
+          </h3>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            Execute end-to-end backend recovery flows to verify AI judgment, policy compliance, and closed-loop behavior
+          </div>
+        </div>
+        <span style={{ fontSize: "0.6875rem", background: "#2563eb", color: "#fff", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>
+          REAL BACKEND SIMULATION
+        </span>
+      </div>
+
+      {error && (
+        <div style={{ color: "var(--danger)", fontSize: "0.8125rem", marginBottom: "1rem" }}>
+          Error executing scenario: {error}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+        {PRESET_SCENARIOS.map((scen) => {
+          const res = results[scen.id];
+          const isRunning = runningId === scen.id;
+
+          return (
+            <div
+              key={scen.id}
+              style={{
+                padding: "1rem",
+                borderRadius: 8,
+                background: "var(--bg-primary)",
+                border: "1px solid var(--border)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                    {scen.title}
+                  </div>
+                  <span style={{ fontSize: "0.625rem", background: "rgba(245, 158, 11, 0.15)", color: "#f59e0b", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>
+                    {scen.badge}
+                  </span>
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: 12 }}>
+                  {scen.description}
+                </div>
+
+                {res && (
+                  <div style={{ padding: "0.75rem", background: "var(--bg-secondary)", borderRadius: 6, fontSize: "0.75rem", marginBottom: 12, border: "1px solid var(--border)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span>Proposed Action: <strong className="font-mono">{res.proposed_action || "None"}</strong></span>
+                      <span style={{ color: res.policy_allowed ? "#10b981" : "#ef4444", fontWeight: 700 }}>
+                        Policy: {res.policy_allowed ? "ALLOWED" : "BLOCKED"}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)" }}>
+                      <span>Status: <strong style={{ color: "var(--text-primary)" }}>{res.recovery_status || res.status}</strong></span>
+                      <span>Verified: <strong style={{ color: "#10b981" }}>₹{((res.actual_recovery_value || 0) / 100).toFixed(2)}</strong></span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => handleRunScenario(scen)}
+                disabled={isRunning}
+                style={{
+                  padding: "0.5rem 0.85rem",
+                  borderRadius: 6,
+                  background: isRunning ? "var(--bg-tertiary)" : "#2563eb",
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: "0.75rem",
+                  border: "none",
+                  cursor: isRunning ? "not-allowed" : "pointer",
+                }}
+              >
+                {isRunning ? "Running Backend Orchestrator..." : "Trigger Backend Scenario →"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

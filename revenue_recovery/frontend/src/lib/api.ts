@@ -399,12 +399,21 @@ export const api = {
   tsAttempts: () => fetchAPI<TimeSeriesPoint[]>("/api/time-series/attempts-by-day"),
   tsStopped: () => fetchAPI<TimeSeriesPoint[]>("/api/time-series/stopped-by-reason"),
   
+  // Decision Trace & Scientific Benchmark
+  caseTrace: (id: string) => fetchAPI<CaseTrace>(`/api/recovery-items/${id}/trace`),
+  latestBenchmark: () => fetchAPI<ScientificBenchmarkReport>("/api/benchmark/latest"),
+
   // Lifecycle & Audit
   lifecycle: (id: string) => fetchAPI<Lifecycle>(`/api/recovery-items/${id}/lifecycle`),
   auditTrail: (id: string) => fetchAPI<{ item_id: string; total_events: number; timeline: AuditEvent[] }>(`/api/recovery-items/${id}/audit-trail`),
 
   triggerDemo: (data: Record<string, unknown>) =>
     fetchAPI<SimulationResult>("/api/demo/payment-failure", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  injectFailure: (data: { failure_type: string; item_id?: string }) =>
+    fetchAPI<any>("/api/demo/inject-failure", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -477,4 +486,98 @@ export interface User {
   email: string;
   full_name: string;
   created_at: string;
+}
+
+export interface CandidateAction {
+  action: string;
+  expected_recovery: number;
+  cost: number;
+  policy_status: "ALLOWED" | "BLOCKED";
+  policy_rule?: string;
+  selected?: boolean;
+}
+
+export interface CaseTrace {
+  item_id: string;
+  status: string;
+  amount_at_risk_minor: number;
+  expected_recovery_minor: number;
+  verified_recovery_minor: number;
+  intervention_cost_minor: number;
+  net_recovery_minor: number;
+  context_snapshot: {
+    hash: string;
+    item_id: string;
+    failure_category: string;
+    amount_minor: number;
+  };
+  diagnosis: Record<string, unknown>;
+  ai_recommendation: {
+    actor: string;
+    selected_action: string | null;
+    confidence: number;
+    user_safe_reasoning?: string;
+    evidence?: string[];
+  };
+  candidate_actions: CandidateAction[];
+  policy_evaluations: {
+    allowed: boolean;
+    policy_rule: string;
+    reason?: string;
+  };
+  safety_decision: {
+    decision: string;
+    allowed: boolean;
+    reason?: string;
+  };
+  execution: {
+    status: string;
+    executed: boolean;
+    action?: string;
+    cost_minor?: number;
+  };
+  settlement_evidence: {
+    verified: boolean;
+    verified_amount_minor: number;
+    method?: string;
+  };
+  timeline: Array<{
+    id: string;
+    event_type: string;
+    actor: string;
+    action: string;
+    reason: string | null;
+    timestamp: string;
+    metadata: Record<string, unknown>;
+  }>;
+  replay_summary: Record<string, string>;
+}
+
+export interface ScientificBenchmarkReport {
+  cases_per_seed: number;
+  seeds: number[];
+  total_seeds: number;
+  revplug_wins_vs_safe: number;
+  revplug_win_rate_pct: number;
+  mean_amount_at_risk: number;
+  naive_mean_gross: number;
+  naive_mean_net: number;
+  naive_mean_violations: number;
+  safe_mean_gross: number;
+  safe_mean_net: number;
+  safe_median_net: number;
+  safe_std_net: number;
+  safe_mean_violations: number;
+  revplug_mean_gross: number;
+  revplug_mean_net: number;
+  revplug_median_net: number;
+  revplug_std_net: number;
+  revplug_mean_cost: number;
+  revplug_mean_violations: number;
+  revplug_mean_decision_quality: number;
+  gross_lift_pct: number;
+  net_lift_pct: number;
+  net_diff_mean: number;
+  confidence_interval_95_lower: number;
+  confidence_interval_95_upper: number;
 }

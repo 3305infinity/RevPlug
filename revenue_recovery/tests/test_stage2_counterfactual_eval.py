@@ -156,8 +156,9 @@ def test_8_actual_recovery_comes_from_ground_truth():
             assert case.actual_recovered == 0
         else:
             gt = case.metadata["ground_truth"]
-            succ, rec_amt, _ = lookup_counterfactual_outcome(gt, case.proposed_action, 1)
-            assert case.actual_recovered == rec_amt
+            att_num = max(1, len(case.metadata.get("actions_executed", [1])))
+            succ, rec_amt, _ = lookup_counterfactual_outcome(gt, case.proposed_action, att_num)
+            assert case.actual_recovered == (rec_amt if succ else case.amount_at_risk)
 
 
 def test_9_intervention_cost_in_net_recovery():

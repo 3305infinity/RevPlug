@@ -3,6 +3,11 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { api, RecoveryItem } from "@/lib/api";
+import DemoScenariosSection from "@/components/recovery/DemoScenariosSection";
+import JudgeDemoExperience from "@/components/recovery/JudgeDemoExperience";
+import FailureInjectionControl from "@/components/recovery/FailureInjectionControl";
+import JudgeHeroScreen from "@/components/recovery/JudgeHeroScreen";
+import SystemHealth from "@/components/recovery/SystemHealth";
 
 type Status = "loading" | "error" | "ready";
 
@@ -105,6 +110,25 @@ export default function RecoveryQueue() {
           <div className="font-mono" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--accent)", marginTop: 2 }}>TEST MODE</div>
           <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>Webhook verification enabled</div>
         </div>
+      </div>
+
+      {/* 30-SECOND VALUE HERO SCREEN (PART 22) */}
+      <JudgeHeroScreen onStartDemo={() => { document.getElementById("judge-demo-experience")?.scrollIntoView({ behavior: "smooth" }); }} />
+
+      {/* SYSTEM HEALTH & COMPONENT BOUNDARIES (PART 18) */}
+      <SystemHealth />
+
+      {/* SINGLE-CLICK HACKATHON JUDGE MODE EXPERIENCE (PART 17) */}
+      <div id="judge-demo-experience">
+        <JudgeDemoExperience />
+      </div>
+
+      {/* DEVELOPER & JUDGE FAILURE-INJECTION SANDBOX (PART 12) */}
+      <FailureInjectionControl />
+
+      {/* DEMO SCENARIOS SECTION (PART 17) */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <DemoScenariosSection />
       </div>
 
       {/* FILTER TOOLBAR */}

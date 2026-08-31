@@ -61,7 +61,31 @@ class SimulatedRecoveryExecutor:
         scenario: str | None = None,
     ) -> ExecutionResult:
         if scenario is None:
-            if item.metadata.get("probabilistic_simulation"):
+            gt = item.metadata.get("ground_truth")
+            if gt and "action_outcomes" in gt:
+                from app.datasets.synthetic import lookup_counterfactual_outcome
+                succ, rec_amt, cost_amt = lookup_counterfactual_outcome(gt, action, attempt_number)
+                if succ:
+                    return ExecutionResult(
+                        success=True,
+                        action=action,
+                        attempt_number=attempt_number,
+                        reason=f"Ground truth execution succeeded for {item.id}",
+                        retry_eligible=False,
+                        metadata={"simulated": True, "scenario": "success", "ground_truth_matched": True, "actual_recovery_minor": rec_amt, "cost_minor": cost_amt},
+                    )
+                else:
+                    retry_elig = (attempt_number < 3 and action == "retry_payment")
+                    return ExecutionResult(
+                        success=False,
+                        action=action,
+                        attempt_number=attempt_number,
+                        reason=f"Ground truth execution failed for {item.id}",
+                        retry_eligible=retry_elig,
+                        error_code="ground_truth_failure",
+                        metadata={"simulated": True, "scenario": "failed", "ground_truth_matched": True, "cost_minor": cost_amt},
+                    )
+            elif item.metadata.get("probabilistic_simulation"):
                 import hashlib
                 seed_str = f"{item.id}:{action}:{attempt_number}"
                 hash_val = int(hashlib.md5(seed_str.encode("utf-8")).hexdigest(), 16)

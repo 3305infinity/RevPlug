@@ -1,6 +1,6 @@
 # RevPlug Benchmark & Counterfactual ROI Report
 
-**Generated At:** 2026-08-31 09:10:35 UTC
+**Generated At:** 2026-08-31 11:36:35 UTC
 **Dataset Config:** 10 cases | Seed `42` | Version `1.0`
 
 ---
@@ -18,10 +18,10 @@ In this reproducible benchmark of **10 cases**, RevPlug demonstrated a **25.7% r
 | Metric | Deterministic Baseline | RevPlug AI Agent | Counterfactual Best Safe | Incremental Uplift |
 | :--- | :--- | :--- | :--- | :--- |
 | **Total Revenue at Risk** | ₹8,401.50 | ₹8,401.50 | ₹100,000.00 | — |
-| **Verified Recovered Revenue** | ₹1,600.00 | ₹3,100.00 | ₹38,000.00 | **+₹10,000.00** |
-| **Recovery Rate (%)** | 0.2% | 0.4% | 38.0% | **+10.0%** |
-| **Intervention Cost** | ₹85.00 | ₹34.00 | ₹350.00 | **-₹51.00** |
-| **Net Recovered Revenue** | ₹1,515.00 | ₹3,066.00 | ₹37,650.00 | **+₹1,551.00** |
+| **Verified Recovered Revenue** | ₹1,751.50 | ₹2,750.00 | ₹38,000.00 | **+₹10,000.00** |
+| **Recovery Rate (%)** | 0.2% | 0.3% | 38.0% | **+10.0%** |
+| **Intervention Cost** | ₹95.00 | ₹50.00 | ₹350.00 | **-₹45.00** |
+| **Net Recovered Revenue** | ₹1,656.50 | ₹2,700.00 | ₹37,650.00 | **+₹1,043.50** |
 | **Safety Violations** | **3** | **0** | **0** | **-100% Policy Violations** |
 
 ---

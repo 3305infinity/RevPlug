@@ -195,7 +195,103 @@ async def razorpay_webhook(
             response_body["retry_scheduled"] = retry.allowed
             response_body["next_attempt_at"] = retry.next_attempt_at.isoformat() if retry.next_attempt_at else None
         escalation = service.last_escalation
-        if escalation is not None:
-            response_body["escalation_reason"] = escalation.reason.value
-
     return JSONResponse(status_code=200, content=response_body)
+
+
+@router.post("/webhooks/events")
+async def generic_events_webhook(
+    request: Request,
+    x_webhook_signature: str | None = Header(default=None, alias="X-Webhook-Signature"),
+    container: PersistenceContainer = Depends(get_container),
+    webhook_secret: str = Depends(get_webhook_secret),
+) -> Response:
+    """Provider-neutral webhook boundary supporting 8 normalized revenue event types."""
+    raw_body = await request.body()
+
+    from app.adapters.normalized_events import (
+        parse_normalized_revenue_event,
+        verify_event_signature,
+        EventSignatureError,
+        EventParseError,
+    )
+
+    try:
+        if webhook_secret and webhook_secret != "unconfigured-placeholder-secret":
+            verify_event_signature(raw_body, x_webhook_signature, webhook_secret)
+    except EventSignatureError:
+        return JSONResponse(
+            status_code=400,
+            content={"status": "rejected", "reason": "signature_verification_failed"},
+        )
+
+    try:
+        event = parse_normalized_revenue_event(raw_body)
+    except EventParseError as exc:
+        return JSONResponse(
+            status_code=422,
+            content={"status": "rejected", "reason": f"event_parse_failed: {exc}"},
+        )
+
+    # Idempotency Check
+    provider_events = getattr(container, "provider_events", None)
+    if provider_events is not None:
+        from datetime import datetime, timezone as _tz
+        import uuid
+        from app.domain.models import ProviderEvent
+
+        candidate = ProviderEvent(
+            id=str(uuid.uuid4()),
+            provider=event.provider,
+            provider_event_id=event.event_id,
+            received_at=datetime.now(_tz.utc),
+            event_type=event.event_type,
+            raw_payload=event.raw_payload,
+            processing_status="pending",
+        )
+        is_new, _ = provider_events.try_insert(candidate)
+        if not is_new:
+            return JSONResponse(
+                status_code=200,
+                content={"status": "duplicate", "provider_event_id": event.event_id},
+            )
+
+    # INVARIANT: payment_succeeded or invoice_paid immediately terminates active recovery case
+    if event.is_success_event():
+        # Find matching item by customer_id or metadata
+        if hasattr(container.recovery_items, "_items"):
+            from dataclasses import replace
+            from app.domain.models import RecoveryStatus
+            for item in list(container.recovery_items._items.values()):
+                if item.customer_id == event.customer_id and item.status.value not in {"recovered", "stopped"}:
+                    updated_item = replace(item, status=RecoveryStatus.RECOVERED, actual_recovery_value=event.amount_minor)
+                    container.recovery_items.save(updated_item)
+                    try:
+                        container.audit_log.log(
+                            recovery_item_id=item.id,
+                            actor="system",
+                            action="immediate_success_termination",
+                            reason="Payment success event received; active recovery terminated immediately",
+                            metadata={"event_id": event.event_id, "amount_minor": event.amount_minor},
+                        )
+                    except Exception:
+                        pass
+        return JSONResponse(
+            status_code=200,
+            content={"status": "processed", "event_type": event.event_type, "action": "recovery_terminated"},
+        )
+
+    # For failure events, trigger orchestrator / worker case creation
+    from app.adapters.razorpay import RazorpayWebhookService
+    service = RazorpayWebhookService(container=container)
+    item, audit_events, status = service.process_webhook(raw_body=raw_body, signature_header=None)
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "processed",
+            "provider_event_id": event.event_id,
+            "recovery_item_id": item.id if item else None,
+            "recovery_status": item.status.value if item else "accepted",
+        },
+    )
+
