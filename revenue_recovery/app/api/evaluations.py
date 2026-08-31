@@ -12,16 +12,12 @@ def api_evaluations(container: PersistenceContainer = Depends(get_container)) ->
     from app.dashboard_api import build_evaluation_report
     return build_evaluation_report(container)
 
-@router.post("/api/evaluations/batch")
+@router.api_route("/api/evaluations/batch", methods=["GET", "POST"])
 async def api_batch_evaluation(request: Request) -> Response:
     """Run a real batch evaluation comparing RevPlug against a dumb baseline.
 
-    Generates a seeded deterministic dataset, runs every case through the
-    existing RecoveryOrchestrator (not a parallel engine), runs the same
-    cases through the baseline fixed-strategy comparator, and returns
-    structured financial comparison metrics.
-
-    Request body:
+    Accepts both POST JSON body and GET query parameters for flexibility.
+    Request body / query params:
         {
             "count": 50,   # number of cases (1-500)
             "seed": 42     # deterministic seed for reproducibility
@@ -30,13 +26,16 @@ async def api_batch_evaluation(request: Request) -> Response:
     Response: EvaluationRunResult — see app/services/evaluation_service.py.
     """
     import json as _json
-    body = await request.body()
     payload = {}
-    if body:
-        try:
-            payload = _json.loads(body)
-        except _json.JSONDecodeError:
-            return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+    if request.method == "POST":
+        body = await request.body()
+        if body:
+            try:
+                payload = _json.loads(body)
+            except _json.JSONDecodeError:
+                return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+    else:
+        payload = dict(request.query_params)
 
     count = int(payload.get("count", 50))
     count = max(1, min(count, 500))

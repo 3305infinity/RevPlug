@@ -47,159 +47,147 @@ export default function RecoveryQueue() {
 
   if (status === "error") {
     return (
-      <div style={{ textAlign: "center", padding: "4rem 2rem" }}>
-        <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⚠️</div>
-        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.5rem" }}>Unable to load recovery queue</h2>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginBottom: "1.25rem" }}>{error}</p>
-        <button onClick={load} className="btn-primary">Retry</button>
+      <div style={{ padding: "3rem", textAlign: "center" }}>
+        <div style={{ color: "var(--danger)", fontSize: "0.875rem", fontWeight: 600 }}>Unable to load recovery queue</div>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>{error}</p>
+        <button onClick={load} className="btn-primary" style={{ marginTop: "1rem" }}>Retry</button>
       </div>
     );
   }
 
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+    <div style={{ maxWidth: 1150, margin: "0 auto" }}>
+      {/* Page Header */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "1.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "1rem" }}>
         <div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em" }}>Recovery Queue</h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>
-            {items.length} case{items.length !== 1 ? "s" : ""} · {fmt(items.reduce((a, i) => a + i.amount_minor, 0))} at risk across canonical surfaces
-          </p>
+          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            RevPlug Case Operations
+          </div>
+          <h1 style={{ marginTop: 2, fontSize: "1.5rem", fontWeight: 700 }}>Recovery Cases</h1>
+          <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: 2 }}>
+            {items.length} total cases · <span className="font-mono">{fmt(items.reduce((a, i) => a + i.amount_minor, 0))}</span> gross risk at play
+          </div>
         </div>
-        <Link href="/run-recovery" className="btn-primary" style={{ fontSize: "0.8125rem" }}>
-          New Recovery
+        <Link href="/run-recovery" className="btn-primary">
+          Run Recovery
         </Link>
       </div>
 
-      {/* Filters: Source Type & Status */}
-      <div style={{ display: "flex", gap: "1rem", marginBottom: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
-        <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-          <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Source:</span>
-          {["all", "payment_failure", "checkout", "subscription", "receivable", "mandate"].map((src) => (
-            <FilterButton key={src} active={sourceFilter === src} onClick={() => setSourceFilter(src)}>
-              {src === "all" ? "All Sources" : src.replace(/_/g, " ").toUpperCase()}
-            </FilterButton>
+      {/* Filter Bar */}
+      <div className="card" style={{ padding: "0.75rem 1rem", marginBottom: "1.25rem", display: "flex", gap: "1.5rem", flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+          <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, marginRight: 4 }}>Source:</span>
+          {["all", "payment_failure", "checkout", "subscription", "receivable"].map((src) => (
+            <button
+              key={src}
+              onClick={() => setSourceFilter(src)}
+              style={{
+                padding: "0.25rem 0.5rem",
+                borderRadius: 4,
+                fontSize: "0.75rem",
+                fontWeight: sourceFilter === src ? 600 : 400,
+                background: sourceFilter === src ? "var(--bg-tertiary)" : "transparent",
+                color: sourceFilter === src ? "var(--text-primary)" : "var(--text-secondary)",
+                border: sourceFilter === src ? "1px solid var(--border-focus)" : "1px solid transparent",
+                cursor: "pointer",
+              }}
+            >
+              {src === "all" ? "All" : src.replace(/_/g, " ").toUpperCase()}
+            </button>
           ))}
         </div>
 
-        <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-          <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Status:</span>
-          <FilterButton active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>All</FilterButton>
+        <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+          <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, marginRight: 4 }}>Status:</span>
+          <button
+            onClick={() => setStatusFilter("all")}
+            style={{
+              padding: "0.25rem 0.5rem",
+              borderRadius: 4,
+              fontSize: "0.75rem",
+              fontWeight: statusFilter === "all" ? 600 : 400,
+              background: statusFilter === "all" ? "var(--bg-tertiary)" : "transparent",
+              color: statusFilter === "all" ? "var(--text-primary)" : "var(--text-secondary)",
+              border: statusFilter === "all" ? "1px solid var(--border-focus)" : "1px solid transparent",
+              cursor: "pointer",
+            }}
+          >
+            All
+          </button>
           {statuses.map((s) => (
-            <FilterButton key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)}>
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              style={{
+                padding: "0.25rem 0.5rem",
+                borderRadius: 4,
+                fontSize: "0.75rem",
+                fontWeight: statusFilter === s ? 600 : 400,
+                background: statusFilter === s ? "var(--bg-tertiary)" : "transparent",
+                color: statusFilter === s ? "var(--text-primary)" : "var(--text-secondary)",
+                border: statusFilter === s ? "1px solid var(--border-focus)" : "1px solid transparent",
+                cursor: "pointer",
+              }}
+            >
               {s.replace(/_/g, " ")}
-            </FilterButton>
+            </button>
           ))}
         </div>
       </div>
 
+      {/* OPERATIONS TABLE */}
       {status === "loading" ? (
-        <div style={{ display: "grid", gap: "0.75rem" }}>
-          {[...Array(5)].map((_, i) => <div key={i} className="skeleton" style={{ height: 80 }} />)}
+        <div style={{ display: "grid", gap: "0.5rem" }}>
+          {[...Array(5)].map((_, i) => <div key={i} className="skeleton" style={{ height: 48 }} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="card" style={{ padding: "4rem", textAlign: "center", color: "var(--text-muted)" }}>
-          <div style={{ fontSize: "2rem", marginBottom: "1rem", opacity: 0.6 }}>📭</div>
-          <p style={{ fontSize: "0.9375rem", marginBottom: "0.5rem" }}>No cases match this filter</p>
-          <Link href="/run-recovery" style={{ fontSize: "0.8125rem" }}>Run a recovery →</Link>
+        <div className="card" style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.8125rem" }}>
+          No recovery cases match this filter.
         </div>
       ) : (
-        <div style={{ display: "grid", gap: "0.75rem" }}>
-          {filtered.map((item) => (
-            <Link key={item.id} href={`/recovery/${item.id}`} style={{ textDecoration: "none", display: "block" }}>
-              <div className="card" style={{
-                padding: "1.25rem 1.5rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                transition: "border-color 0.15s, transform 0.1s",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flex: 1, minWidth: 0 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.35rem" }}>
-                      <span style={{ fontWeight: 600, fontSize: "0.875rem", fontFamily: "monospace" }}>
-                        {item.id}
-                      </span>
-                      <SourceBadge source={String(item.source_type || item.metadata?.source_type || "payment_failure")} />
-                      <StatusBadge status={item.status} />
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-                      <span>{item.root_cause || "unknown"}</span>
-                      <span>·</span>
-                      <span>{fmt(item.amount_minor)}</span>
-                      <span>·</span>
-                      <span>{item.currency}</span>
-                      <span>·</span>
-                      <span>{new Date(item.created_at).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-                  {item.expected_recovery_value != null && (
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>EV</div>
-                      <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--orange)" }}>{fmt(item.expected_recovery_value)}</div>
-                    </div>
-                  )}
-                  {item.recovery_probability != null && (
-                    <div style={{ textAlign: "right", minWidth: 60 }}>
-                      <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>P</div>
-                      <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>{(item.recovery_probability * 100).toFixed(0)}%</div>
-                    </div>
-                  )}
-                  <svg width="16" height="16" fill="none" stroke="var(--text-muted)" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            </Link>
-          ))}
+        <div className="card">
+          <table className="ops-table">
+            <thead>
+              <tr>
+                <th>CASE ID</th>
+                <th>CUSTOMER</th>
+                <th>ISSUE / ROOT CAUSE</th>
+                <th style={{ textAlign: "right" }}>RISK (INR)</th>
+                <th>RECOMMENDED ACTION</th>
+                <th>STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((item) => (
+                <tr key={item.id}>
+                  <td className="font-mono" style={{ fontWeight: 600 }}>
+                    <Link href={`/recovery/${item.id}`} style={{ color: "var(--text-primary)" }}>
+                      {item.external_id || item.id.slice(0, 8)}
+                    </Link>
+                  </td>
+                  <td>{item.customer_id}</td>
+                  <td style={{ textTransform: "capitalize" }}>
+                    {item.root_cause ? item.root_cause.replace(/_/g, " ") : "Telemetry Failure"}
+                  </td>
+                  <td className="font-mono" style={{ textAlign: "right", fontWeight: 600 }}>
+                    {fmt(item.amount_minor)}
+                  </td>
+                  <td>
+                    <span className="badge-neutral" style={{ padding: "0.15rem 0.4rem", borderRadius: 4, fontSize: "0.6875rem" }}>
+                      {String(item.metadata?.proposed_action || item.metadata?.action || "payment_link").replace(/_/g, " ")}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`status-badge status-${item.status}`}>
+                      {item.status.replace(/_/g, " ")}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   );
-}
-
-function FilterButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: "0.3rem 0.65rem",
-        borderRadius: 4,
-        fontSize: "0.6875rem",
-        fontWeight: 500,
-        cursor: "pointer",
-        border: "1px solid",
-        borderColor: active ? "var(--orange)" : "var(--border)",
-        background: active ? "rgba(249, 115, 22, 0.1)" : "#0b0f17",
-        color: active ? "var(--orange)" : "var(--text-secondary)",
-        transition: "all 0.15s",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function SourceBadge({ source }: { source: string }) {
-  const formatted = source.replace(/_/g, " ").toUpperCase();
-  return (
-    <span style={{
-      fontSize: "0.625rem",
-      fontWeight: 700,
-      fontFamily: "monospace",
-      padding: "0.15rem 0.45rem",
-      borderRadius: 4,
-      background: "#0d131f",
-      color: "var(--orange)",
-      border: "1px solid var(--border)",
-    }}>
-      {formatted}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const cls = `status-badge status-${status}`;
-  return <span className={cls}>{status.replace(/_/g, " ")}</span>;
 }

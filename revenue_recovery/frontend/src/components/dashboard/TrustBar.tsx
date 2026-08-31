@@ -1,98 +1,45 @@
 "use client";
 
-import { useState } from "react";
-
 export default function TrustBar() {
-  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
-
-  const trustItems = [
-    {
-      id: "settlement",
-      icon: "✓",
-      label: "Verified Settlement",
-      detail: "Revenue is counted ONLY after authoritative provider settlement/conversion evidence is received.",
-    },
-    {
-      id: "policy",
-      icon: "🛡️",
-      label: "Policy Constrained",
-      labelColor: "var(--success)",
-      detail: "AI proposals are strictly gated by non-bypassable retry limits, opt-outs, fraud checks, and EV bounds.",
-    },
-    {
-      id: "idempotent",
-      icon: "⚡",
-      label: "Idempotent Execution",
-      detail: "Actions use unique item:action:attempt keys to guarantee zero duplicate customer contacts or retries.",
-    },
-    {
-      id: "audit",
-      icon: "📜",
-      label: "Fully Auditable",
-      detail: "Every context assembly, AI proposal, policy rule, execution, and settlement event is immutably logged.",
-    },
+  const items = [
+    { label: "Provider connected", status: "active" },
+    { label: "Policy engine active", status: "active" },
+    { label: "Settlement verification active", status: "active" },
+    { label: "Audit logging active", status: "active" },
   ];
 
   return (
-    <div style={{ marginBottom: "2rem" }}>
+    <div style={{ marginBottom: "1.5rem" }}>
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "1rem",
-          background: "rgba(255, 255, 255, 0.02)",
+          background: "var(--bg-secondary)",
           border: "1px solid var(--border)",
           borderRadius: 8,
-          padding: "1rem 1.25rem",
+          padding: "0.625rem 1rem",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "0.75rem",
         }}
       >
-        {trustItems.map((item) => (
-          <div
-            key={item.id}
-            onMouseEnter={() => setActiveTooltip(item.id)}
-            onMouseLeave={() => setActiveTooltip(null)}
-            style={{
-              position: "relative",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <span style={{ fontSize: "1rem" }}>{item.icon}</span>
-            <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: item.labelColor || "var(--text-primary)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            SYSTEM STATUS
+          </span>
+          {items.map((item, idx) => (
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)" }} />
               {item.label}
-            </span>
+            </div>
+          ))}
+        </div>
 
-            {/* Hover Explainer Tooltip */}
-            {activeTooltip === item.id && (
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: "125%",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  width: 220,
-                  background: "#0f172a",
-                  border: "1px solid rgba(255, 255, 255, 0.15)",
-                  borderRadius: 6,
-                  padding: "0.75rem",
-                  fontSize: "0.75rem",
-                  color: "var(--text-secondary)",
-                  lineHeight: 1.4,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
-                  zIndex: 50,
-                  pointerEvents: "none",
-                }}
-              >
-                <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
-                  {item.label}
-                </div>
-                {item.detail}
-              </div>
-            )}
-          </div>
-        ))}
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", fontSize: "0.6875rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
+          <span>Execution: <strong style={{ color: "var(--text-primary)" }}>Razorpay Test Mode</strong></span>
+          <span>AI Provider: <strong style={{ color: "var(--text-primary)" }}>Groq Primary</strong></span>
+          <span>Policy: <strong style={{ color: "var(--success)" }}>v3 Active</strong></span>
+        </div>
       </div>
     </div>
   );

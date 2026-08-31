@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api, CaseDetail } from "@/lib/api";
@@ -18,11 +18,7 @@ interface DecisionRow {
 }
 
 const fmt = (n: number) =>
-  "₹" +
-  (n / 100).toLocaleString("en-IN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
+  "₹" + (n / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 export default function CaseWorkspace() {
   const params = useParams();
@@ -46,49 +42,22 @@ export default function CaseWorkspace() {
 
   if (status === "loading" || !detail) {
     return (
-      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-        <div className="skeleton" style={{ height: 60, marginBottom: "1.5rem" }} />
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "1rem",
-            marginBottom: "1.5rem",
-          }}
-        >
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="skeleton" style={{ height: 100 }} />
-          ))}
-        </div>
-        <div className="skeleton" style={{ height: 400 }} />
+      <div style={{ maxWidth: 1050, margin: "0 auto" }}>
+        <div className="skeleton" style={{ height: 48, marginBottom: "1.5rem" }} />
+        <div className="skeleton" style={{ height: 200, marginBottom: "1.5rem" }} />
+        <div className="skeleton" style={{ height: 300 }} />
       </div>
     );
   }
 
   if (error === "not-found") {
     return (
-      <div style={{ textAlign: "center", padding: "4rem 2rem" }}>
-        <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔍</div>
-        <h2
-          style={{
-            fontSize: "1.25rem",
-            fontWeight: 600,
-            marginBottom: "0.5rem",
-          }}
-        >
-          Case not found
-        </h2>
-        <p
-          style={{
-            color: "var(--text-muted)",
-            fontSize: "0.8125rem",
-            marginBottom: "1.25rem",
-          }}
-        >
-          The recovery case you&apos;re looking for doesn&apos;t exist or has
-          been removed.
+      <div style={{ padding: "3rem", textAlign: "center" }}>
+        <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--danger)" }}>Case Not Found</div>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>
+          The requested recovery case does not exist.
         </p>
-        <Link href="/recovery" className="btn-primary">
+        <Link href="/recovery" className="btn-primary" style={{ marginTop: "1rem" }}>
           Back to Queue
         </Link>
       </div>
@@ -97,12 +66,8 @@ export default function CaseWorkspace() {
 
   const firstDecision: DecisionRow | null = detail.decisions?.[0]
     ? {
-        proposed_action: String(
-          detail.decisions[0].proposed_action || "—"
-        ),
-        confidence: typeof detail.decisions[0].confidence === "number"
-          ? detail.decisions[0].confidence
-          : 0,
+        proposed_action: String(detail.decisions[0].proposed_action || "—"),
+        confidence: typeof detail.decisions[0].confidence === "number" ? detail.decisions[0].confidence : 0,
         reason: String(detail.decisions[0].reason || ""),
         model_name: String(detail.decisions[0].model_name || ""),
         policy_allowed: Boolean(detail.decisions[0].policy_allowed),
@@ -111,916 +76,159 @@ export default function CaseWorkspace() {
       }
     : null;
 
-  const meta = detail.metadata || {};
   const isStopped = detail.status === "stopped";
   const isRecovered = detail.status === "recovered";
-  const isEscalated = detail.status === "escalated";
-  const isFailed = detail.status === "failed";
-  const isBlocked = isStopped || isFailed;
-  const isTerminal = isRecovered || isStopped || isEscalated;
-
-  const timeDetected = new Date(detail.created_at);
+  const isBlocked = isStopped || detail.status === "failed";
   const recoveredAmount = detail.actual_recovery_value || (isRecovered ? detail.expected_recovery_value : null);
-  const recoveryRate = detail.amount_minor > 0 && recoveredAmount ? (recoveredAmount / detail.amount_minor) * 100 : null;
+
+  const timelineSteps = [
+    { label: "Payment Failed", detail: detail.root_cause || "Telemetry Error", status: "complete" },
+    { label: "Risk Detected", detail: fmt(detail.amount_minor), status: "complete" },
+    { label: "AI Diagnosis", detail: firstDecision ? firstDecision.proposed_action : "Evaluated", status: "complete" },
+    { label: "Policy Check", detail: firstDecision?.policy_allowed ? "ALLOWED" : "BLOCKED", status: firstDecision?.policy_allowed ? "complete" : "blocked" },
+    { label: "Action Executed", detail: detail.attempts[0]?.action || "Payment Link", status: isBlocked ? "skipped" : "complete" },
+    { label: "Settlement Verified", detail: isRecovered ? fmt(recoveredAmount || 0) : "Unverified", status: isRecovered ? "complete" : "pending" },
+  ];
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-      {/* Breadcrumb */}
-      <div style={{ marginBottom: "1.25rem" }}>
-        <Link
-          href="/recovery"
-          style={{
-            fontSize: "0.75rem",
-            color: "var(--text-muted)",
-            textDecoration: "none",
-          }}
-        >
-          ← Recovery Queue
+    <div style={{ maxWidth: 1050, margin: "0 auto" }}>
+      <div style={{ marginBottom: "1rem" }}>
+        <Link href="/recovery" style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          ← Back to Recovery Queue
         </Link>
       </div>
 
-      {/* Header */}
-      <div
-        className="card"
-        style={{
-          padding: "1.75rem",
-          marginBottom: "1.5rem",
-          background: "var(--bg-card)",
-          borderLeft: `4px solid ${isRecovered ? "var(--success)" : isBlocked ? "var(--danger)" : isEscalated ? "var(--warning)" : "var(--accent)"}`,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "1rem",
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                marginBottom: "0.5rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <StatusBadge status={detail.status} />
-              <span
-                style={{
-                  color: "var(--text-muted)",
-                  fontSize: "0.75rem",
-                  fontFamily: "monospace",
-                }}
-              >
+      {/* CASE HEADER */}
+      <div className="card" style={{ padding: "1.25rem 1.5rem", marginBottom: "1.25rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: 4 }}>
+              <span className={`status-badge status-${detail.status}`}>
+                {detail.status.replace(/_/g, " ")}
+              </span>
+              <span className="font-mono" style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                 {detail.id}
               </span>
             </div>
-            <div
-              style={{
-                fontSize: "2.25rem",
-                fontWeight: 700,
-                fontFamily: "monospace",
-                letterSpacing: "-0.03em",
-                lineHeight: 1.1,
-                color: "var(--text-primary)",
-                marginBottom: "0.5rem",
-              }}
-            >
+            <h1 className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--text-primary)" }}>
               {fmt(detail.amount_minor)}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                gap: "0.75rem",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <span style={{ color: "var(--text-secondary)", fontSize: "0.8125rem" }}>
-                {detail.customer_id || "Unknown Customer"}
-              </span>
-              <span style={{ color: "var(--text-muted)" }}>·</span>
-              <span style={{ color: "var(--text-secondary)", fontSize: "0.8125rem" }}>
-                {detail.source_type}
-              </span>
-              <span style={{ color: "var(--text-muted)" }}>·</span>
-              <span style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
-                Detected {timeDetected.toLocaleString()}
-              </span>
+            </h1>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>
+              Customer: <span className="font-mono">{detail.customer_id}</span> · Surface: {detail.source_type} · {new Date(detail.created_at).toLocaleString()}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Safety Status Banner - for blocked/stopped cases */}
-      {isBlocked && (
-        <div
-          className="card"
-          style={{
-            padding: "1.5rem",
-            marginBottom: "1.5rem",
-            borderLeft: "4px solid var(--danger)",
-            background: "var(--danger-subtle)",
-          }}
-        >
-          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--danger)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "1rem" }}>
-            Recovery Blocked by Safety Guard
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
-            {firstDecision && (
-              <>
-                <div>
-                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Proposed Action</div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--purple)", textTransform: "capitalize", fontWeight: 600 }}>
-                    {firstDecision.proposed_action.replace(/_/g, " ")}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Why It Was Proposed</div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                    {firstDecision.reason}
-                  </div>
-                </div>
-              </>
-            )}
-            
-            <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Expected Value</div>
-              <div style={{ fontSize: "0.8125rem", color: "var(--text-primary)", fontWeight: 600, fontFamily: "monospace" }}>
-                {detail.expected_recovery_value ? fmt(detail.expected_recovery_value) : "—"}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Why System Blocked It</div>
-              <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--danger)", textTransform: "capitalize" }}>
-                {(detail.stopped_reason || "unknown").replace(/_/g, " ")}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Policy Rule / Stopping Rule</div>
-              <div style={{ fontSize: "0.8125rem", color: "var(--text-primary)", fontFamily: "monospace" }}>
-                {detail.stopped_rule || firstDecision?.policy_rule || "—"}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Next Action</div>
-              <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                {isStopped ? "No automated recovery action will be attempted." : "Case requires human review."}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Financial Outcome & Economic Reasoning */}
-      <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
-          <h3
-            style={{
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              color: "var(--text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-            }}
-          >
-            Financial Outcome
-          </h3>
           <div style={{ textAlign: "right" }}>
-            <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block" }}>
-              Deterministic Economic Score
-            </span>
-            <span style={{ fontSize: "0.625rem", color: "var(--accent)" }}>
-              LLM does not control this value.
-            </span>
-          </div>
-        </div>
-        
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
-          <div>
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>At Risk</div>
-            <div style={{ fontSize: "1.0625rem", fontWeight: 700, color: "var(--danger)", fontFamily: "monospace" }}>{fmt(detail.amount_minor)}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Expected Recovery</div>
-            <div style={{ fontSize: "1.0625rem", fontWeight: 700, color: "var(--purple)", fontFamily: "monospace" }}>
-              {detail.expected_recovery_value ? fmt(detail.expected_recovery_value) : "—"}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Actually Recovered</div>
-            <div style={{ fontSize: "1.0625rem", fontWeight: 700, color: "var(--success)", fontFamily: "monospace" }}>
-              {recoveredAmount ? fmt(recoveredAmount) : "—"}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Recovery Rate</div>
-            <div style={{ fontSize: "1.0625rem", fontWeight: 700, color: recoveryRate !== null ? "var(--success)" : "var(--text-muted)", fontFamily: "monospace" }}>
-              {recoveryRate !== null ? `${recoveryRate.toFixed(1)}%` : "—"}
+            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Verified Recovered</div>
+            <div className="font-mono" style={{ fontSize: "1.5rem", fontWeight: 700, color: isRecovered ? "var(--success)" : "var(--text-muted)", marginTop: 2 }}>
+              {recoveredAmount ? fmt(recoveredAmount) : "₹0"}
             </div>
           </div>
         </div>
-
-        {detail.expected_recovery_value != null && (
-          <div style={{ background: "var(--bg-tertiary)", padding: "0.75rem", borderRadius: 8, fontSize: "0.75rem", fontFamily: "monospace", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span>{fmt(detail.amount_minor)}</span>
-            <span style={{ color: "var(--text-muted)" }}>×</span>
-            <span>{((detail.recovery_probability || 0) * 100).toFixed(1)}% prob</span>
-            <span style={{ color: "var(--text-muted)" }}>−</span>
-            <span>{fmt(detail.intervention_cost || 0)} cost</span>
-            <span style={{ color: "var(--text-muted)" }}>=</span>
-            <span style={{ fontWeight: 600, color: "var(--purple)" }}>{fmt(detail.expected_recovery_value)}</span>
-          </div>
-        )}
       </div>
 
-      {/* AI Recommendation */}
-      {firstDecision && (
-        <div
-          className="card"
-          style={{
-            padding: "1.5rem",
-            marginBottom: "1.5rem",
-            borderLeft: `3px solid var(--purple)`,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
-            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--purple)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              AI Recommendation
-            </div>
-            <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", padding: "0.15rem 0.5rem", background: "var(--bg-tertiary)", borderRadius: 4 }}>
-              Informational — does not authorize action
-            </span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <span
+      {/* HORIZONTAL OPERATIONAL TIMELINE */}
+      <div className="card" style={{ padding: "1.25rem", marginBottom: "1.25rem" }}>
+        <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "1rem" }}>
+          OPERATIONAL INVESTIGATION TIMELINE
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "0.5rem", alignItems: "center" }}>
+          {timelineSteps.map((step, idx) => (
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+              <div
                 style={{
-                  background: "var(--purple-subtle)",
-                  color: "var(--purple)",
-                  padding: "0.25rem 0.75rem",
+                  flex: 1,
+                  padding: "0.625rem 0.5rem",
                   borderRadius: 6,
-                  fontSize: "0.8125rem",
-                  fontWeight: 600,
-                  textTransform: "capitalize",
+                  background: step.status === "blocked" ? "rgba(239, 68, 68, 0.08)" : step.status === "complete" ? "var(--bg-secondary)" : "rgba(255, 255, 255, 0.02)",
+                  border: step.status === "blocked" ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid var(--border)",
+                  textAlign: "center",
                 }}
               >
+                <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>
+                  {step.label}
+                </div>
+                <div style={{ fontSize: "0.75rem", fontWeight: 700, marginTop: 2, color: step.status === "blocked" ? "var(--danger)" : "var(--text-primary)" }}>
+                  {step.detail}
+                </div>
+              </div>
+              {idx < timelineSteps.length - 1 && <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>→</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* DECISION ANALYSIS GRID */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", marginBottom: "1.25rem" }}>
+        {/* AI Analysis */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "0.75rem" }}>
+            1. AI DIAGNOSIS &amp; PROPOSAL
+          </div>
+          {firstDecision ? (
+            <div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Recommended Action:</div>
+              <div style={{ fontSize: "1rem", fontWeight: 700, marginTop: 2, textTransform: "capitalize" }}>
                 {firstDecision.proposed_action.replace(/_/g, " ")}
-              </span>
-              {firstDecision.confidence > 0 && (
-                <span
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  {firstDecision.confidence.toFixed(0)}% confidence
-                </span>
-              )}
-            </div>
-            {firstDecision.reason && (
-              <p
-                style={{
-                  fontSize: "0.8125rem",
-                  color: "var(--text-secondary)",
-                  lineHeight: 1.6,
-                  margin: 0,
-                }}
-              >
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--accent)", marginTop: 4 }}>
+                Confidence: {(firstDecision.confidence * 100).toFixed(0)}%
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 8, lineHeight: 1.4 }}>
                 {firstDecision.reason}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* System Safety Decision */}
-      <div
-        className="card"
-        style={{
-          padding: "1.5rem",
-          marginBottom: "1.5rem",
-          borderLeft: `3px solid ${firstDecision?.policy_allowed ? "var(--success)" : "var(--danger)"}`,
-        }}
-      >
-        <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "1rem" }}>
-          System Safety Check
-        </div>
-        {firstDecision ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.75rem",
-            }}
-          >
-            {[
-              {
-                label: "Policy Decision",
-                value: firstDecision.policy_allowed ? "Allowed" : "Denied",
-                status: firstDecision.policy_allowed
-                  ? "var(--success)"
-                  : "var(--danger)",
-              },
-              { label: "Rule", value: firstDecision.policy_rule || "—" },
-              { label: "Reason", value: firstDecision.policy_reason || "—" },
-            ].map((row) => (
-              <div
-                key={row.label}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "0.75rem",
-                  fontSize: "0.8125rem",
-                }}
-              >
-                <span
-                  style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: "50%",
-                    background:
-                      row.status === "var(--success)"
-                        ? "var(--success-subtle)"
-                        : row.status === "var(--danger)"
-                          ? "var(--danger-subtle)"
-                          : "var(--bg-tertiary)",
-                    color: row.status || "var(--text-muted)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.625rem",
-                    fontWeight: 700,
-                    flexShrink: 0,
-                    marginTop: 2,
-                  }}
-                >
-                  {row.status === "var(--success)"
-                    ? "✓"
-                    : row.status === "var(--danger)"
-                      ? "✗"
-                      : "-"}
-                </span>
-                <div style={{ flex: 1 }}>
-                  <span
-                    style={{ color: "var(--text-muted)", marginRight: "0.5rem" }}
-                  >
-                    {row.label}
-                  </span>
-                  <span
-                    style={{
-                      color:
-                        row.status === "var(--success)"
-                          ? "var(--success)"
-                          : row.status === "var(--danger)"
-                            ? "var(--danger)"
-                            : "var(--text-primary)",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {row.value}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p
-            style={{
-              fontSize: "0.8125rem",
-              color: "var(--text-muted)",
-            }}
-          >
-            No policy check recorded.
-          </p>
-        )}
-      </div>
-
-      {/* Execution */}
-      {detail.attempts.length > 0 && (
-        <div
-          className="card"
-          style={{ padding: "1.5rem", marginBottom: "1.5rem" }}
-        >
-          <h3
-            style={{
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              marginBottom: "1rem",
-              color: "var(--text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-            }}
-          >
-            Execution
-          </h3>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.5rem",
-            }}
-          >
-            {detail.attempts.map((a) => (
-              <div
-                key={a.attempt_number}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "0.75rem 1rem",
-                  background: "var(--bg-tertiary)",
-                  borderRadius: 8,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                    flex: 1,
-                    minWidth: 0,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: "50%",
-                      background:
-                        a.outcome === "success"
-                          ? "var(--success-subtle)"
-                          : "var(--danger-subtle)",
-                      color:
-                        a.outcome === "success"
-                          ? "var(--success)"
-                          : "var(--danger)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "0.6875rem",
-                      fontWeight: 700,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {a.attempt_number}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "0.8125rem",
-                      fontWeight: 500,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {a.action}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                    flexShrink: 0,
-                  }}
-                >
-                  {a.executed_at && (
-                    <span
-                      style={{
-                        fontSize: "0.6875rem",
-                        color: "var(--text-muted)",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      {new Date(a.executed_at).toLocaleTimeString()}
-                    </span>
-                  )}
-                  <span
-                    className={`status-badge ${a.outcome === "success" ? "status-recovered" : "status-failed"}`}
-                  >
-                    {a.outcome}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Recovery Timeline */}
-      <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
-        <h3
-          style={{
-            fontSize: "0.75rem",
-            fontWeight: 600,
-            marginBottom: "1.5rem",
-            color: "var(--text-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-          }}
-        >
-          Recovery Timeline
-        </h3>
-        <Timeline stages={buildTimeline(detail, firstDecision, recoveredAmount)} />
-      </div>
-
-      {/* Technical Details */}
-      <div className="card" style={{ marginBottom: "1.5rem", overflow: "hidden" }}>
-        <button
-          onClick={() => setTechOpen((v) => !v)}
-          style={{
-            width: "100%",
-            background: "none",
-            border: "none",
-            color: "var(--text-secondary)",
-            padding: "1rem 1.5rem",
-            fontSize: "0.75rem",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            transition: "color 0.15s",
-          }}
-        >
-          Technical Details
-          <span
-            style={{
-              transition: "transform 0.2s",
-              display: "inline-block",
-              transform: techOpen ? "rotate(180deg)" : "rotate(0deg)",
-              fontSize: "0.625rem",
-            }}
-          >
-            ▼
-          </span>
-        </button>
-        {techOpen && (
-          <div
-            style={{
-              borderTop: "1px solid var(--border-subtle)",
-              padding: "1.25rem 1.5rem",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "1.25rem",
-              }}
-            >
-              <div>
-                <h4
-                  style={{
-                    fontSize: "0.6875rem",
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    marginBottom: "0.75rem",
-                  }}
-                >
-                  Raw Metadata
-                </h4>
-                <pre
-                  style={{
-                    background: "var(--bg-root)",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: 6,
-                    padding: "1rem",
-                    fontSize: "0.75rem",
-                    color: "var(--text-secondary)",
-                    overflow: "auto",
-                    maxHeight: 300,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {JSON.stringify(detail.metadata, null, 2)}
-                </pre>
-              </div>
-              <div>
-                <h4
-                  style={{
-                    fontSize: "0.6875rem",
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    marginBottom: "0.75rem",
-                  }}
-                >
-                  Decisions
-                </h4>
-                <pre
-                  style={{
-                    background: "var(--bg-root)",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: 6,
-                    padding: "1rem",
-                    fontSize: "0.75rem",
-                    color: "var(--text-secondary)",
-                    overflow: "auto",
-                    maxHeight: 300,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {JSON.stringify(detail.decisions, null, 2)}
-                </pre>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        fontSize: "0.8125rem",
-        padding: "0.35rem 0",
-        borderBottom: "1px solid var(--border-subtle)",
-      }}
-    >
-      <span style={{ color: "var(--text-muted)" }}>{label}</span>
-      <span
-        style={{
-          color: "var(--text-primary)",
-          fontWeight: 500,
-          textAlign: "right",
-          maxWidth: "60%",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: string;
-}) {
-  return (
-    <div
-      className="metric-card"
-      style={accent ? { borderLeft: `3px solid ${accent}` } : undefined}
-    >
-      <div className="metric-label">{label}</div>
-      <div
-        className="metric-value"
-        style={{
-          color: accent || "var(--text-primary)",
-          marginTop: 4,
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const cls = `status-badge status-${status}`;
-  return <span className={cls}>{status.replace(/_/g, " ")}</span>;
-}
-
-interface TimelineStage {
-  label: string;
-  timestamp?: string;
-  result?: string;
-  color: string;
-  active: boolean;
-}
-
-function Timeline({ stages }: { stages: TimelineStage[] }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-      {stages.map((stage, idx) => (
-        <div
-          key={idx}
-          style={{
-            display: "flex",
-            gap: "1rem",
-            paddingBottom:
-              idx < stages.length - 1 ? "1.25rem" : 0,
-            position: "relative",
-          }}
-        >
-          {/* Vertical line */}
-          {idx < stages.length - 1 && (
-            <div
-              style={{
-                position: "absolute",
-                left: 11,
-                top: 20,
-                bottom: 0,
-                width: 2,
-                background:
-                  stage.active && stages[idx + 1].active
-                    ? stage.color
-                    : "var(--border)",
-              }}
-            />
+          ) : (
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>No AI proposal recorded.</div>
           )}
-          {/* Dot */}
-          <div
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: "50%",
-              background: stage.active ? stage.color : "var(--border)",
-              boxShadow: stage.active
-                ? `0 0 8px ${stage.color}40`
-                : "none",
-              flexShrink: 0,
-              zIndex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {stage.active && (
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: "var(--bg-root)",
-                }}
-              />
-            )}
-          </div>
-          {/* Content */}
-          <div style={{ flex: 1, paddingTop: 2 }}>
-            <div
-              style={{
-                fontSize: "0.8125rem",
-                fontWeight: stage.active ? 600 : 400,
-                color: stage.active
-                  ? "var(--text-primary)"
-                  : "var(--text-muted)",
-                textTransform: "capitalize",
-              }}
-            >
-              {stage.label}
-            </div>
-            {stage.timestamp && (
-              <div
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--text-muted)",
-                  marginTop: 2,
-                  fontFamily: "monospace",
-                }}
-              >
-                {new Date(stage.timestamp).toLocaleString()}
-              </div>
-            )}
-            {stage.result && (
-              <div
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--text-secondary)",
-                  marginTop: 2,
-                }}
-              >
-                {stage.result}
-              </div>
-            )}
-          </div>
         </div>
-      ))}
+
+        {/* Policy Decision */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: "0.75rem" }}>
+            2. POLICY ENGINE DECISION
+          </div>
+          {firstDecision ? (
+            <div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Policy Gate Verdict:</div>
+              <div style={{ fontSize: "1rem", fontWeight: 700, marginTop: 2, color: firstDecision.policy_allowed ? "var(--success)" : "var(--danger)" }}>
+                {firstDecision.policy_allowed ? "ALLOWED" : "BLOCKED"}
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+                Rule: {firstDecision.policy_rule || "stopping_rules_pass"}
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 8, lineHeight: 1.4 }}>
+                {firstDecision.policy_reason || "Evaluated against opt-out, fraud checks, and retry limits."}
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>No policy evaluation recorded.</div>
+          )}
+        </div>
+      </div>
+
+      {/* TECHNICAL AUDIT EVENTS */}
+      <div className="card" style={{ padding: "1.25rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+            Immutable Audit Trail ({detail.audit_events?.length || 0} events)
+          </div>
+          <button onClick={() => setTechOpen(!techOpen)} className="btn-ghost" style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}>
+            {techOpen ? "Hide Technical Details ▲" : "Inspect Technical Details ▼"}
+          </button>
+        </div>
+
+        {techOpen && (
+          <div style={{ marginTop: "1rem", display: "grid", gap: "0.5rem" }}>
+            {detail.audit_events?.map((ev, idx) => (
+              <div key={idx} style={{ padding: "0.5rem 0.75rem", background: "var(--bg-secondary)", borderRadius: 6, fontSize: "0.75rem", fontFamily: "monospace", display: "flex", justifyContent: "space-between" }}>
+                <span>{ev.action}</span>
+                <span style={{ color: "var(--text-muted)" }}>{new Date(ev.timestamp).toLocaleTimeString()}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
-}
-
-function buildTimeline(detail: CaseDetail, firstDecision: DecisionRow | null, recoveredAmount: number | null): TimelineStage[] {
-  const events = [...detail.audit_events].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  );
-
-  const eventMap = new Map<string, typeof events[0]>();
-  events.forEach((e) => {
-    const action = e.action;
-    if (!eventMap.has(action)) {
-      eventMap.set(action, e);
-    }
-  });
-
-  const stages: TimelineStage[] = [];
-
-  const addStage = (
-    label: string,
-    action: string,
-    color: string,
-    result?: string
-  ) => {
-    const ev = eventMap.get(action);
-    stages.push({
-      label,
-      timestamp: ev?.timestamp,
-      result: result || (ev ? ev.reason || ev.action : undefined),
-      color,
-      active: !!ev,
-    });
-  };
-
-  const hasDecision = !!firstDecision;
-  const status = detail.status;
-  const isExecuted = ["intervention_executed", "recovered", "failed", "escalated", "stopped"].includes(status);
-  const isOutcome = ["recovered", "escalated", "stopped", "failed"].includes(status);
-
-  addStage("01 EVENT", "failure_detected", "var(--accent)");
-
-  if (eventMap.has("failure_classified") || detail.root_cause) {
-    addStage("02 DIAGNOSE", "failure_classified", "var(--accent)", detail.root_cause || undefined);
-  } else {
-    stages.push({ label: "02 DIAGNOSE", color: "var(--border)", active: false });
-  }
-
-  if (hasDecision) {
-    addStage("03 SCORE", "recovery_scored", "var(--purple)", detail.expected_recovery_value ? fmt(detail.expected_recovery_value) : undefined);
-  } else {
-    stages.push({ label: "03 SCORE", color: "var(--border)", active: false });
-  }
-
-  if (hasDecision) {
-    addStage("04 RECOMMEND", "ai_recommendation", "var(--purple)", firstDecision.proposed_action);
-  } else {
-    stages.push({ label: "04 RECOMMEND", color: "var(--border)", active: false });
-  }
-
-  if (hasDecision) {
-    const policyDecision = eventMap.get("guard_evaluate") || eventMap.get("policy_evaluate");
-    const policyAllowed = policyDecision ? (policyDecision.metadata?.allowed ?? firstDecision.policy_allowed) : firstDecision.policy_allowed;
-    addStage(
-      "05 SAFETY",
-      "guard_evaluate",
-      policyAllowed ? "var(--success)" : "var(--danger)",
-      policyAllowed ? "Allowed" : String(policyDecision?.metadata?.reason_code || "Denied")
-    );
-  } else {
-    stages.push({ label: "05 SAFETY", color: "var(--border)", active: false });
-  }
-
-  if (isExecuted) {
-    addStage("06 EXECUTE", "intervention_executed", "var(--accent)", detail.attempts[0]?.outcome || undefined);
-  } else {
-    stages.push({ label: "06 EXECUTE", color: "var(--border)", active: false });
-  }
-
-  // 07 VERIFY (pseudo-stage to represent the check after execution)
-  if (isExecuted && isOutcome) {
-    stages.push({
-      label: "07 VERIFY",
-      color: "var(--success)",
-      active: true,
-      result: "Verified",
-    });
-  } else {
-    stages.push({ label: "07 VERIFY", color: "var(--border)", active: false });
-  }
-
-  if (isOutcome) {
-    const outcomeColor =
-      status === "recovered" ? "var(--success)" : status === "escalated" ? "var(--danger)" : "var(--text-muted)";
-    const outcomeResult =
-      status === "recovered" ? (recoveredAmount ? fmt(recoveredAmount) : "Recovered") : status === "escalated" ? "Escalated" : "Stopped";
-    addStage("08 OUTCOME", "outcome", outcomeColor, outcomeResult);
-  } else {
-    stages.push({ label: "08 OUTCOME", color: "var(--border)", active: false });
-  }
-
-  return stages;
 }

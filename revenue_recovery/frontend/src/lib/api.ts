@@ -15,6 +15,8 @@ export interface DashboardSummary {
   recovery_by_action: Record<string, number>;
   recovered_value_by_day: Array<{ date: string; amount_minor: number; count: number }>;
   net_recovered?: number;
+  total_cases?: number;
+  active_cases?: number;
   // Legacy fields
   total_amount_minor?: number;
   recovered_count?: number;
@@ -319,6 +321,7 @@ export interface EvaluationRunResult {
     unnecessary_interventions: number;
     raw_retry_attempts: number;
     raw_retries_that_failed: number;
+    baseline_policy_violations?: any;
   };
   comparison: {
     absolute_recovery_difference: number;
