@@ -146,9 +146,9 @@ class BatchService:
             metadata={**(metadata or {}), "batch_id": batch_id},
         )
 
-        # Persist items with batch_id in metadata
+        # Persist items with batch_id, batch_scope, and is_synthetic in metadata
         for item in scored_items:
-            item_with_batch = _add_batch_metadata(item, batch_id, dataset_label)
+            item_with_batch = _add_batch_metadata(item, batch_id, dataset_label, is_synthetic=is_synthetic)
             self._items.save(item_with_batch)
 
         self._batches.save(batch)
@@ -306,8 +306,14 @@ def _with_score(item: RecoveryItem, score) -> RecoveryItem:
     )
 
 
-def _add_batch_metadata(item: RecoveryItem, batch_id: str, dataset_label: str) -> RecoveryItem:
-    meta = {**item.metadata, "batch_id": batch_id, "dataset_label": dataset_label}
+def _add_batch_metadata(item: RecoveryItem, batch_id: str, dataset_label: str, is_synthetic: bool = True) -> RecoveryItem:
+    meta = {
+        **item.metadata,
+        "batch_id": batch_id,
+        "dataset_label": dataset_label,
+        "is_synthetic": is_synthetic,
+        "batch_scope": True,
+    }
     return RecoveryItem(
         id=item.id, source_type=item.source_type, external_id=item.external_id,
         customer_id=item.customer_id, amount_minor=item.amount_minor, currency=item.currency,

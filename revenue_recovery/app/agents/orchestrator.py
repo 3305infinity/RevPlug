@@ -174,6 +174,9 @@ def _make_item_stub(context: RecoveryContext):
 
     The existing PolicyEngine.evaluate() expects a RecoveryItem. We build
     a lightweight stub from the context for this purpose.
+
+    IMPORTANT: customer_id MUST be propagated from context so that the
+    opted_out_customer_ids check in InterventionPolicy fires correctly.
     """
     from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
 
@@ -181,7 +184,7 @@ def _make_item_stub(context: RecoveryContext):
         id=context.item_id or "agent-context",
         source_type=SourceType.PAYMENT_FAILURE,
         external_id="",
-        customer_id="razorpay_customer",
+        customer_id=context.customer_id or "razorpay_customer",
         amount_minor=context.amount_minor,
         currency=context.currency,
         created_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
@@ -190,3 +193,4 @@ def _make_item_stub(context: RecoveryContext):
         recovery_probability=context.expected_recovery_value / context.amount_minor if context.amount_minor > 0 and context.expected_recovery_value else None,
         metadata={"attempt_count": context.attempt_count},
     )
+

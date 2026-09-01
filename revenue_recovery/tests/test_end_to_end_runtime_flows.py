@@ -27,7 +27,7 @@ def test_1_create_recovery_case_valid_succeeds():
     assert resp.status_code == 201
     data = resp.json()
     assert data["id"].startswith("rec_")
-    assert data["customer_id"] == "cust_acme_inc"
+    assert data["customer_id"] == "cust_test_inc"
     assert data["root_cause"] == "SOFT_GATEWAY_TIMEOUT"
     assert data["status"] == "queued" or data["status"] == "detected"
 

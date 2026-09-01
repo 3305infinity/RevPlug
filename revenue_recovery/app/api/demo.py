@@ -15,6 +15,12 @@ def api_demo_reset(container: PersistenceContainer = Depends(get_container)):
     count = container.reset_demo_data()
     return {"status": "success", "message": f"Deleted {count} synthetic items and their related data."}
 
+@router.post("/api/demo/purge-batch-items")
+def api_purge_batch_items(container: PersistenceContainer = Depends(get_container)):
+    """Purge all synthetic batch/benchmark items sitting in the primary recovery store."""
+    count = container.purge_batch_items()
+    return {"status": "success", "purged_count": count, "message": f"Purged {count} batch-scoped synthetic items."}
+
 @router.get("/api/demo/datasets")
 def api_demo_datasets() -> list[dict[str, Any]]:
     from app.datasets.synthetic import list_datasets

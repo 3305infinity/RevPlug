@@ -27,6 +27,7 @@ class RecoveryContext:
     payment_method: str = ""
     max_attempts: int = 3
     item_id: str = ""
+    customer_id: str = ""
     customer_profile: dict[str, Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -77,5 +78,6 @@ class RecoveryContext:
             payment_method=failure.metadata.get("payment_method", ""),
             max_attempts=max_attempts,
             item_id=item.id,
+            customer_id=item.customer_id,
             metadata={**item.metadata, "source_type": item.source_type.value if hasattr(item.source_type, "value") else str(item.source_type)},
         )

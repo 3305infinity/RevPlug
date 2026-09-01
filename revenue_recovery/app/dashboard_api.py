@@ -49,6 +49,8 @@ def _get_items(container) -> list:
             continue
         if meta.get("is_test_fixture") is True:
             continue
+        if meta.get("batch_scope") is True or meta.get("batch_id") is not None:
+            continue
         item_id = str(getattr(item, "id", "")).lower()
         ext_id = str(getattr(item, "external_id", "")).lower()
         cust_id = str(getattr(item, "customer_id", "")).lower()

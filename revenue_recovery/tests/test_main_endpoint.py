@@ -42,6 +42,7 @@ _SOFT_FAILURE_PAYLOAD = {
                 "error_source": "bank",
                 "error_step": "payment_authorization",
                 "error_reason": "payment_timed_out",
+                "customer_id": "cust_test_webhook_001",
                 "email": "test@example.com",
                 "contact": "+919876543210",
                 "created_at": 1567610214,
@@ -112,6 +113,21 @@ def client(app):
 # Import smoke test — uses the module-level singleton
 # ---------------------------------------------------------------------------
 
+def _collect_paths(routes) -> list[str]:
+    """Recursively collect paths from FastAPI routes, including nested routers."""
+    paths = []
+    for r in routes:
+        path = getattr(r, 'path', None)
+        if path is not None:
+            paths.append(path)
+        sub_routes = getattr(r, 'routes', None)
+        if sub_routes is None and hasattr(r, 'original_router'):
+            sub_routes = getattr(r.original_router, 'routes', None)
+        if sub_routes:
+            paths.extend(_collect_paths(sub_routes))
+    return paths
+
+
 class TestAppImport:
     def test_app_imports_successfully(self):
         """The app module must import and expose a FastAPI instance."""
@@ -120,21 +136,32 @@ class TestAppImport:
 
     def test_module_app_has_razorpay_route(self):
         """The module-level `app` must always include /webhooks/razorpay."""
-        paths = [r.path for r in main_module.app.routes]
+        paths = _collect_paths(main_module.app.routes)
         assert "/webhooks/razorpay" in paths
 
     def test_module_app_has_health_route(self):
         """The module-level `app` must always include /health."""
-        paths = [r.path for r in main_module.app.routes]
+        paths = _collect_paths(main_module.app.routes)
         assert "/health" in paths
 
     def test_module_razorpay_route_accepts_post(self):
         """The /webhooks/razorpay route must accept POST."""
-        for r in main_module.app.routes:
-            if r.path == "/webhooks/razorpay":
-                assert "POST" in r.methods
-                return
-        pytest.fail("Route /webhooks/razorpay not found on module-level app")
+        def _find(routes):
+            for r in routes:
+                if getattr(r, 'path', None) == "/webhooks/razorpay":
+                    return r
+                sub_routes = getattr(r, 'routes', None)
+                if sub_routes is None and hasattr(r, 'original_router'):
+                    sub_routes = getattr(r.original_router, 'routes', None)
+                if sub_routes:
+                    found = _find(sub_routes)
+                    if found:
+                        return found
+            return None
+        route = _find(main_module.app.routes)
+        if route is None:
+            pytest.fail("Route /webhooks/razorpay not found on module-level app")
+        assert "POST" in route.methods
 
     def test_create_app_returns_fresh_fastapi(self):
         """create_app must return a new FastAPI app each time."""
@@ -146,21 +173,32 @@ class TestAppImport:
 
     def test_created_app_has_razorpay_route(self):
         fresh = main_module.create_app(webhook_secret=SECRET)
-        paths = [r.path for r in fresh.routes]
+        paths = _collect_paths(fresh.routes)
         assert "/webhooks/razorpay" in paths
 
     def test_created_app_has_health_route(self):
         fresh = main_module.create_app(webhook_secret=SECRET)
-        paths = [r.path for r in fresh.routes]
+        paths = _collect_paths(fresh.routes)
         assert "/health" in paths
 
     def test_razorpay_route_accepts_post(self):
         fresh = main_module.create_app(webhook_secret=SECRET)
-        for r in fresh.routes:
-            if r.path == "/webhooks/razorpay":
-                assert "POST" in r.methods
-                return
-        pytest.fail("Route /webhooks/razorpay not found")
+        def _find(routes):
+            for r in routes:
+                if getattr(r, 'path', None) == "/webhooks/razorpay":
+                    return r
+                sub_routes = getattr(r, 'routes', None)
+                if sub_routes is None and hasattr(r, 'original_router'):
+                    sub_routes = getattr(r.original_router, 'routes', None)
+                if sub_routes:
+                    found = _find(sub_routes)
+                    if found:
+                        return found
+            return None
+        route = _find(fresh.routes)
+        if route is None:
+            pytest.fail("Route /webhooks/razorpay not found")
+        assert "POST" in route.methods
 
 
 # ---------------------------------------------------------------------------

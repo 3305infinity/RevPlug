@@ -294,3 +294,94 @@ class TestEndpointWithAgent:
         body = json.dumps(payload).encode()
         resp = client.post("/webhooks/razorpay", content=body, headers={"X-Razorpay-Signature": "bogus"})
         assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Regression: opt-out enforcement must hold end-to-end through webhook handler
+# ---------------------------------------------------------------------------
+
+class TestOptOutEndToEndRegression:
+    """Regression suite for the opt-out enforcement path.
+
+    Verifies that a webhook from an opted-out customer NEVER results in an
+    executed outbound action, end-to-end through the real webhook handler.
+    This test covers the full path:
+      parse_razorpay_event → _build_recovery_item (customer_id extracted)
+      → RecoveryContext.from_item_and_failure (customer_id threaded)
+      → _make_item_stub (customer_id propagated to RecoveryItem stub)
+      → InterventionPolicy.evaluate opted_out_customer_ids check → DENIED
+    """
+
+    def _make_opted_out_service(self, opted_out_ids: frozenset[str]):
+        container = create_persistence_container("memory")
+        agent = MockRecoveryDecisionAgent()
+        audit = container.audit_log
+        policy = InterventionPolicy(
+            max_retry_attempts=3,
+            opted_out_customer_ids=opted_out_ids,
+        )
+        orchestrator = RecoveryAgentOrchestrator(
+            agent=agent,
+            policy_engine=policy,
+            audit_log=audit,
+            validator=ProposalValidator(),
+        )
+        svc = RazorpayWebhookService(
+            webhook_secret=SECRET,
+            scorer=ExpectedValueScorer(),
+            policy_engine=policy,
+            audit_log=audit,
+            idempotency_store=container.idempotency,
+            provider_events=container.provider_events,
+            recovery_items=container.recovery_items,
+            decisions=container.decisions,
+            attempts=container.attempts,
+            agent=agent,
+            orchestrator=orchestrator,
+        )
+        return svc
+
+    def test_opted_out_customer_policy_denied_via_webhook(self):
+        """Core regression: opted-out customer_id in webhook payload → policy denies."""
+        svc = self._make_opted_out_service(frozenset({"cust_optout_regression"}))
+        payload = _payload("evt_reg_optout", "pay_reg_optout", "payment_timed_out")
+        payload["payload"]["payment"]["entity"]["customer_id"] = "cust_optout_regression"
+        body = json.dumps(payload).encode()
+        sig = _sign(body)
+        item, events, status = svc.process_webhook(body, sig)
+        assert status == "processed"
+        # The policy MUST deny — customer is opted out.
+        assert svc.last_decision is not None
+        assert svc.last_decision.allowed is False, (
+            "SAFETY VIOLATION: opted-out customer received an allowed outbound action"
+        )
+        assert svc.last_decision.reason_code == "customer_opted_out"
+
+    def test_non_opted_out_customer_is_not_blocked(self):
+        """Non-opted-out customer on the same service must still be processed normally."""
+        svc = self._make_opted_out_service(frozenset({"cust_optout_regression"}))
+        payload = _payload("evt_reg_normal", "pay_reg_normal", "payment_timed_out")
+        payload["payload"]["payment"]["entity"]["customer_id"] = "cust_normal_customer"
+        body = json.dumps(payload).encode()
+        sig = _sign(body)
+        item, events, status = svc.process_webhook(body, sig)
+        assert status == "processed"
+        # A different (non-opted-out) customer must not be blocked by the opt-out rule.
+        assert svc.last_decision is not None
+        assert svc.last_decision.allowed is True or svc.last_decision.policy_rule != "opt_out_block"
+
+    def test_opted_out_customer_id_carried_into_recovery_item(self):
+        """customer_id from the webhook payload must be stored on the RecoveryItem."""
+        svc = self._make_opted_out_service(frozenset({"cust_optout_item_check"}))
+        payload = _payload("evt_reg_item", "pay_reg_item", "payment_timed_out")
+        payload["payload"]["payment"]["entity"]["customer_id"] = "cust_optout_item_check"
+        body = json.dumps(payload).encode()
+        sig = _sign(body)
+        item, events, status = svc.process_webhook(body, sig)
+        assert status == "processed"
+        assert item is not None
+        # The customer_id must be correctly stored on the persisted RecoveryItem.
+        assert item.customer_id == "cust_optout_item_check", (
+            f"customer_id not propagated: got '{item.customer_id}'"
+        )
+

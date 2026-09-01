@@ -43,9 +43,57 @@ class PersistenceContainer:
     jobs: "object | None" = None  # RecoveryJobRepository (Stage 7 async worker)
     batches: "object | None" = None  # InMemoryBatchRepository (Stage 8 batch recovery)
 
+    def purge_batch_items(self) -> int:
+        """Purge all batch-scoped synthetic items sitting in the primary recovery store."""
+        count = 0
+        batch_item_ids: set[str] = set()
+
+        # 1. Collect in-memory batch item IDs
+        if hasattr(self.recovery_items, "_items"):
+            items_repo = getattr(self.recovery_items, "_items")
+            for item_id, item in list(items_repo.items()):
+                meta = getattr(item, "metadata", {}) or {}
+                if isinstance(meta, dict) and (meta.get("batch_scope") or meta.get("batch_id")):
+                    batch_item_ids.add(item_id)
+
+        # 2. PostgreSQL Path
+        if hasattr(self.recovery_items, "_conn") and getattr(self.recovery_items, "_conn") is not None:
+            db_conn = getattr(self.recovery_items, "_conn")
+            try:
+                rows = db_conn.fetchall("SELECT id, metadata FROM recovery_items")
+                if rows:
+                    for r in rows:
+                        if isinstance(r, dict):
+                            i_id = r.get("id")
+                            m = r.get("metadata") or {}
+                            if isinstance(m, dict) and (m.get("batch_scope") or m.get("batch_id")):
+                                if i_id:
+                                    batch_item_ids.add(i_id)
+
+                if batch_item_ids:
+                    ids_list = list(batch_item_ids)
+                    count = len(ids_list)
+                    for table in ["recovery_outcomes", "promises", "audit_log", "attempts", "recovery_decisions", "recovery_jobs"]:
+                        try:
+                            db_conn.execute(f"DELETE FROM {table} WHERE recovery_item_id = ANY(%(ids)s)", {"ids": ids_list})
+                        except Exception:
+                            pass
+                    db_conn.execute("DELETE FROM recovery_items WHERE id = ANY(%(ids)s)", {"ids": ids_list})
+            except Exception as exc:
+                print(f"[purge_batch_items] PostgreSQL deletion warning: {exc}")
+
+        # 3. In-memory cleanup
+        if hasattr(self.recovery_items, "_items"):
+            items_repo = getattr(self.recovery_items, "_items")
+            count = max(count, len(batch_item_ids))
+            for item_id in batch_item_ids:
+                items_repo.pop(item_id, None)
+
+        return count
+
     def reset_demo_data(self) -> int:
         """Permanently deletes synthetic and existing recovery items and cleans all stores."""
-        count = 0
+        count = self.purge_batch_items()
 
         # 1. PostgreSQL Deletion Path (if configured)
         if hasattr(self.recovery_items, "_conn") and getattr(self.recovery_items, "_conn") is not None:
@@ -54,7 +102,7 @@ class PersistenceContainer:
                 rows = db_conn.fetchall("SELECT id FROM recovery_items")
                 if rows:
                     item_ids = [r["id"] for r in rows if isinstance(r, dict) and "id" in r]
-                    count = len(item_ids)
+                    count = max(count, len(item_ids))
 
                     if item_ids:
                         for table in ["recovery_outcomes", "promises", "audit_log", "attempts", "recovery_decisions", "recovery_jobs"]:
