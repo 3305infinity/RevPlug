@@ -45,7 +45,7 @@ def _get_items(container) -> list:
         if not isinstance(meta, dict):
             meta = {}
         src = str(meta.get("source", "")).lower()
-        if src in ("smoke_test", "stress_test", "test_fixture"):
+        if src in ("smoke_test", "stress_test", "test_fixture", "smoke", "stress"):
             continue
         if meta.get("is_test_fixture") is True:
             continue
@@ -54,6 +54,8 @@ def _get_items(container) -> list:
         cust_id = str(getattr(item, "customer_id", "")).lower()
 
         if "smoke" in item_id or "smoke" in ext_id or ext_id.startswith("pay_smoke") or ext_id.startswith("evt_smoke"):
+            continue
+        if "stress" in item_id or "stress" in ext_id or "test_fixture" in item_id or "test_fixture" in ext_id:
             continue
         filtered.append(item)
 

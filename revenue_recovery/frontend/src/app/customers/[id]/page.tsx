@@ -52,7 +52,7 @@ export default function CustomerDetail() {
                 failure_reason: "3D Secure authentication required by issuing bank",
                 created_at: d.cases[0].created_at,
                 recommended_action: "send_payment_link",
-                expected_net_recovery_minor: Math.round(d.cases[0].amount_minor * 0.85),
+                expected_net_recovery_minor: d.cases[0].expected_recovery_value ?? null,
               } : null,
               outstanding_invoices: d.cases || [],
               promise_to_pay_history: d.promises || [],

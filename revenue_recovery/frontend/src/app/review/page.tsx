@@ -35,18 +35,18 @@ export default function HumanReviewQueuePage() {
           return {
             id: item.id,
             customer_id: item.customer_id,
-            customer_name: item.customer_id.startsWith("cust_") ? `Acme Corporation ${item.customer_id.slice(-3)}` : item.customer_id,
+            customer_name: getCustomerDisplayName(item.customer_id),
             amount_minor: item.amount_minor,
-            expected_recovery_minor: item.expected_recovery_value || Math.round(item.amount_minor * 0.65),
-            lifetime_recovered_minor: item.amount_minor * 3,
-            previous_paid_count: 3,
-            why_automation_stopped: isDispute
+            expected_recovery_minor: item.expected_recovery_value || item.amount_minor,
+            lifetime_recovered_minor: (item as any).actual_recovery_value || item.amount_minor,
+            previous_paid_count: (item.metadata?.retry_count as number) || 1,
+            why_automation_stopped: item.stopped_reason || (isDispute
               ? "Invoice disputed — automated collection prohibited by Policy Guard."
-              : "Retry budget (3) exhausted — manual approval required for alternate payment channel.",
+              : "Retry budget (3) exhausted — manual approval required for alternate payment channel."),
             agent_recommendation: isDispute
               ? "Review dispute terms and request clarification before resuming collection."
               : "Approve manual payment link override for customer.",
-            policy_constraint: isDispute ? "dispute_collection_prohibited" : "max_retries_exceeded",
+            policy_constraint: item.stopped_rule || (isDispute ? "dispute_collection_prohibited" : "max_retries_exceeded"),
             actions_attempted: ["retry_payment", "send_reminder"],
           };
         });

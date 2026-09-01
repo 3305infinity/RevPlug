@@ -545,6 +545,9 @@ export interface CaseTrace {
   verified_recovery_minor: number;
   intervention_cost_minor: number;
   net_recovery_minor: number;
+  stopped_reason?: string;
+  decision_evidence?: string[];
+  alternatives?: any[];
   context_snapshot: {
     hash: string;
     item_id: string;

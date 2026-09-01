@@ -94,7 +94,7 @@ export default function RecoveryInboxPage() {
     () =>
       items
         .filter((i) => i.status !== "recovered" && i.status !== "stopped")
-        .reduce((acc, i) => acc + (i.expected_recovery_value || Math.round(i.amount_minor * 0.7)), 0),
+        .reduce((acc, i) => acc + (i.expected_recovery_value || 0), 0),
     [items]
   );
 
@@ -270,7 +270,16 @@ export default function RecoveryInboxPage() {
             </thead>
             <tbody>
               {filteredAndSortedItems.map((item) => {
-                const expVal = item.expected_recovery_value ?? Math.round(item.amount_minor * (item.recovery_probability ?? 0.65));
+                const expVal = item.expected_recovery_value ?? null;
+                // Build concise evidence tag
+                const causeRaw = item.root_cause || "";
+                let evidence = "Awaiting diagnosis";
+                if (causeRaw.includes("hard") || causeRaw.includes("decline")) evidence = "Hard decline · Stop";
+                else if (causeRaw.includes("fraud")) evidence = "Fraud flag · Blocked";
+                else if (causeRaw.includes("auth") || causeRaw.includes("transient") || causeRaw.includes("timeout")) evidence = "Transient failure · Retry allowed";
+                else if (causeRaw.includes("dispute")) evidence = "Dispute · Policy restricted";
+                else if (causeRaw.includes("opt")) evidence = "Opt-out · Blocked";
+                else if (causeRaw) evidence = causeRaw.replace(/_/g, " ");
                 return (
                   <tr key={item.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.75rem" }}>
@@ -287,14 +296,12 @@ export default function RecoveryInboxPage() {
                     </td>
 
                     <td style={{ padding: "0.75rem" }}>
-                      <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{item.root_cause || "Soft Decline"}</div>
-                      <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2, textTransform: "uppercase" }}>
-                        {item.source_type || "payment_failure"}
-                      </div>
+                      <div style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: "0.8125rem" }}>{item.root_cause?.replace(/_/g, " ") || "—"}</div>
+                      <div style={{ fontSize: "0.6875rem", color: "var(--text-secondary)", marginTop: 2 }}>{evidence}</div>
                     </td>
 
-                    <td style={{ padding: "0.75rem", fontFamily: "monospace", fontWeight: 700, color: "#10b981" }}>
-                      {fmt(expVal)}
+                    <td style={{ padding: "0.75rem", fontFamily: "monospace", fontWeight: 700, color: expVal ? "#10b981" : "var(--text-muted)" }}>
+                      {expVal ? fmt(expVal) : "—"}
                     </td>
 
                     <td style={{ padding: "0.75rem" }}>

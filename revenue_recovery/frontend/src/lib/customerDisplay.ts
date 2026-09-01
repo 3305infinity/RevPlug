@@ -29,10 +29,14 @@ const EXPLICIT_DEMO_NAME_MAP: Record<string, string> = {
  * Never renders raw IDs with numeric error-code suffixes (like Customer_404 or Customer_202).
  */
 export function getCustomerDisplayName(customerId?: string | null, customerName?: string | null): string {
-  // If name is valid, non-empty, and NOT a raw error-code string (e.g. Customer_404, Customer_202, cust_xxx)
+  // If name is valid, non-empty, and NOT a raw error-code string (e.g. Customer_404, Customer_202, Acme Corporation 404, cust_xxx)
   if (customerName && customerName.trim()) {
     const trimmed = customerName.trim();
-    if (!trimmed.startsWith("Customer_") && !trimmed.startsWith("cust_") && !trimmed.includes("_404") && !trimmed.includes("_202")) {
+    const isRawCodePattern = /^(Customer|Acme Corporation|cust)_?\d*$/i.test(trimmed) || 
+                             /_\d{3,}$/.test(trimmed) || 
+                             /\s\d{3,}$/.test(trimmed) ||
+                             trimmed.startsWith("cust_");
+    if (!isRawCodePattern) {
       return trimmed;
     }
   }

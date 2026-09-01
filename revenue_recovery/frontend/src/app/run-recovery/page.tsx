@@ -246,9 +246,9 @@ export default function SingleCaseRecoveryControlPlane() {
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.6875rem", color: "#10b981", fontWeight: 700 }}>EXPECTED RECOVERY</div>
-                  <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#10b981", fontFamily: "monospace" }}>
-                    {fmt(selectedItem.expected_recovery_value || Math.round(selectedItem.amount_minor * 0.85))}
+                  <div style={{ fontSize: "0.6875rem", color: selectedItem.expected_recovery_value ? "#10b981" : "var(--text-muted)", fontWeight: 700 }}>EXPECTED NET RECOVERY</div>
+                  <div style={{ fontSize: "1.5rem", fontWeight: 800, color: selectedItem.expected_recovery_value ? "#10b981" : "var(--text-muted)", fontFamily: "monospace" }}>
+                    {selectedItem.expected_recovery_value ? fmt(selectedItem.expected_recovery_value) : "—"}
                   </div>
                 </div>
               </div>
@@ -334,9 +334,9 @@ export default function SingleCaseRecoveryControlPlane() {
                   amount_minor: selectedItem.amount_minor,
                   currency: "INR",
                   status: selectedItem.status,
-                  root_cause: selectedItem.root_cause || "payment_timed_out",
-                  expected_recovery_value: selectedItem.expected_recovery_value || Math.round(selectedItem.amount_minor * 0.85),
-                  actual_recovery_value: result.actual_recovery_value || 0,
+                  root_cause: selectedItem.root_cause || null,
+                  expected_recovery_value: selectedItem.expected_recovery_value || null,
+                  actual_recovery_value: result.actual_recovery_value || null,
                   intervention_cost: (result as any).ev_scoring?.intervention_cost || 500,
                   stopped_reason: (result as any).policy_result?.reason || (result as any).policy_rule || "Evaluation completed",
                 } as any}

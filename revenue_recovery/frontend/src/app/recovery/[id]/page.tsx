@@ -562,27 +562,29 @@ export default function CaseWorkspace() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1.5rem" }}>
           {/* 1. Amount at Risk */}
           <div style={{ borderRight: "1px solid var(--border)", paddingRight: "1.5rem" }}>
-            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
-              💸 Amount at Risk
+            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+              Amount at Risk
+              {(mode === "showcase1" || mode === "showcase2") && <span style={{ marginLeft: 6, fontSize: "0.5rem", fontWeight: 700, color: "#d97706", border: "1px solid rgba(217,119,6,0.3)", padding: "1px 4px", borderRadius: 3 }}>SIMULATION</span>}
             </div>
-            <div className="font-mono" style={{ fontSize: "2.5rem", fontWeight: 800, color: "#ef4444", lineHeight: 1 }}>
+            <div className="font-mono" style={{ fontSize: "2.25rem", fontWeight: 800, color: "#ef4444", lineHeight: 1 }}>
               {fmt(caseData.amountAtRisk)}
             </div>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-              Surface: payment_failure · INR
+            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 6 }}>
+              payment_failure · INR
             </div>
           </div>
 
           {/* 2. Expected Net Recovery */}
           <div style={{ borderRight: "1px solid var(--border)", paddingRight: "1.5rem" }}>
-            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
-              📈 Expected Net Recovery
+            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+              Expected Net Recovery
+              <span style={{ marginLeft: 6, fontSize: "0.5rem", fontWeight: 700, color: "#6366f1", border: "1px solid rgba(99,102,241,0.3)", padding: "1px 4px", borderRadius: 3 }}>PROJECTED</span>
             </div>
-            <div className="font-mono" style={{ fontSize: "2.5rem", fontWeight: 800, color: "var(--accent)", lineHeight: 1 }}>
-              {fmt(caseData.expectedRecovery)}
+            <div className="font-mono" style={{ fontSize: "2.25rem", fontWeight: 800, color: caseData.expectedRecovery > 0 ? "var(--accent)" : "var(--text-muted)", lineHeight: 1 }}>
+              {caseData.expectedRecovery > 0 ? fmt(caseData.expectedRecovery) : "—"}
             </div>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-              After intervention cost ({fmt(caseData.cost)})
+            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 6 }}>
+              {caseData.cost > 0 ? `After intervention cost (${fmt(caseData.cost)})` : "No intervention cost"}
             </div>
           </div>
 
