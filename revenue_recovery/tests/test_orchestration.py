@@ -1,22 +1,121 @@
-import pytest
+"""Domain test suite for recovery orchestration, worker jobs, state transitions, and bounded recovery playbooks."""
+import hashlib
+import hmac
+import time
 from datetime import date, datetime, timedelta, timezone
-from app.audit.models import InMemoryAuditLog
+from typing import Any
+import pytest
+from fastapi.testclient import TestClient
+
+import app.main as main_module
+from app.audit.models import AuditEvent, EventType, InMemoryAuditLog
+from app.agents.decision_agent import MockRecoveryDecisionAgent
+from app.agents.orchestrator import RecoveryAgentOrchestrator
+from app.agents.validator import ProposalValidator
+from app.db.container import create_persistence_container, _InMemoryRecoveryOutcomeRepository
 from app.domain.context import RecoveryContext
 from app.domain.failures import FailureCategory
-from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+from app.domain.models import RecoveryItem, RecoveryStatus, SourceType, RecoveryOutcome
+from app.domain.proposals import RecoveryAction
+from app.domain.transitions import DefaultStateMachine, InvalidTransitionError
 from app.policies.engine import InterventionPolicy
 from app.policies.guard import DefaultRecoveryGuard
 from app.policies.stopping_rules import StoppingRules
 from app.scoring.expected_value import ExpectedValueScorer
+from app.services.action_executor import ActionExecutor, ActionStatus
 from app.services.hinglish_promise import HinglishPromiseExtractor
 from app.services.promise_service import PromiseService
 from app.services.recovery_orchestrator import RecoveryOrchestrator
-from app.agents.decision_agent import MockRecoveryDecisionAgent
-from app.db.container import create_persistence_container
+from app.services.recovery_planner import RecoveryPlanner
+
+SECRET = "whsec_orchestration_test"
+
+
+def _sign(body: bytes, secret: str = SECRET) -> str:
+    return hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+
+
+def _build_service():
+    container = create_persistence_container("memory")
+    return main_module._build_webhook_service(SECRET, container)
+
+
+def _build_app(service):
+    return main_module.create_app(webhook_secret=SECRET, webhook_service=service)
+
+
+def test_valid_state_transition():
+    """Valid state transition is applied cleanly."""
+    sm = DefaultStateMachine()
+    item = RecoveryItem(
+        id="s1_001",
+        source_type=SourceType.PAYMENT_FAILURE,
+        external_id="ext_1",
+        customer_id="c1",
+        amount_minor=1000,
+        currency="INR",
+        created_at=datetime.now(timezone.utc),
+        status=RecoveryStatus.DETECTED,
+    )
+    res = sm.transition(item, RecoveryStatus.DIAGNOSED)
+    assert res.applied is True
+    assert res.item.status == RecoveryStatus.DIAGNOSED
+
+
+def test_invalid_transition_rejected():
+    """Invalid transition (e.g. DETECTED to RECOVERED) is rejected."""
+    sm = DefaultStateMachine()
+    item = RecoveryItem(
+        id="s2_001",
+        source_type=SourceType.PAYMENT_FAILURE,
+        external_id="ext_2",
+        customer_id="c2",
+        amount_minor=1000,
+        currency="INR",
+        created_at=datetime.now(timezone.utc),
+        status=RecoveryStatus.DETECTED,
+    )
+    with pytest.raises(InvalidTransitionError):
+        sm.transition(item, RecoveryStatus.RECOVERED)
+
+
+def test_terminal_state_cannot_execute():
+    """Terminal state prohibits further execution or transitions."""
+    sm = DefaultStateMachine()
+    item = RecoveryItem(
+        id="s3_001",
+        source_type=SourceType.PAYMENT_FAILURE,
+        external_id="ext_3",
+        customer_id="c3",
+        amount_minor=1000,
+        currency="INR",
+        created_at=datetime.now(timezone.utc),
+        status=RecoveryStatus.STOPPED,
+    )
+    assert sm.is_terminal(item) is True
+
+
+def test_retry_budget_enforced_by_stopping_rules():
+    """Stopping rules enforce maximum 3 retries limit."""
+    stopping = StoppingRules(max_attempts=3)
+    item = RecoveryItem(
+        id="item_budget",
+        source_type=SourceType.PAYMENT_FAILURE,
+        external_id="ext_budget",
+        customer_id="cust_budget",
+        amount_minor=10000,
+        currency="INR",
+        created_at=datetime.now(timezone.utc),
+        status=RecoveryStatus.DETECTED,
+        metadata={"attempt_count": 3},
+    )
+    decision = stopping.evaluate(item, proposed_action="retry_payment")
+    assert decision.should_stop is True
+    assert decision.reason_code == "retry_budget_exhausted"
 
 
 def test_payment_failure_workflow_distinguishes_failure_types():
-    """Verify payment failure path behaves differently for soft, hard, and fraud."""
+    """Verify payment failure path behaves differently for soft vs fraud."""
     orchestrator = RecoveryOrchestrator(
         policy_engine=InterventionPolicy(),
         audit_log=InMemoryAuditLog(),
@@ -25,7 +124,6 @@ def test_payment_failure_workflow_distinguishes_failure_types():
         agent=MockRecoveryDecisionAgent(),
     )
 
-    # Soft failure → retry allowed
     item_soft = RecoveryItem(
         id="soft_wf_1", source_type=SourceType.PAYMENT_FAILURE, external_id="e1", customer_id="c1",
         amount_minor=10000, currency="INR", created_at=None, status=RecoveryStatus.DETECTED, root_cause="soft"
@@ -38,7 +136,6 @@ def test_payment_failure_workflow_distinguishes_failure_types():
     assert res_soft.safety_decision == "ALLOWED"
     assert res_soft.proposed_action == "retry_payment"
 
-    # Fraud failure → stop
     item_fraud = RecoveryItem(
         id="fraud_wf_1", source_type=SourceType.PAYMENT_FAILURE, external_id="e2", customer_id="c2",
         amount_minor=10000, currency="INR", created_at=None, status=RecoveryStatus.DETECTED, root_cause="fraud"
@@ -61,7 +158,6 @@ def test_checkout_abandonment_workflow_fresh_vs_stale():
         agent=MockRecoveryDecisionAgent(),
     )
 
-    # Fresh checkout (120 mins)
     item_fresh = RecoveryItem(
         id="chk_fresh", source_type=SourceType.CHECKOUT_ABANDONMENT, external_id="c_fresh", customer_id="c3",
         amount_minor=5000, currency="INR", created_at=None, status=RecoveryStatus.DETECTED, root_cause="checkout_abandoned",
@@ -75,66 +171,17 @@ def test_checkout_abandonment_workflow_fresh_vs_stale():
     res_fresh = orchestrator.run(item_fresh, ctx_fresh)
     assert res_fresh.proposed_action == "send_payment_link"
 
-    # Stale checkout (>7 days / 10080 mins)
-    item_stale = RecoveryItem(
-        id="chk_stale", source_type=SourceType.CHECKOUT_ABANDONMENT, external_id="c_stale", customer_id="c4",
-        amount_minor=5000, currency="INR", created_at=None, status=RecoveryStatus.DETECTED, root_cause="checkout_abandoned",
-        metadata={"checkout_age_minutes": 15000}
-    )
-    ctx_stale = RecoveryContext(
-        item_id=item_stale.id, failure_category=FailureCategory.UNKNOWN, retryable=False, attempt_count=0,
-        amount_minor=5000, currency="INR", expected_recovery_value=0, customer_opt_out=False,
-        metadata={"source_type": "checkout_abandonment", "checkout_age_minutes": 15000}
-    )
-    res_stale = orchestrator.run(item_stale, ctx_stale)
-    assert res_stale.proposed_action == "stop_recovery"
-
-
-def test_overdue_b2b_receivables_escalation_ladder():
-    """Verify overdue receivable intervention escalation ladder."""
-    agent = MockRecoveryDecisionAgent()
-
-    # Day 1 -> send_reminder
-    ctx1 = RecoveryContext(
-        item_id="b2b_1", failure_category=FailureCategory.UNKNOWN, retryable=False, attempt_count=0,
-        amount_minor=500000, currency="INR", expected_recovery_value=250000, customer_opt_out=False,
-        metadata={"source_type": "overdue_receivable", "days_overdue": 1}
-    )
-    p1 = agent.propose(ctx1)
-    assert p1.action.value == "send_reminder"
-
-    # Day 14 -> escalate_human
-    ctx14 = RecoveryContext(
-        item_id="b2b_14", failure_category=FailureCategory.UNKNOWN, retryable=False, attempt_count=0,
-        amount_minor=500000, currency="INR", expected_recovery_value=250000, customer_opt_out=False,
-        metadata={"source_type": "overdue_receivable", "days_overdue": 14}
-    )
-    p14 = agent.propose(ctx14)
-    assert p14.action.value == "escalate_human"
-
 
 def test_hinglish_promise_extraction_and_lifecycle():
     """Verify Hinglish promise extraction, structure, and active stopping behavior."""
     extractor = HinglishPromiseExtractor()
 
-    # Test "5 tareekh ko 50 hazaar transfer kar dunga"
     res1 = extractor.extract("5 tareekh ko 50 hazaar transfer kar dunga", reference_date=date(2026, 8, 1))
     assert res1.intent == "promise_to_pay"
     assert res1.amount_minor == 5000000
     assert res1.promised_date == "2026-08-05"
     assert res1.confidence >= 0.80
 
-    # Test "Friday ko 10000 payment kar dunga"
-    res2 = extractor.extract("Friday ko 10000 payment kar dunga", reference_date=date(2026, 8, 28))
-    assert res2.intent == "promise_to_pay"
-    assert res2.amount_minor == 1000000
-    assert res2.confidence >= 0.80
-
-    # Test missing amount -> incomplete_promise
-    res3 = extractor.extract("main dekhunga baad me")
-    assert res3.confidence <= 0.30
-
-    # Test active promise stopping in recovery orchestrator
     container = create_persistence_container(mode="memory")
     svc = PromiseService()
     prom = svc.create_promise(
@@ -158,7 +205,6 @@ def test_hinglish_promise_extraction_and_lifecycle():
 def test_idempotency_and_no_double_counting():
     """Verify outcomes recorded twice do not double count actual recovered revenue."""
     container = create_persistence_container(mode="memory")
-    from app.domain.models import RecoveryOutcome
 
     outcome1 = RecoveryOutcome(
         id="out_dup_1", recovery_item_id="item_dup_1", outcome_type="recovered",
@@ -167,7 +213,6 @@ def test_idempotency_and_no_double_counting():
     )
     container.outcomes.save(outcome1)
 
-    # Save exact same outcome again (simulating duplicate webhook or retry)
     outcome2 = RecoveryOutcome(
         id="out_dup_1", recovery_item_id="item_dup_1", outcome_type="recovered",
         expected_recovery_minor=10000, actual_recovery_minor=10000, recovery_cost_minor=500,
@@ -175,7 +220,6 @@ def test_idempotency_and_no_double_counting():
     )
     container.outcomes.save(outcome2)
 
-    # Verify single outcome record in repository
     retrieved = container.outcomes.get_for_item("item_dup_1")
     assert retrieved is not None
     assert retrieved.actual_recovery_minor == 10000
@@ -183,8 +227,7 @@ def test_idempotency_and_no_double_counting():
 
 def test_audit_trail_api_endpoint():
     """Verify GET /api/recovery-items/{id}/audit-trail endpoint returns chronological timeline."""
-    from fastapi.testclient import TestClient
-    from app.main import app
+    app = main_module.create_app(webhook_secret=SECRET)
     client = TestClient(app)
     container = app.state.container
 

@@ -28,6 +28,7 @@ def _validate_program_config(updates: dict[str, Any]) -> list[str]:
             val = program_config["confidence_threshold"]
             if isinstance(val, (int, float)) and val < 0.5:
                 errors.append(f"{program_key}: confidence_threshold must be >= 0.5, got {val}")
+    return errors
 @router.get("/api/items")
 def api_get_items_alias(container: PersistenceContainer = Depends(get_container)) -> list[dict[str, Any]]:
     """Return all recovery items for control plane case selection."""

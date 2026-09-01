@@ -120,8 +120,11 @@ Statistical evaluation across **1,000 cases (10 reproducible seeds: 42..51, 100 
 
 ---
 
-## 8. Local Setup
+## 8. Local Setup & Canonical Database Configuration
 
+RevPlug runs out-of-the-box in lightweight **In-Memory mode** for unit testing and local development, or in **PostgreSQL mode** for persistent production operation.
+
+### Option A: In-Memory / Zero-Infrastructure Mode (Default)
 ```bash
 # 1. Clone repository & set up environment
 cd revenue_recovery
@@ -129,24 +132,37 @@ python -m venv .venv
 .venv\Scripts\activate  # Windows
 pip install -r pyproject.toml
 
-# 2. Start FastAPI Backend
+# 2. Copy default environment template
+cp .env.example .env
+
+# 3. Start FastAPI Backend
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
-# 3. Start Frontend Dashboard
+# 4. Start Frontend Dashboard
 cd frontend
 npm install
 npm run dev
+```
+
+### Option B: PostgreSQL Production Database Mode
+```bash
+# 1. Start canonical PostgreSQL container (recovery_engine DB, user: recovery)
+docker compose up -d
+
+# 2. Initialize database schema
+python scripts/init_db.py
+
+# 3. Set persistence mode and start backend
+$env:PERSISTENCE_MODE="postgres"  # PowerShell (or export PERSISTENCE_MODE=postgres)
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 ---
 
 ## 9. Test Verification Matrix
 
-- **Full Pytest Suite**: `pytest` → **52 passed** (100% pass rate across all 13 feature test suites).
+- **Default Unit & Application Test Suite**: `pytest` → **830 passed, 34 skipped** (runs deterministically without requiring external PostgreSQL or Razorpay infrastructure).
+- **PostgreSQL Integration Tests**: `pytest tests/test_postgres_integration.py -v` (runs when PostgreSQL is reachable; automatically skipped when PostgreSQL is not running).
 - **Opportunity Detection Engine**: `pytest tests/test_opportunity_detection_engine.py -v` → **10/10 Passed**.
 - **End-to-End Runtime Flows**: `pytest tests/test_end_to_end_runtime_flows.py -v` → **8/8 Passed**.
-- **Strategy Analytics & Attribution**: `pytest tests/test_analytics_memory_and_attribution.py -v` → **Passed**.
-- **Portfolio NBA & Leakage View**: `pytest tests/test_nba_leakage_and_time_analytics.py -v` → **Passed**.
-- **Policy Versioning & Review Queue**: `pytest tests/test_policy_and_review_redesign.py -v` → **Passed**.
-- **Customer 360 & Recovery Playbook**: `pytest tests/test_customer_recovery_profile.py -v` & `test_recovery_playbook.py` → **Passed**.
 - **Frontend TypeScript Compilation**: `npx tsc --noEmit` & `npm run build` → **0 errors (21/21 static & dynamic pages compiled successfully)**.

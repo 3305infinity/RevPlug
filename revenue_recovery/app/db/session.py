@@ -25,11 +25,11 @@ def get_database_url() -> str:
     if direct:
         return direct
 
-    user = os.environ.get("PGUSER", "recovery")
-    password = os.environ.get("PGPASSWORD", "recovery_dev_password")
-    host = os.environ.get("PGHOST", "localhost")
-    port = os.environ.get("PGPORT", "5432")
-    dbname = os.environ.get("PGDATABASE", "recovery_engine")
+    user = os.environ.get("PGUSER") or os.environ.get("POSTGRES_USER", "recovery")
+    password = os.environ.get("PGPASSWORD") or os.environ.get("POSTGRES_PASSWORD", "recovery_dev_password")
+    host = os.environ.get("PGHOST") or os.environ.get("POSTGRES_HOST", "localhost")
+    port = os.environ.get("PGPORT") or os.environ.get("POSTGRES_PORT", "5432")
+    dbname = os.environ.get("PGDATABASE") or os.environ.get("POSTGRES_DB", "recovery_engine")
     return f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
 
 

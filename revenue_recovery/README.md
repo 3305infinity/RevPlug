@@ -112,5 +112,6 @@ RevPlug follows a strict hybrid control plane separating reasoning from executio
 
 ## 9. Verification & Test Suite
 
-- **Full Pytest Suite**: `python -m pytest` → **52 passed** (100% pass rate across 13 test files).
+- **Default Test Suite**: `python -m pytest` → **830 passed, 34 skipped** (runs deterministically without requiring external PostgreSQL or Razorpay infrastructure).
+- **PostgreSQL Integration Tests**: `pytest tests/test_postgres_integration.py -v` (runs when PostgreSQL is reachable; automatically skipped when PostgreSQL is not running).
 - **Frontend Build**: `npx tsc --noEmit` & `npm run build` → **0 errors (21/21 static & dynamic pages compiled successfully)**.

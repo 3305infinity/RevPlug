@@ -1,11 +1,25 @@
+import os
 import uuid
 import concurrent.futures
 from datetime import datetime, timezone
-from app.db.session import PostgresConnection
+import pytest
+from app.db.session import PostgresConnection, create_connection
 from app.db.postgres_repositories import PostgresRecoveryOutcomeRepository
 from app.domain.models import RecoveryOutcome, OutcomeType
-
 from app.main import create_persistence_container
+
+
+def _db_available() -> bool:
+    """Check if PostgreSQL is reachable."""
+    try:
+        conn = create_connection()
+        conn.fetchone("SELECT 1")
+        return True
+    except Exception:
+        return False
+
+
+pytestmark = pytest.mark.skipif(not _db_available(), reason="PostgreSQL unreachable or not configured")
 
 def test_stress_concurrent_outcomes():
     """Ensure race conditions on payment success do not double-count actual_recovered."""

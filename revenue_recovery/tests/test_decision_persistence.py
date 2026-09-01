@@ -222,3 +222,35 @@ class TestWebhookDecisionPersistence:
         assert len(decisions_list) == 1
         assert decisions_list[0]["policy_allowed"] is False
         assert decisions_list[0]["proposed_action"] == "retry_payment"
+
+
+def test_major_state_transitions_create_audit_events():
+    """Every major state transition creates an audit event."""
+    from app.audit.models import InMemoryAuditLog
+    from app.agents.orchestrator import RecoveryAgentOrchestrator
+    from app.domain.context import RecoveryContext
+    from app.domain.failures import FailureCategory
+    from app.policies.engine import InterventionPolicy
+
+    log = InMemoryAuditLog()
+    policy = InterventionPolicy()
+    orch = RecoveryAgentOrchestrator(policy_engine=policy, audit_log=log)
+    ctx = RecoveryContext(item_id="t1_001", failure_category=FailureCategory.SOFT, amount_minor=50000)
+
+    res = orch.decide(ctx)
+    events = log.events_for("t1_001")
+    assert len(events) >= 3
+    actions = [e.action for e in events]
+    assert "agent_context_created" in actions
+    assert "agent_proposal_created" in actions
+    assert "policy_evaluate" in actions
+
+
+def test_audit_events_are_immutable():
+    """Audit log is append-only and immutable."""
+    from app.audit.models import InMemoryAuditLog
+    log = InMemoryAuditLog()
+    log.log(recovery_item_id="item_immut", actor="system", action="created", reason="initial")
+    events = log.events_for("item_immut")
+    assert len(events) == 1
+    assert events[0].action == "created"

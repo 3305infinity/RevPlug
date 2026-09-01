@@ -1,6 +1,6 @@
 # RevPlug Benchmark & Counterfactual ROI Report
 
-**Generated At:** 2026-08-31 13:07:02 UTC
+**Generated At:** 2026-09-01 04:55:43 UTC
 **Dataset Config:** 10 cases | Seed `42` | Version `1.0`
 
 ---

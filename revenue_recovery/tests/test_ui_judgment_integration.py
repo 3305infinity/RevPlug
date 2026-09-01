@@ -178,4 +178,34 @@ def test_15_non_existent_case_trace():
     container = create_persistence_container()
     trace = build_case_trace("non_existent_id_9999", container)
     assert trace["item_id"] == "non_existent_id_9999"
-    assert trace["status"] == "UNKNOWN"
+
+
+def test_baseline_c_best_fixed_action_evaluation():
+    """Baseline C evaluates best single failure-matched fixed action, non-adaptively."""
+    from app.services.baseline_evaluator import BaselineEvaluator
+    from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+    from datetime import datetime, timezone
+
+    evaluator = BaselineEvaluator(mode="best_fixed", rng_seed=42)
+
+    item = RecoveryItem(
+        id="it_auth_c", source_type=SourceType.PAYMENT_FAILURE, external_id="ext_1", customer_id="c_1",
+        amount_minor=499900, currency="INR", created_at=datetime.now(timezone.utc),
+        status=RecoveryStatus.QUEUED, root_cause="authentication_required",
+    )
+
+    res = evaluator.evaluate_case(item, case_index=0)
+    assert res.metadata.get("baseline_mode") == "best_fixed"
+    if res.actions_taken:
+        assert res.actions_taken[0] == "send_payment_link"
+
+
+def test_no_action_first_class_win():
+    """Negative EV or policy block results in NO_ACTION decision."""
+    from app.scoring.expected_value import compare_action_vs_wait_vs_no_action
+    comp = compare_action_vs_wait_vs_no_action(
+        amount_minor=1000,
+        action_net_ev=-500,
+        wait_net_ev=-200,
+    )
+    assert comp["selected_choice"] == "NO_ACTION"

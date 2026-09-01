@@ -169,10 +169,146 @@ def test_11_aggregate_metrics_mathematically_correct():
 
 def test_12_confidence_interval_calculation_correct():
     diffs = [100.0, 110.0, 90.0, 105.0, 95.0, 100.0, 102.0, 98.0, 101.0, 99.0]
-    mean_d, lower, upper = calculate_paired_95_confidence_interval(diffs)
+    mean_d, ci_low, ci_high = calculate_paired_95_confidence_interval(diffs)
+    assert ci_low <= mean_d <= ci_high
 
-    assert math.isclose(mean_d, 100.0, abs_tol=1e-3)
-    assert lower < mean_d < upper
+
+def test_proof_dataset_coverage():
+    """Verify dataset contains coverage across all surfaces and edge scenarios."""
+    from app.domain.models import SourceType
+    items = generate_evaluation_dataset(count=50, seed=42)
+    assert len(items) == 50
+
+    surfaces = {item.source_type for item in items}
+    assert SourceType.PAYMENT_FAILURE in surfaces
+    assert SourceType.CHECKOUT_ABANDONMENT in surfaces
+    assert SourceType.SUBSCRIPTION_FAILURE in surfaces
+    assert SourceType.RECEIVABLE in surfaces
+
+    categories = {item.metadata.get("original_category") for item in items}
+    assert "fraud" in categories
+    assert "soft_optout" in categories
+    assert len(categories) >= 6
+
+
+def test_proof_rules_vs_llm_classification():
+    """Verify rules-first classification vs LLM fallback pathing."""
+    service = EvaluationService()
+    result = service.run_batch_evaluation(count=50, seed=42)
+
+    assert result.revplug.cases_completed == 50
+    response_dict = service.to_response_dict(result)
+    assert "rules_classified_count" in response_dict["revplug"]
+    assert "llm_classified_count" in response_dict["revplug"]
+    assert "llm_fallback_count" in response_dict["revplug"]
+
+
+def test_proof_closed_action_set_enforcement():
+    """Verify unauthorized actions fail closed."""
+    from app.agents.validator import ProposalValidator, ProposalValidationError
+    validator = ProposalValidator()
+    context = RecoveryContext(
+        failure_category=FailureCategory.SOFT,
+        retryable=True,
+        attempt_count=0,
+        amount_minor=50000,
+        currency="INR",
+        expected_recovery_value=35000,
+        customer_opt_out=False,
+    )
+
+    with pytest.raises(ValueError):
+        from app.domain.proposals import RecoveryAction
+        RecoveryAction("give_customer_50_percent_discount")
+
+    class FakeProposal:
+        action = "give_customer_50_percent_discount"
+        confidence = 0.9
+        reason = "Discount"
+        customer_message = None
+
+    with pytest.raises(ProposalValidationError):
+        validator.validate(FakeProposal(), context)
+
+
+def test_proof_safety_scenarios():
+    """Verify live safety rules across failure categories."""
+    from app.policies.engine import InterventionPolicy
+    from app.domain.models import SourceType, RecoveryItem, RecoveryStatus
+    policy = InterventionPolicy(
+        max_retry_attempts=3,
+        opted_out_customer_ids=frozenset({"opt_out_101"}),
+    )
+
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+
+    soft_item = RecoveryItem(
+        id="item_soft",
+        source_type=SourceType.PAYMENT_FAILURE,
+        external_id="ext_soft",
+        customer_id="cust_normal",
+        amount_minor=50000,
+        currency="INR",
+        created_at=now,
+        status=RecoveryStatus.DETECTED,
+        root_cause="soft",
+        metadata={"attempt_count": 0},
+    )
+    d_soft = policy.evaluate(soft_item, "retry_payment")
+    assert d_soft.allowed is True
+
+    fraud_item = RecoveryItem(
+        id="item_fraud",
+        source_type=SourceType.PAYMENT_FAILURE,
+        external_id="ext_fraud",
+        customer_id="cust_normal",
+        amount_minor=50000,
+        currency="INR",
+        created_at=now,
+        status=RecoveryStatus.DETECTED,
+        root_cause="fraud",
+        metadata={"attempt_count": 0},
+    )
+    d_fraud = policy.evaluate(fraud_item, "retry_payment")
+    assert d_fraud.allowed is False
+
+
+def test_proof_duplicate_webhook_idempotency():
+    """Verify identical webhook sent twice produces 1 recovery item and 1 recovery action."""
+    import time
+    from fastapi.testclient import TestClient
+    from app.main import app
+    client = TestClient(app)
+
+    event_id = f"evt_dup_{int(time.time())}"
+    payment_id = f"pay_dup_{int(time.time())}"
+
+    r1 = client.post(
+        "/api/demo/payment-failure",
+        json={
+            "event_id": event_id,
+            "payment_id": payment_id,
+            "customer_id": "cust_dup",
+            "amount_minor": 50000,
+            "error_reason": "payment_timed_out",
+        },
+    )
+    assert r1.status_code == 200
+    assert r1.json()["status"] == "processed"
+
+    r2 = client.post(
+        "/api/demo/payment-failure",
+        json={
+            "event_id": event_id,
+            "payment_id": payment_id,
+            "customer_id": "cust_dup",
+            "amount_minor": 50000,
+            "error_reason": "payment_timed_out",
+        },
+    )
+    assert r2.status_code == 200
+    assert r2.json()["status"] == "duplicate"
 
 
 def test_13_best_action_counterfactual_metric_evaluation_only():

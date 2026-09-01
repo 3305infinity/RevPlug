@@ -333,11 +333,31 @@ def build_case_detail(container, item_id: str) -> dict[str, Any] | None:
         result["playbook"] = item.metadata["playbook"]
     else:
         from app.services.recovery_playbook import RecoveryPlaybookEngine
-        from app.domain.failures import FailureClassifier
+        from app.domain.failures import FailureCategory, NormalizedFailure
         from app.domain.context import RecoveryContext
-        classifier = FailureClassifier()
-        fail_cat = classifier.classify(item.root_cause, item.metadata.get("error_description"))
-        ctx = RecoveryContext.from_item_and_failure(item, fail_cat)
+
+        rc = str(item.root_cause or "").lower()
+        desc = str((item.metadata or {}).get("error_description") or "").lower()
+        combined = f"{rc} {desc}"
+
+        if "auth" in combined or "3ds" in combined:
+            cat = FailureCategory.AUTHENTICATION_REQUIRED
+        elif "fraud" in combined or "risk" in combined:
+            cat = FailureCategory.FRAUD
+        elif "hard" in combined or "expired" in combined or "declined" in combined:
+            cat = FailureCategory.HARD
+        else:
+            cat = FailureCategory.SOFT
+
+        normalized = NormalizedFailure(
+            external_event_id=item.external_id or item.id,
+            category=cat,
+            code=item.root_cause or "soft",
+            reason=str((item.metadata or {}).get("error_description") or item.root_cause or "soft"),
+            retryable=(cat == FailureCategory.SOFT),
+            metadata=item.metadata or {},
+        )
+        ctx = RecoveryContext.from_item_and_failure(item, normalized)
         pb = RecoveryPlaybookEngine().generate_playbook(item, ctx)
         result["playbook"] = pb.to_dict()
 

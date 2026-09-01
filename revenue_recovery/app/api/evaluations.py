@@ -12,6 +12,26 @@ def api_evaluations(container: PersistenceContainer = Depends(get_container)) ->
     from app.dashboard_api import build_evaluation_report
     return build_evaluation_report(container)
 
+@router.get("/api/evaluations/canonical")
+def api_canonical_evaluation() -> Response:
+    """Returns the canonical judge-facing financial evaluation run (Seed=42, Count=50)."""
+    from app.services.evaluation_service import EvaluationService
+    eval_svc = EvaluationService(agent=None, max_retry_attempts=3)
+    try:
+        result = eval_svc.run_batch_evaluation(count=50, seed=42)
+        response_dict = eval_svc.to_response_dict(result)
+        response_dict["canonical_metadata"] = {
+            "evaluation_id": "REC-BENCH-2026-S42-C50",
+            "dataset_version": "synthetic_v1_golden",
+            "seed": 42,
+            "sample_count": 50,
+            "baseline_strategy": "fixed_retry_naive",
+            "proof_status": "reproducible_canonical",
+        }
+        return JSONResponse(status_code=200, content=response_dict)
+    except Exception as exc:
+        return JSONResponse(status_code=500, content={"error": str(exc)})
+
 @router.api_route("/api/evaluations/batch", methods=["GET", "POST"])
 async def api_batch_evaluation(request: Request) -> Response:
     """Run a real batch evaluation comparing RevPlug against a dumb baseline.

@@ -233,3 +233,40 @@ class TestHumanInTheLoop:
         data = resp.json()
         assert data["item_id"] == item_id
         assert "agent_events" in data
+
+    def test_items_list_for_control_plane_case_selection(self, client):
+        """GET /api/items returns active recovery items for control plane case selection."""
+        from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+        from datetime import datetime, timezone
+        container = client.app.state.container
+        item = RecoveryItem(
+            id="cp_item_505",
+            source_type=SourceType.PAYMENT_FAILURE,
+            external_id="ext_cp_505",
+            customer_id="cust_cp_505",
+            amount_minor=650000,
+            currency="INR",
+            created_at=datetime.now(timezone.utc),
+            status=RecoveryStatus.QUEUED,
+            root_cause="payment_timed_out",
+        )
+        container.recovery_items.save(item)
+
+        resp = client.get("/api/items")
+        assert resp.status_code == 200
+        items = resp.json()
+        assert isinstance(items, list)
+        assert any(i["id"] == "cp_item_505" for i in items)
+
+    def test_canonical_evaluation_endpoint(self, client):
+        """GET /api/evaluations/canonical returns reproducible benchmark metrics with canonical_metadata."""
+        resp = client.get("/api/evaluations/canonical")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "canonical_metadata" in data
+        meta = data["canonical_metadata"]
+        assert meta["evaluation_id"] == "REC-BENCH-2026-S42-C50"
+        assert meta["seed"] == 42
+        assert meta["sample_count"] == 50
+        assert "revplug" in data
+        assert "baseline" in data

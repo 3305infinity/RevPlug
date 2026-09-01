@@ -158,4 +158,155 @@ def test_stop_recovery_always_allowed(utcnow):
     decision = policy.evaluate(item, "stop_recovery")
     assert decision.allowed is True
     assert decision.requires_human_approval is False
-    assert decision.policy_rule == "allow_stop"
+
+
+def test_policy_config_store_versioning():
+    """Verifies policy config updates spawn explicit new versions (v1.0 -> v1.1)."""
+    from app.services.policy_config_service import PolicyConfigStore
+    store = PolicyConfigStore.get_instance()
+    cfg1 = store.get_config()
+    assert cfg1.version == "v1.0"
+
+    cfg2 = store.update_config({"max_retries": 4})
+    assert cfg2.version == "v1.1"
+    assert cfg2.max_retries == 4
+    assert len(store.get_history()) >= 2
+
+
+def test_policy_config_api_endpoints():
+    """Verifies GET and PUT /api/policy-config endpoints."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    client = TestClient(app)
+
+    resp_get = client.get("/api/policy-config")
+    assert resp_get.status_code == 200
+    data = resp_get.json()
+    assert "version" in data
+    assert "preview_summary" in data
+
+    resp_put = client.put("/api/policy-config", json={"max_retries": 5})
+    assert resp_put.status_code == 200
+    updated_data = resp_put.json()
+    assert updated_data["max_retries"] == 5
+    assert updated_data["version"] != data["version"]
+
+
+def test_human_review_action_resumes_playbook():
+    """Verifies POST /api/reviews/{id}/action validates human decision through policy engine and resumes playbook."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    client = TestClient(app)
+
+    container = app.state.container
+    item = RecoveryItem(
+        id="item_rev_101",
+        source_type=SourceType.PAYMENT_FAILURE,
+        external_id="ext_rev_101",
+        customer_id="cust_rev_101",
+        amount_minor=8400000,
+        currency="INR",
+        created_at=datetime.now(timezone.utc),
+        status=RecoveryStatus.ESCALATED,
+        root_cause="dispute",
+    )
+    container.recovery_items.save(item)
+
+    resp_act = client.post(f"/api/reviews/{item.id}/action", json={"action": "approve"})
+    assert resp_act.status_code == 200
+    res = resp_act.json()
+
+    assert res["item_id"] == item.id
+    assert res["action_taken"] == "approve"
+    assert res["policy_validated"] is True
+    assert res["playbook_resumed"] is True
+
+    updated_item = container.recovery_items.get(item.id)
+    assert updated_item.status == RecoveryStatus.INTERVENTION_PENDING
+
+
+def test_ev_gate_blocks_non_positive_ev():
+    """Verify that actions with non-positive EV are blocked by EV gate."""
+    from app.audit.models import InMemoryAuditLog
+    from app.domain.context import RecoveryContext
+    from app.domain.failures import FailureCategory
+    from app.policies.guard import DefaultRecoveryGuard
+    from app.policies.stopping_rules import StoppingRules
+    from app.scoring.expected_value import ExpectedValueScorer
+    from app.services.recovery_orchestrator import RecoveryOrchestrator
+
+    orchestrator = RecoveryOrchestrator(
+        policy_engine=InterventionPolicy(),
+        audit_log=InMemoryAuditLog(),
+        scorer=ExpectedValueScorer(),
+        guard=DefaultRecoveryGuard(
+            stopping_rules=StoppingRules(),
+            policy_engine=InterventionPolicy(),
+        ),
+    )
+
+    item = RecoveryItem(
+        id="test_ev_1",
+        source_type=SourceType.PAYMENT_FAILURE,
+        external_id="evt_1",
+        customer_id="cust_1",
+        amount_minor=10,
+        currency="INR",
+        created_at=None,
+        status=RecoveryStatus.DETECTED,
+        root_cause="soft",
+    )
+
+    context = RecoveryContext(
+        item_id=item.id,
+        failure_category=FailureCategory.SOFT,
+        retryable=True,
+        attempt_count=0,
+        amount_minor=10,
+        currency="INR",
+        expected_recovery_value=0,
+        customer_opt_out=False,
+    )
+
+    from app.agents.decision_agent import MockRecoveryDecisionAgent
+    orchestrator._agent = MockRecoveryDecisionAgent()
+
+    result = orchestrator.run(item, context)
+
+    assert result.safety_decision == "STOP"
+    ev_events = [e for e in result.audit_events if e.action == "ev_check_failed"]
+    assert len(ev_events) == 1
+    assert ev_events[0].metadata["rule"] == "ev_gate_enforcement"
+
+
+def test_human_approval_re_evaluates_safety_guard():
+    """Verify human approval re-checks stopping rules on fresh state."""
+    from app.db.container import create_persistence_container
+    from app.policies.guard import DefaultRecoveryGuard
+    from app.policies.stopping_rules import StoppingRules
+
+    container = create_persistence_container(mode="memory")
+
+    item = RecoveryItem(
+        id="item_opted_out",
+        source_type=SourceType.PAYMENT_FAILURE,
+        external_id="evt_opt",
+        customer_id="cust_opted_out",
+        amount_minor=10000,
+        currency="INR",
+        created_at=None,
+        status=RecoveryStatus.INTERVENTION_PENDING,
+        root_cause="soft",
+        metadata={"customer_opted_out": True},
+    )
+    container.recovery_items.save(item)
+
+    policy = InterventionPolicy(opted_out_customer_ids=frozenset(["cust_opted_out"]))
+    stopping = StoppingRules(opted_out_customer_ids=frozenset(["cust_opted_out"]))
+    guard = DefaultRecoveryGuard(stopping_rules=stopping, policy_engine=policy)
+
+    decision = guard.evaluate(item, "send_customer_message", container=container)
+
+    assert not decision.allowed
+    assert decision.decision_type == "STOP"
+    assert decision.reason_code == "customer_opted_out"

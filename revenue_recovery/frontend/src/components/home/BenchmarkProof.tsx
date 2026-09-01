@@ -10,15 +10,17 @@ export default function BenchmarkProof() {
   const [data, setData] = useState<any>(null);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/evaluations/batch?count=50&seed=42`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/evaluations/canonical`)
       .then((r) => (r.ok ? r.json() : null))
       .then(setData)
       .catch(() => {});
   }, []);
 
-  const totalAtRisk = data?.revplug?.total_amount_at_risk || 49990000;
-  const revplugRecovered = data?.revplug?.actual_recovered || 32493500;
-  const baselineRecovered = data?.baseline?.actual_recovered || 22366000;
+  const evalId = data?.canonical_metadata?.evaluation_id || "REC-BENCH-2026-S42-C50";
+  const seed = data?.canonical_metadata?.seed || 42;
+  const totalAtRisk = data?.revplug?.total_amount_at_risk || 0;
+  const revplugRecovered = data?.revplug?.actual_recovered || 0;
+  const baselineRecovered = data?.baseline?.actual_recovered || 0;
   const incrementalGain = revplugRecovered - baselineRecovered;
 
   return (
@@ -28,10 +30,10 @@ export default function BenchmarkProof() {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem" }}>
             <span style={{ fontSize: "0.625rem", padding: "0.1rem 0.4rem", borderRadius: 4, background: "rgba(99, 102, 241, 0.15)", color: "#6366f1", fontWeight: 700, textTransform: "uppercase" }}>
-              SYNTHETIC BENCHMARK
+              CANONICAL BENCHMARK ({evalId})
             </span>
             <span style={{ fontSize: "0.6875rem", color: "#6e7681", fontFamily: "monospace" }}>
-              Seed: 42 · Fixed Dataset
+              Seed: {seed} · Golden Synthetic Dataset v1
             </span>
           </div>
           <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.02em" }}>
