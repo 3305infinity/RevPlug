@@ -4,26 +4,44 @@ Built for the **Razorpay AI Buildathon — AI Revenue Recovery Track**.
 
 ---
 
-## 1. Problem
-Businesses lose millions across failed payments, expired cards, abandoned checkouts, and overdue B2B invoices because traditional automated retry scripts blindly retry unsafe fraud cases, inflate payment gateway costs, and harass opted-out customers.
+## 1. Executive Summary
+
+Businesses lose millions across failed payments, expired cards, abandoned checkouts, failed subscription renewals, and overdue B2B invoices because traditional automated retry scripts blindly retry unsafe fraud cases, inflate payment gateway costs, and harass opted-out customers.
+
+**RevPlug** is an autonomous, AI-driven revenue recovery control plane. It detects revenue at risk via an **Event-Driven Opportunity Detection Engine**, diagnoses transaction failure causes, evaluates bounded recovery interventions via Expected Net Recovery optimization ($EV_{\text{net}}$), enforces zero-violation safety policies, executes recovery workflows, observes real outcomes, dynamically re-plans across closed-loop steps, and proves verified settlement.
 
 ---
 
-## 2. Solution
-RevPlug is an autonomous AI-driven revenue recovery control plane that detects revenue at risk via an **Event-Driven Opportunity Detection Engine**, diagnoses transaction failure causes, evaluates bounded interventions via Expected Net Recovery optimization ($EV_{\text{net}}$), enforces zero-violation safety policies, executes recovery workflows, observes real outcomes, dynamically re-plans across closed-loop steps, and proves verified settlement.
+## 2. Core Architectural Principles & Product Integrity
+
+1. **Financial Truth Guarantee**:
+   - Measured money recovered is strictly calculated from verified settlement evidence (`recovery_outcomes`), never derived from AI confidence, estimated EV, or planned interventions.
+   - Clear distinction maintained across all surfaces: `At Risk`, `Expected Recovery`, `Attempted`, `Verified Recovered`.
+
+2. **Data Provenance & Provenance Labeling**:
+   - Surfaces explicitly differentiate between `LIVE RECOVERY DATA`, `BENCHMARK / SYNTHETIC DATA`, and `VERIFIED SETTLEMENT EVIDENCE`.
+   - Production analytics contain **zero fabricated/dummy metrics**. Empty states are honestly presented when insufficient data exists.
+
+3. **Transactional Data Clearing Facility**:
+   - Full-stack capability (`DELETE /api/recovery-items/{id}`) to clear any specific recovery case and all corresponding derived operational data (`attempts`, `decisions`, `outcomes`, `promises`, `jobs`, `provider_events`).
+   - Includes backend dependency graph preview (`GET /api/recovery-items/{id}/clear-preview`) and an append-only compliance audit tombstone (`action="case_cleared"`).
+
+4. **Deterministic Policy Shield**:
+   - Strict server-side policy engine (`v1.0`, `v1.1`) enforcing 5 hard constraints (`retry_limit`, `block_hard_failure`, `opt_out_block`, `contact_frequency_limit`, `terminal_state_block`). AI agents are strictly forbidden from altering or bypassing policy rules.
 
 ---
 
-## 3. Product Operating Experience
-1. Launch the web interface at `http://localhost:3000/recovery`.
-2. Explore the **REVENUE OPERATIONS INBOX** (`GET /api/opportunity-inbox`) pre-sorted by Expected Net Recovery ($EV_{\text{net}}$) with synthetic evaluation customers and neutral identifiers.
-3. Navigate to **Single Case Control Plane** (`/run-recovery`) to evaluate any persisted case through the full closed-loop orchestrator trace, Decision Card centerpiece, Payment Method Optimization reasoning, and HMAC settlement verifier.
-4. Watch RevPlug detect revenue at risk, diagnose root causes, attempt payment retries, observe execution failures, dynamically pivot to Payment Links, verify HMAC payment settlement, and update the financial ledger with **0 policy violations**.
+## 3. Operating Experience
+
+1. Launch the web interface at `http://localhost:3000/dashboard`.
+2. View **REVENUE OPERATIONS CONTROL PLANE** pre-sorted by Expected Net Recovery ($EV_{\text{net}}$).
+3. Click any case (`/recovery/[id]`) to inspect the full 10-Stage Operational Timeline, Decision Card centerpiece, Policy Shield checks, and HMAC settlement verifier.
+4. Click **Clear recovery data** inside any case view to inspect the backend dependency graph (`1 recovery case`, `N decisions`, `N attempts`, `N outcomes`, `N promises`) and clear the case transactionally.
+5. Open **Strategy Analytics** (`/strategy-analytics`) or **Revenue Leakage** (`/leakage`) to inspect data-driven strategy performance tables, model calibration accuracy, and causality attribution breakdown.
 
 ---
 
 ## 4. Architecture
-RevPlug follows a strict hybrid control plane separating reasoning from execution authority:
 
 ```text
                                1. TELEMETRY & WEBHOOK INGESTION
@@ -34,69 +52,57 @@ RevPlug follows a strict hybrid control plane separating reasoning from executio
                     (Root Cause Classifier & Expected Net EV Scorer)
                                               │
                                               ▼
-                                   3. REASONING LAYER (AI)
-                  Contextual LLM Reasoning (Groq Primary / Gemini Secondary)
-                  Outputs: Root Cause Classification & Candidate Proposals
+                             3. CUSTOMER 360 RECOVERY PROFILE
+                   (LTV, Payment History, Contact Budget, Risk Score)
                                               │
                                               ▼
-                                   4. EXPECTED VALUE SCORER
-                  Scoring Matrix: EV = Recovery Probability × Value - Cost - Friction
+                             4. REASONING & PLAYBOOK LAYER (AI)
+                   Contextual LLM Reasoning (Groq Primary / Gemini Secondary)
+                   Outputs: Bounded Strategy & Candidate Ranking
                                               │
                                               ▼
-                                   5. SERVER-SIDE POLICY GATE
-                   Deterministic Rules: Fraud Shield / Opt-out / Contact Frequency
-                                      ↙             ↘
-                               [ALLOW]               [BLOCK / STOP]
-                                  │                         │
-                                  ▼                         ▼
-                       6. BOUNDED EXECUTOR            0 API Calls Made
-                     (Razorpay / Simulated API)     Capital Protected (₹18.2k)
-                                  │                         │
-                                  ▼                         │
-                      7. OBSERVE REAL OUTCOME               │
-                    (Gateway Webhook Verification)          │
-                                  │                         │
-                                  ▼                         │
-                      8. CLOSED-LOOP RE-PLAN                │
-                   (Pivot Strategy if Failed)               │
-                                  │                         │
-                                  └────────────┬────────────┘
-                                               ▼
-                                   9. IMMUTABLE AUDIT LEDGER
-                              (Causal Attribution & Outcome Memory)
+                             5. EXPECTED VALUE & TIMING SCORER
+                   Scoring Formula: EV_net = Gross * P_recovery - Cost - Friction
+                                              │
+                                              ▼
+                             6. SERVER-SIDE POLICY GATE
+                    Deterministic Rules: Fraud Shield / Opt-out / Contact Budget
+                                       ↙             ↘
+                                [ALLOW]               [BLOCK / STOP]
+                                   │                         │
+                                   ▼                         ▼
+                        7. BOUNDED EXECUTOR            0 API Calls Made
+                      (Razorpay / Simulated API)     Capital Protected (₹18.2k)
+                                   │                         │
+                                   ▼                         │
+                       8. OBSERVE REAL OUTCOME               │
+                     (Gateway Webhook Verification)          │
+                                   │                         │
+                                   ▼                         │
+                       9. CLOSED-LOOP RE-PLAN                │
+                    (Pivot Strategy if Failed)               │
+                                   │                         │
+                                   └────────────┬────────────┘
+                                                ▼
+                                    10. IMMUTABLE AUDIT LEDGER
+                               (Causal Attribution & Outcome Learning)
 ```
 
 ---
 
-## 5. Autonomous Closed-Loop Example
-- **Initial State**: ₹18,500 at risk (Gateway Error: `authentication_required`).
-- **Step 1 Action**: Agent selects `retry_payment` ($EV = \text{₹16,650.00}$). Execution returns retry failure (`authentication_required`).
-- **Observation & Re-Plan**: State machine records execution observation. Agent re-evaluates candidates: `retry_payment` EV degrades to ₹0; `send_payment_link` ranks highest ($EV = \text{₹15,725.00}$).
-- **Step 2 Action**: Agent pivots strategy to `send_payment_link`.
-- **Outcome**: Customer completes checkout. HMAC-verified webhook transitions case status to `RECOVERED` with **₹18,500.00 verified settlement**.
+## 5. Safety Model & Compliance Invariants
 
----
-
-## 6. Safety Model
 - **Deterministic Policy Engine**: 5 hard safety rules (`retry_limit`, `block_hard_failure`, `opt_out_block`, `contact_frequency_limit`, `terminal_state_block`).
 - **Human Override Protection**: Human escalations CANNOT bypass hard safety rules (`HTTP 400 Policy Violation`).
 - **Prompt-Injection Defense**: System prompts explicitly declare all customer message text, notes, and error descriptions as `UNTRUSTED DATA`.
 - **ActionRegistry Allowlist**: Validates model output action strings against an allowlist before policy or execution.
+- **Audit Log Append-Only Guarantee**: Audit log records remain immutable. Deleting a case appends a tombstone record while purging operational state.
 
 ---
 
-## 7. Benchmark Methodology
-- **Multi-Seed Evaluation**: 1,000 cases evaluated across 10 reproducible random seeds (`seeds = 42..51`, 100 cases per seed).
-- **Baselines Evaluated**:
-  - *Baseline A (Naive Retry)*: Blindly retries twice without checking fraud or opt-outs.
-  - *Baseline B (Safe Fixed Retry)*: Enforces 100% identical policy rules as RevPlug, non-adaptive.
-  - *Baseline C (Best Fixed Action)*: Uses best single failure-matched action, non-adaptive.
-  - *RevPlug Autonomous Agent*: Evaluates EV, checks policy, executes bounded action, observes outcome, and dynamically re-plans.
-- **Fairness Invariants**: Identical cases, initial customer states, and cost models across evaluators. Zero counterfactual target leakage before decision time.
+## 6. Benchmark Evaluation Results
 
----
-
-## 8. Benchmark Results
+Statistical evaluation across **1,000 cases (10 reproducible seeds: 42..51, 100 cases per seed)**:
 
 | Metric | Baseline A (Naive Retry) | Baseline B (Safe Fixed Retry) | Baseline C (Best Fixed) | RevPlug Autonomous Agent | RevPlug Lift / Advantage |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -110,8 +116,9 @@ RevPlug follows a strict hybrid control plane separating reasoning from executio
 
 ---
 
-## 9. Verification & Test Suite
+## 7. Verification & Test Suite
 
-- **Default Test Suite**: `python -m pytest` → **830 passed, 34 skipped** (runs deterministically without requiring external PostgreSQL or Razorpay infrastructure).
-- **PostgreSQL Integration Tests**: `pytest tests/test_postgres_integration.py -v` (runs when PostgreSQL is reachable; automatically skipped when PostgreSQL is not running).
-- **Frontend Build**: `npx tsc --noEmit` & `npm run build` → **0 errors (21/21 static & dynamic pages compiled successfully)**.
+- **Default Test Suite**: `python -m pytest` → **All passing** (runs deterministically without requiring external PostgreSQL or Razorpay infrastructure).
+- **Data Clearing & Analytics Integrity Tests**: `pytest tests/test_dashboard_api.py -v` → Verifies operational data purging, atomicity, idempotency, and truthful empty states.
+- **PostgreSQL Integration Tests**: `pytest tests/test_postgres_integration.py -v` (runs when PostgreSQL is reachable; automatically skipped when PostgreSQL is offline).
+- **Frontend Build**: `npx tsc --noEmit` & `npm run build` → **0 errors (All static & dynamic pages compiled successfully)**.
