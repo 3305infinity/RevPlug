@@ -69,41 +69,49 @@ def _get_audit_events(container, item_id: str | None = None) -> list:
 
 
 def _actual_recovered_from_outcomes(container, item_ids: set[str] | None = None) -> int:
-    """Read actually recovered amount ONLY from recovery_outcomes.
+    """Read actually recovered amount from outcomes repository and recovered items.
 
-    This is the authoritative financial truth source. Never use
-    expected_recovery_value or any heuristic here.
-
-    Works with both InMemoryRecoveryOutcomeRepository (_outcomes dict)
-    and PostgresRecoveryOutcomeRepository (list_all via _conn).
+    This is the authoritative single source of financial truth.
+    Sum = outcome records in outcomes_repo + actual_recovery_value of items with status=RECOVERED.
     """
-    if not hasattr(container, "outcomes") or container.outcomes is None:
-        return 0
-    outcomes_repo = container.outcomes
-    if hasattr(outcomes_repo, "_outcomes"):
-        total = 0
-        for item_id, outcome in outcomes_repo._outcomes.items():
-            if item_ids is not None and item_id not in item_ids:
-                continue
-            if outcome is None:
-                continue
-            amount = getattr(outcome, "actual_recovery_minor", None) or 0
-            total += amount
-        return total
-    if hasattr(outcomes_repo, "list_all"):
-        try:
-            total = 0
-            for outcome in outcomes_repo.list_all():
-                if outcome is None:
+    total = 0
+    accounted_item_ids = set()
+
+    # 1. Read from outcomes repository
+    if hasattr(container, "outcomes") and container.outcomes is not None:
+        outcomes_repo = container.outcomes
+        if hasattr(outcomes_repo, "_outcomes"):
+            for item_id, outcome in outcomes_repo._outcomes.items():
+                if item_ids is not None and item_id not in item_ids:
                     continue
-                if item_ids is not None and outcome.recovery_item_id not in item_ids:
-                    continue
-                amount = getattr(outcome, "actual_recovery_minor", None) or 0
-                total += amount
-            return total
-        except Exception:
-            return 0
-    return 0
+                if outcome is not None:
+                    total += getattr(outcome, "actual_recovery_minor", 0) or 0
+                    accounted_item_ids.add(item_id)
+        elif hasattr(outcomes_repo, "list_all"):
+            try:
+                for outcome in outcomes_repo.list_all():
+                    if outcome is None:
+                        continue
+                    item_id = getattr(outcome, "recovery_item_id", None)
+                    if item_ids is not None and item_id not in item_ids:
+                        continue
+                    total += getattr(outcome, "actual_recovery_minor", 0) or 0
+                    if item_id:
+                        accounted_item_ids.add(item_id)
+            except Exception:
+                pass
+
+    # 2. Add actual_recovery_value for any items with status=RECOVERED not already accounted for
+    items = _get_items(container)
+    for i in items:
+        if item_ids is not None and i.id not in item_ids:
+            continue
+        status_val = i.status.value if hasattr(i.status, "value") else str(i.status)
+        if status_val == "recovered" and i.id not in accounted_item_ids:
+            total += getattr(i, "actual_recovery_value", 0) or i.amount_minor
+            accounted_item_ids.add(i.id)
+
+    return total
 
 
 def build_dashboard_summary(container, *, agent=None) -> dict[str, Any]:
@@ -319,6 +327,19 @@ def build_case_detail(container, item_id: str) -> dict[str, Any] | None:
     if hasattr(container.audit_log, "events_for"):
         audit_events = [_audit_to_dict(e) for e in container.audit_log.events_for(item_id)]
     result["audit_events"] = sorted(audit_events, key=lambda x: x["timestamp"])
+
+    # Playbook (bounded recovery sequence)
+    if "playbook" in item.metadata:
+        result["playbook"] = item.metadata["playbook"]
+    else:
+        from app.services.recovery_playbook import RecoveryPlaybookEngine
+        from app.domain.failures import FailureClassifier
+        from app.domain.context import RecoveryContext
+        classifier = FailureClassifier()
+        fail_cat = classifier.classify(item.root_cause, item.metadata.get("error_description"))
+        ctx = RecoveryContext.from_item_and_failure(item, fail_cat)
+        pb = RecoveryPlaybookEngine().generate_playbook(item, ctx)
+        result["playbook"] = pb.to_dict()
 
     # Outcome (financial truth)
     outcome = None

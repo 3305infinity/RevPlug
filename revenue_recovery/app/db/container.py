@@ -44,75 +44,67 @@ class PersistenceContainer:
     batches: "object | None" = None  # InMemoryBatchRepository (Stage 8 batch recovery)
 
     def reset_demo_data(self) -> int:
-        """Permanently deletes all synthetic data marked for demos."""
-        # 1. PostgreSQL mode
-        if hasattr(self.recovery_items, "_conn"):
+        """Permanently deletes synthetic and existing recovery items and cleans all stores."""
+        count = 0
+
+        # 1. PostgreSQL Deletion Path (if configured)
+        if hasattr(self.recovery_items, "_conn") and getattr(self.recovery_items, "_conn") is not None:
             db_conn = getattr(self.recovery_items, "_conn")
             try:
-                rows = db_conn.fetchall(
-                    "SELECT id FROM recovery_items WHERE metadata->>'is_synthetic' = 'true'"
-                )
-                if not rows:
-                    rows = db_conn.fetchall("SELECT id FROM recovery_items")
+                rows = db_conn.fetchall("SELECT id FROM recovery_items")
+                if rows:
+                    item_ids = [r["id"] for r in rows if isinstance(r, dict) and "id" in r]
+                    count = len(item_ids)
 
-                if not rows:
-                    return 0
+                    if item_ids:
+                        for table in ["recovery_outcomes", "promises", "audit_log", "attempts", "recovery_decisions", "recovery_jobs"]:
+                            try:
+                                db_conn.execute(f"DELETE FROM {table} WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
+                            except Exception:
+                                pass
 
-                item_ids = [r["id"] for r in rows if isinstance(r, dict) and "id" in r]
-                if not item_ids:
-                    return 0
+                        db_conn.execute("DELETE FROM recovery_items WHERE id = ANY(%(ids)s)", {"ids": item_ids})
 
-                db_conn.execute("DELETE FROM recovery_outcomes WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
-                db_conn.execute("DELETE FROM promises WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
-                db_conn.execute("DELETE FROM audit_log WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
-                db_conn.execute("DELETE FROM attempts WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
-                db_conn.execute("DELETE FROM recovery_decisions WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
-                try:
-                    db_conn.execute("DELETE FROM recovery_jobs WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
-                except Exception:
-                    pass
-                db_conn.execute("DELETE FROM recovery_items WHERE id = ANY(%(ids)s)", {"ids": item_ids})
-                try:
-                    db_conn.execute("DELETE FROM recovery_batches WHERE true")
-                except Exception:
-                    pass
-                return len(item_ids)
+                    try:
+                        db_conn.execute("DELETE FROM recovery_batches WHERE true")
+                    except Exception:
+                        pass
             except Exception as exc:
-                print(f"[reset_demo_data] Error resetting PostgreSQL demo data: {exc}")
-                return 0
+                print(f"[reset_demo_data] PostgreSQL deletion warning: {exc}")
 
-        # 2. In-Memory mode
-        count = 0
+        # 2. In-Memory Deletion Path (cleans all in-memory repository caches)
         if hasattr(self.recovery_items, "_items"):
             items_repo = getattr(self.recovery_items, "_items")
-            synthetic_ids = {k for k, v in items_repo.items() if v.metadata and v.metadata.get("is_synthetic") is True}
-            if not synthetic_ids:
-                synthetic_ids = set(items_repo.keys())
-            count = len(synthetic_ids)
-            for k in list(synthetic_ids):
-                items_repo.pop(k, None)
+            mem_count = len(items_repo)
+            count = max(count, mem_count)
+            items_repo.clear()
 
-            # Clean dependent in-memory stores
-            if hasattr(self.audit_log, "_events"):
-                events = getattr(self.audit_log, "_events")
-                events[:] = [e for e in events if getattr(e, "recovery_item_id", None) not in synthetic_ids]
-            if hasattr(self.attempts, "_records"):
-                records = getattr(self.attempts, "_records")
-                records[:] = [r for r in records if getattr(r, "recovery_item_id", None) not in synthetic_ids]
-            if hasattr(self.outcomes, "_outcomes"):
-                outcomes = getattr(self.outcomes, "_outcomes")
-                for k in synthetic_ids:
-                    outcomes.pop(k, None)
-            if hasattr(self.promises, "_by_item"):
-                promises_by_item = getattr(self.promises, "_by_item")
-                promises_by_id = getattr(self.promises, "_by_id")
-                for k in synthetic_ids:
-                    p = promises_by_item.pop(k, None)
-                    if p:
-                        if isinstance(p, dict):
-                            promises_by_id.pop(p.get("id"), None)
-                        else:
-                            promises_by_id.pop(getattr(p, "id", None), None)
+        if hasattr(self.audit_log, "_events"):
+            events = getattr(self.audit_log, "_events")
+            events.clear()
+
+        if hasattr(self.attempts, "_records"):
+            records = getattr(self.attempts, "_records")
+            records.clear()
+
+        if hasattr(self.decisions, "_decisions"):
+            decisions = getattr(self.decisions, "_decisions")
+            decisions.clear()
+
+        if hasattr(self.outcomes, "_outcomes"):
+            outcomes = getattr(self.outcomes, "_outcomes")
+            outcomes.clear()
+
+        if hasattr(self.promises, "_by_item"):
+            promises_by_item = getattr(self.promises, "_by_item")
+            promises_by_item.clear()
+        if hasattr(self.promises, "_by_id"):
+            promises_by_id = getattr(self.promises, "_by_id")
+            promises_by_id.clear()
+
+        if hasattr(self, "batches") and self.batches is not None and hasattr(self.batches, "_batches"):
+            batches_repo = getattr(self.batches, "_batches")
+            batches_repo.clear()
 
         return count
 

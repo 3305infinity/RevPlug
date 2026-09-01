@@ -183,6 +183,123 @@ async def api_demo_payment_failure(
             response_body["escalation_reason"] = escalation.reason.value
     return JSONResponse(status_code=200, content=response_body)
 
+
+@router.post("/api/demo/hinglish-recovery")
+async def api_demo_hinglish_recovery(
+    request: Request,
+    container: PersistenceContainer = Depends(get_container),
+) -> Response:
+    """Run Hinglish customer voice/chat promise extraction scenario."""
+    import json
+    body = await request.body()
+    payload = json.loads(body) if body else {}
+    text = payload.get("text", "Haan kal tak payment clear kar dunga ₹15,000")
+
+    from app.services.hinglish_promise import HinglishPromiseExtractor
+    extractor = HinglishPromiseExtractor()
+    extracted = extractor.extract(text)
+
+    from datetime import datetime, timezone
+    from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+    import uuid
+    item_id = f"it_hinglish_{uuid.uuid4().hex[:8]}"
+
+    item = RecoveryItem(
+        id=item_id,
+        source_type=SourceType.PAYMENT_FAILURE,
+        external_id=f"ext_{item_id}",
+        customer_id=payload.get("customer_id", "cust_hinglish_101"),
+        amount_minor=extracted.amount_minor or 1500000,
+        currency="INR",
+        created_at=datetime.now(timezone.utc),
+        status=RecoveryStatus.INTERVENTION_PENDING,
+        root_cause="hinglish_promise_active",
+        expected_recovery_value=extracted.amount_minor or 1500000,
+        actual_recovery_value=0,
+        metadata={
+            "hinglish_text": text,
+            "extracted_intent": extracted.intent,
+            "promised_date": extracted.promised_date,
+            "extraction_confidence": extracted.confidence,
+            "is_synthetic": True,
+        },
+    )
+    container.recovery_items.save(item)
+
+    if extracted.promised_date and hasattr(container, "promises") and container.promises is not None:
+        from app.services.promise_to_pay import PromiseToPayTracker
+        tracker = PromiseToPayTracker()
+        tracker.create_promise(item, item.amount_minor, extracted.promised_date, notes=f"Hinglish chat: '{text}'")
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "promise_captured",
+            "recovery_item_id": item.id,
+            "hinglish_text": text,
+            "extracted_intent": extracted.intent,
+            "promised_date": extracted.promised_date,
+            "extraction_confidence": extracted.confidence,
+            "recommended_action": "wait_for_promise",
+            "policy_rule": "promise_active_wait",
+        },
+    )
+
+
+@router.post("/api/demo/b2b-promise-to-pay")
+async def api_demo_b2b_promise_to_pay(
+    request: Request,
+    container: PersistenceContainer = Depends(get_container),
+) -> Response:
+    """Run B2B Promise-to-Pay overdue invoice scenario."""
+    import json
+    body = await request.body()
+    payload = json.loads(body) if body else {}
+    amount = payload.get("amount_minor", 25000000)
+
+    from datetime import datetime, timezone
+    from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+    import uuid
+    item_id = f"it_ptp_b2b_{uuid.uuid4().hex[:8]}"
+
+    item = RecoveryItem(
+        id=item_id,
+        source_type=SourceType.RECEIVABLE,
+        external_id=f"inv_b2b_{item_id}",
+        customer_id=payload.get("customer_id", "cust_corp_acme"),
+        amount_minor=amount,
+        currency="INR",
+        created_at=datetime.now(timezone.utc),
+        status=RecoveryStatus.INTERVENTION_PENDING,
+        root_cause="overdue_receivable",
+        expected_recovery_value=int(amount * 0.95),
+        actual_recovery_value=0,
+        metadata={
+            "invoice_number": "INV-2026-884",
+            "due_days_ago": 14,
+            "promise_date": "2026-12-31",
+            "is_synthetic": True,
+        },
+    )
+    container.recovery_items.save(item)
+
+    from app.services.promise_to_pay import PromiseToPayTracker
+    tracker = PromiseToPayTracker()
+    rec = tracker.create_promise(item, amount, "2026-12-31", notes="Client Accounts Payable promised wire transfer")
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "promise_recorded",
+            "recovery_item_id": item.id,
+            "amount_minor": amount,
+            "promised_date": "2026-12-31",
+            "promise_status": rec.status,
+            "recommended_action": "send_reminder",
+            "policy_rule": "b2b_receivable_grace_period",
+        },
+    )
+
 @router.post("/api/demo/batch-payment-failures")
 async def api_batch_payment_failures(
     request: Request,

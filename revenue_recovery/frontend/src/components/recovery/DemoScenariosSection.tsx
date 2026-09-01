@@ -68,6 +68,34 @@ const PRESET_SCENARIOS: ScenarioDef[] = [
       metadata: { fraud_flag: true, failure_category: "fraud" },
     },
   },
+  {
+    id: "scen_5",
+    title: "Scenario 5: Hinglish Voice/Chat Recovery → Intent Extraction → Promise Active",
+    badge: "HINGLISH VOICE/CHAT",
+    description: "Customer responds in Hinglish: 'Haan kal tak payment clear kar dunga ₹15,000'. Intent extracted, promise recorded.",
+    payload: {
+      amount_minor: 1500000,
+      currency: "INR",
+      error_reason: "hinglish_promise_active",
+      method: "upi",
+      customer_id: "cust_hinglish_505",
+      metadata: { text: "Haan kal tak payment clear kar dunga ₹15,000" },
+    },
+  },
+  {
+    id: "scen_6",
+    title: "Scenario 6: B2B Overdue Invoice → Promise-to-Pay Tracker → Grace Period",
+    badge: "B2B PROMISE-TO-PAY",
+    description: "₹2,50,000 B2B invoice overdue by 14 days. AP team promises wire transfer by Dec 31. Status updated to AWAITING_PAYMENT.",
+    payload: {
+      amount_minor: 25000000,
+      currency: "INR",
+      error_reason: "overdue_receivable",
+      method: "wire",
+      customer_id: "cust_corp_acme",
+      metadata: { invoice_number: "INV-2026-884", promise_date: "2026-12-31" },
+    },
+  },
 ];
 
 export default function DemoScenariosSection() {

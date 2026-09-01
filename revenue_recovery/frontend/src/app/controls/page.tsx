@@ -219,7 +219,7 @@ export default function ControlsPage() {
       {/* THREE CANONICAL DECISION TRACE EXAMPLES */}
       <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem" }}>
         <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "1rem" }}>
-          THREE CANONICAL DECISION TRACES (REAL BACKEND AUDIT EVIDENCE)
+          DECISION TRACES (REAL BACKEND AUDIT EVIDENCE)
         </div>
 
         <div style={{ display: "grid", gap: "1rem" }}>

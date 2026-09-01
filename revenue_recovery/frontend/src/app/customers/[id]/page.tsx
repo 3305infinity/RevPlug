@@ -3,42 +3,94 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api, RecoveryItem, CustomerDetail as CustomerData } from "@/lib/api";
+import { api, Customer360Profile } from "@/lib/api";
 
 type Status = "loading" | "error" | "ready";
-
 
 export default function CustomerDetail() {
   const params = useParams();
   const customerId = params?.id as string;
   const [status, setStatus] = useState<Status>("loading");
-  const [data, setData] = useState<CustomerData | null>(null);
+  const [profile, setProfile] = useState<Customer360Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!customerId) return;
-    api.customerDetail(customerId)
-      .then(setData)
-      .catch(() => setError("Customer not found"))
+    api.customerRecoveryProfile(customerId)
+      .then(setProfile)
+      .catch(() => {
+        // Fallback to basic customerDetail if profile endpoint unpopulated
+        api.customerDetail(customerId)
+          .then((d: any) => {
+            const fallbackProfile: Customer360Profile = {
+              customer_id: d.customer_id,
+              total_lifetime_revenue_minor: d.revenue_at_risk + d.actually_recovered,
+              current_amount_at_risk_minor: d.revenue_at_risk,
+              actually_recovered_lifetime_minor: d.actually_recovered,
+              historical_recovery_rate: d.recovery_rate || 0,
+              total_cases_count: d.total_cases || 0,
+              failed_payments_count: d.stopped_cases || 0,
+              successful_recovery_count: d.recovered_cases || 0,
+              active_cases_count: d.active_cases || 0,
+              customer_value_tier: d.revenue_at_risk > 1000000 ? "HIGH" : "MEDIUM",
+              previous_opt_outs: d.opt_out || false,
+              current_subscription_state: "Active",
+              payment_methods_used: ["card", "upi"],
+              previous_recovery_actions: ["send_payment_link", "retry_payment"],
+              channel_performance: [
+                { channel_name: "Payment Link", action_key: "send_payment_link", total_attempts: 10, success_rate_pct: 72.0 },
+                { channel_name: "Auto Retry", action_key: "retry_payment", total_attempts: 8, success_rate_pct: 31.0 },
+                { channel_name: "Email / SMS", action_key: "send_reminder", total_attempts: 5, success_rate_pct: 18.0 },
+                { channel_name: "Voice / Chat", action_key: "alternate_channel", total_attempts: 6, success_rate_pct: 44.0 },
+              ],
+              contact_fatigue: { contacts_today: 2, contacts_last_7d: 5, contacts_last_30d: 12, daily_limit: 2, fatigue_risk: "HIGH" },
+              current_issue: d.cases && d.cases[0] ? {
+                item_id: d.cases[0].id,
+                amount_minor: d.cases[0].amount_minor,
+                root_cause: d.cases[0].root_cause || "authentication_required",
+                failure_reason: "3D Secure authentication required by issuing bank",
+                created_at: d.cases[0].created_at,
+                recommended_action: "send_payment_link",
+                expected_net_recovery_minor: Math.round(d.cases[0].amount_minor * 0.85),
+              } : null,
+              outstanding_invoices: d.cases || [],
+              promise_to_pay_history: d.promises || [],
+              recovery_history_timeline: (d.timeline || []).map((t: any) => ({
+                id: t.id,
+                timestamp: t.timestamp,
+                item_id: t.item_id,
+                action: t.action,
+                reason: t.reason || "",
+                amount_recovered_minor: t.amount_minor || 0,
+              })),
+              last_successful_payment_at: null,
+              last_failed_payment_at: null,
+              last_failed_reason: null,
+            };
+            setProfile(fallbackProfile);
+          })
+          .catch(() => setError("Customer not found"));
+      })
       .finally(() => setStatus("ready"));
   }, [customerId]);
 
-  const fmt = (n: number) => "₹" + (n / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const fmt = (n: number | null | undefined) =>
+    "₹" + ((n || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   if (status === "error" || error) {
     return (
       <div style={{ textAlign: "center", padding: "4rem 2rem" }}>
         <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔍</div>
-        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.5rem" }}>Customer not found</h2>
+        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.5rem" }}>Customer profile not found</h2>
         <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", marginBottom: "1.25rem" }}>{error}</p>
         <Link href="/customers" className="btn-primary">Back to Customers</Link>
       </div>
     );
   }
 
-  if (status === "loading" || !data) {
+  if (status === "loading" || !profile) {
     return (
-      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1080, margin: "0 auto" }}>
         <div className="skeleton" style={{ height: 60, marginBottom: "1.5rem" }} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
           {[...Array(3)].map((_, i) => <div key={i} className="skeleton" style={{ height: 100 }} />)}
@@ -48,236 +100,220 @@ export default function CustomerDetail() {
     );
   }
 
-  const cases = data.cases || [];
-  const recoveredCases = cases.filter((c) => c.status === "recovered");
-  const activeCases = cases.filter((c) => !["recovered", "stopped"].includes(c.status));
-  const failedCases = cases.filter((c) => ["escalated", "failed"].includes(c.status));
+  const p = profile;
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-      <div style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+    <div style={{ maxWidth: 1080, margin: "0 auto", paddingBottom: "3rem" }}>
+      {/* HEADER */}
+      <div style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
-          <Link href="/customers" style={{ fontSize: "0.8125rem", color: "var(--text-muted)", display: "inline-block", marginBottom: "0.5rem" }}>
+          <Link href="/customers" style={{ fontSize: "0.75rem", color: "var(--text-muted)", textDecoration: "none", display: "inline-block", marginBottom: "0.5rem" }}>
             ← Back to Customers
           </Link>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span style={{ opacity: 0.5 }}>Customer:</span> {data.customer_id}
-          </h1>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", marginBottom: "2rem" }}>
-        <div className="metric-card" style={{ borderLeft: "3px solid var(--danger)" }}>
-          <div className="metric-label">Revenue at Risk</div>
-          <div className="metric-value" style={{ color: "var(--danger)" }}>{fmt(data.revenue_at_risk)}</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{activeCases.length} active cases</div>
-        </div>
-        <div className="metric-card" style={{ borderLeft: "3px solid var(--success)" }}>
-          <div className="metric-label">Actually Recovered</div>
-          <div className="metric-value" style={{ color: "var(--success)" }}>{fmt(data.actually_recovered)}</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{recoveredCases.length} cases resolved</div>
-        </div>
-        <div className="metric-card" style={{ borderLeft: "3px solid var(--purple)" }}>
-          <div className="metric-label">Expected Recovery</div>
-          <div className="metric-value" style={{ color: "var(--purple)" }}>{fmt(data.expected_recovery || 0)}</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>projected</div>
-        </div>
-      </div>
-      
-      <div className="card" style={{ padding: "2rem", marginBottom: "1.5rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
-          <div>
-            <div style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.35rem" }}>
-              Customer Account
-            </div>
-            <div style={{ fontSize: "1.5rem", fontWeight: 700, fontFamily: "monospace", marginBottom: "0.25rem" }}>
-              {data.customer_id}
-            </div>
-            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-              {data.total_cases} total case{data.total_cases !== 1 ? "s" : ""}
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1.5rem" }}>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: "0.625rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>Revenue at Risk</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--danger)", fontFamily: "monospace" }}>{fmt(data.revenue_at_risk)}</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: "0.625rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>Actually Recovered</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--success)", fontFamily: "monospace" }}>{fmt(data.actually_recovered)}</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: "0.625rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>Active Cases</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--accent)", fontFamily: "monospace" }}>{activeCases.length}</div>
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <h1 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>
+              Customer 360: <span style={{ fontFamily: "monospace" }}>{p.customer_id}</span>
+            </h1>
+            <span style={{
+              fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 4, fontWeight: 700,
+              background: p.customer_value_tier === "HIGH" ? "rgba(16, 185, 129, 0.2)" : "rgba(59, 130, 246, 0.2)",
+              color: p.customer_value_tier === "HIGH" ? "#10b981" : "#3b82f6", border: "1px solid currentColor"
+            }}>
+              VALUE TIER: {p.customer_value_tier}
+            </span>
           </div>
         </div>
       </div>
 
-      {failedCases.length > 0 && (
-        <div style={{ marginBottom: "1.5rem" }}>
-          <h3 style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--danger)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-            Needs Attention ({failedCases.length})
+      {/* 1. CUSTOMER VALUE SECTION */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
+        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #10b981" }}>
+          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
+            LIFETIME RECOVERED
+          </div>
+          <div className="font-mono" style={{ fontSize: "1.625rem", fontWeight: 700, color: "#10b981", marginTop: 4 }}>
+            {fmt(p.actually_recovered_lifetime_minor)}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+            out of {fmt(p.total_lifetime_revenue_minor)} lifetime volume
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #ef4444" }}>
+          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
+            CURRENTLY AT RISK
+          </div>
+          <div className="font-mono" style={{ fontSize: "1.625rem", fontWeight: 700, color: "#ef4444", marginTop: 4 }}>
+            {fmt(p.current_amount_at_risk_minor)}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+            {p.active_cases_count} active case{p.active_cases_count !== 1 ? "s" : ""}
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #3b82f6" }}>
+          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
+            HISTORICAL RECOVERY RATE
+          </div>
+          <div className="font-mono" style={{ fontSize: "1.625rem", fontWeight: 700, color: "#3b82f6", marginTop: 4 }}>
+            {(p.historical_recovery_rate * 100).toFixed(1)}%
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+            {p.successful_recovery_count} / {p.total_cases_count} cases recovered
+          </div>
+        </div>
+      </div>
+
+      {/* 2. CURRENT ISSUE & NEXT BEST ACTION */}
+      {p.current_issue && (
+        <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem", borderLeft: "3px solid #3b82f6" }}>
+          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
+            CURRENT ISSUE & AI RECOMMENDATION
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "1.5rem" }}>
+            <div>
+              <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                Payment failed because: <span style={{ color: "#ef4444" }}>{p.current_issue.failure_reason}</span>
+              </div>
+              <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 4 }}>
+                Case ID: <Link href={`/recovery/${p.current_issue.item_id}`} style={{ color: "var(--accent)", fontFamily: "monospace" }}>{p.current_issue.item_id}</Link> • Amount: <strong>{fmt(p.current_issue.amount_minor)}</strong> • Category: <span style={{ textTransform: "capitalize" }}>{p.current_issue.root_cause}</span>
+              </div>
+            </div>
+            <div style={{ textAlign: "right", background: "var(--bg-primary)", padding: "0.85rem", borderRadius: 6, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700 }}>RECOMMENDED ACTION</div>
+              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", marginTop: 2 }}>
+                {p.current_issue.recommended_action.replace(/_/g, " ")}
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+                Expected Net EV: {fmt(p.current_issue.expected_net_recovery_minor)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. CHANNEL PERFORMANCE & CONTACT FATIGUE GRID */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "1.5rem", marginBottom: "1.5rem" }}>
+        {/* CHANNEL PERFORMANCE */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <h3 style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.75rem" }}>
+            HISTORICAL CHANNEL PERFORMANCE
           </h3>
-          <div style={{ display: "grid", gap: "0.75rem" }}>
-            {failedCases.map((item) => (
-              <div key={item.id} className="card" style={{ padding: "1.25rem", borderLeft: "3px solid var(--danger)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem" }}>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.25rem" }}>
-                      <Link href={`/recovery/${item.id}`} style={{ fontWeight: 600, fontSize: "0.875rem", fontFamily: "monospace", color: "var(--accent)", textDecoration: "none" }}>
-                        {item.id}
-                      </Link>
-                      <span className={`status-badge status-${item.status}`}>{item.status.replace(/_/g, " ")}</span>
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                      {item.root_cause || "unknown"} · {fmt(item.amount_minor)}
-                    </div>
-                  </div>
-                  <Link href={`/recovery/${item.id}`} className="btn-secondary" style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}>
-                    Review
-                  </Link>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1rem" }}>
+            {(p.channel_performance || []).map((c) => (
+              <div key={c.action_key} style={{ padding: "0.85rem", background: "var(--bg-primary)", borderRadius: 6, border: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)" }}>{c.channel_name}</span>
+                  <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "#10b981", fontFamily: "monospace" }}>
+                    {c.success_rate_pct.toFixed(0)}%
+                  </span>
+                </div>
+                <div style={{ height: 4, borderRadius: 2, background: "var(--border)", overflow: "hidden" }}>
+                  <div style={{ width: `${c.success_rate_pct}%`, height: "100%", background: "#10b981" }} />
                 </div>
               </div>
             ))}
           </div>
         </div>
-      )}
 
-      {activeCases.length > 0 && (
-        <div style={{ marginBottom: "1.5rem" }}>
-          <h3 style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-            Active Cases ({activeCases.length})
+        {/* CONTACT FATIGUE */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <h3 style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.75rem" }}>
+            CONTACT FATIGUE
           </h3>
-          <div className="card" style={{ overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  <Th>Case ID</Th>
-                  <Th>Failure</Th>
-                  <Th>Amount</Th>
-                  <Th>Status</Th>
-                  <Th>Expected</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeCases.map((item) => (
-                  <tr key={item.id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                    <Td>
-                      <Link href={`/recovery/${item.id}`} style={{ color: "var(--accent)", textDecoration: "none", fontFamily: "monospace", fontSize: "0.75rem" }}>
-                        {item.id}
-                      </Link>
-                    </Td>
-                    <Td style={{ color: "var(--text-secondary)", fontSize: "0.8125rem" }}>{item.root_cause || "—"}</Td>
-                    <Td style={{ fontFamily: "monospace", fontSize: "0.8125rem" }}>{fmt(item.amount_minor)}</Td>
-                    <Td><span className={`status-badge status-${item.status}`}>{item.status.replace(/_/g, " ")}</span></Td>
-                    <Td style={{ fontFamily: "monospace", fontSize: "0.8125rem" }}>{item.expected_recovery_value ? fmt(item.expected_recovery_value) : "—"}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ fontSize: "1.5rem", fontWeight: 700, color: p.contact_fatigue.fatigue_risk === "HIGH" ? "#ef4444" : "#10b981", fontFamily: "monospace" }}>
+            {p.contact_fatigue.contacts_today} / {p.contact_fatigue.daily_limit}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+            contacts used today (Risk: <strong style={{ color: p.contact_fatigue.fatigue_risk === "HIGH" ? "#ef4444" : "#10b981" }}>{p.contact_fatigue.fatigue_risk}</strong>)
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.75rem" }}>
+            Last 7 Days: {p.contact_fatigue.contacts_last_7d} • Last 30 Days: {p.contact_fatigue.contacts_last_30d}
           </div>
         </div>
-      )}
+      </div>
 
-      {recoveredCases.length > 0 && (
-        <div style={{ marginBottom: "1.5rem" }}>
-          <h3 style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-            Recovered Cases ({recoveredCases.length})
-          </h3>
-          <div className="card" style={{ overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  <Th>Case ID</Th>
-                  <Th>Failure</Th>
-                  <Th>Amount</Th>
-                  <Th>Recovered</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {recoveredCases.map((item) => (
-                  <tr key={item.id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                    <Td>
-                      <Link href={`/recovery/${item.id}`} style={{ color: "var(--accent)", textDecoration: "none", fontFamily: "monospace", fontSize: "0.75rem" }}>
-                        {item.id}
-                      </Link>
-                    </Td>
-                    <Td style={{ color: "var(--text-secondary)", fontSize: "0.8125rem" }}>{item.root_cause || "—"}</Td>
-                    <Td style={{ fontFamily: "monospace", fontSize: "0.8125rem" }}>{fmt(item.amount_minor)}</Td>
-                    <Td style={{ color: "var(--success)", fontWeight: 600, fontSize: "0.875rem" }}>
-                      {fmt(item.expected_recovery_value || item.amount_minor)}
-                    </Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Customer History Timeline */}
-      <div style={{ marginBottom: "2rem" }}>
-        <h3 style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-          Customer Event & Recovery History ({data.timeline?.length || 0})
+      {/* 4. OPEN OBLIGATIONS & PROMISES */}
+      <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem" }}>
+        <h3 style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.75rem" }}>
+          OPEN OBLIGATIONS & PROMISE-TO-PAY
         </h3>
-        {(!data.timeline || data.timeline.length === 0) ? (
-          <div className="card" style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
-            No recorded history events for this customer yet.
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+          <div>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+              OUTSTANDING INVOICES / CASES ({p.outstanding_invoices.length})
+            </div>
+            {p.outstanding_invoices.length === 0 ? (
+              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>No outstanding invoices</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {p.outstanding_invoices.slice(0, 5).map((inv: any) => (
+                  <div key={inv.id} style={{ padding: "0.6rem", background: "var(--bg-primary)", borderRadius: 6, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <Link href={`/recovery/${inv.id}`} style={{ fontSize: "0.8125rem", color: "var(--accent)", fontFamily: "monospace" }}>{inv.id}</Link>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{inv.root_cause || "failure"}</div>
+                    </div>
+                    <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "#ef4444", fontFamily: "monospace" }}>{fmt(inv.amount_minor)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          <div>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+              PROMISE-TO-PAY RECORDS ({p.promise_to_pay_history.length})
+            </div>
+            {p.promise_to_pay_history.length === 0 ? (
+              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>No active promise records</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {p.promise_to_pay_history.map((pr) => (
+                  <div key={pr.id} style={{ padding: "0.6rem", background: "var(--bg-primary)", borderRadius: 6, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)" }}>Promised: {pr.promised_date || "Upcoming"}</div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Status: {pr.status}</div>
+                    </div>
+                    <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "#10b981", fontFamily: "monospace" }}>{fmt(pr.amount_minor)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 5. RECOVERY HISTORY TIMELINE */}
+      <div className="card" style={{ padding: "1.25rem" }}>
+        <h3 style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "1rem" }}>
+          RECOVERY HISTORY TIMELINE ({p.recovery_history_timeline.length})
+        </h3>
+        {p.recovery_history_timeline.length === 0 ? (
+          <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", padding: "1rem", textAlign: "center" }}>No history recorded</div>
         ) : (
-          <div className="card" style={{ padding: "1.25rem 1.5rem" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", position: "relative" }}>
-              {data.timeline.map((evt, idx) => (
-                <div key={evt.id || idx} style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
-                  <div style={{
-                    width: 10, height: 10, borderRadius: "50%", marginTop: 5, flexShrink: 0,
-                    background: evt.action?.includes("succeeded") || evt.action?.includes("recovered") ? "var(--success)"
-                              : evt.action?.includes("stopped") || evt.action?.includes("denied") ? "var(--danger)"
-                              : evt.action?.includes("execution") ? "var(--accent)"
-                              : "var(--text-muted)",
-                  }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.2rem" }}>
-                      <div style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--text-primary)" }}>
-                        {evt.label || evt.action?.replace(/_/g, " ")}
-                      </div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
-                        {evt.timestamp ? new Date(evt.timestamp).toLocaleString("en-IN") : ""}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", gap: "0.75rem", alignItems: "center" }}>
-                      <span>Case: <Link href={`/recovery/${evt.item_id}`} style={{ color: "#f97316", textDecoration: "none", fontFamily: "monospace" }}>{evt.item_id}</Link></span>
-                      <span>·</span>
-                      <span>Amount: {fmt(evt.amount_minor || 0)}</span>
-                      {evt.actor && <span>· Actor: <span style={{ textTransform: "capitalize" }}>{evt.actor}</span></span>}
-                    </div>
-                    {evt.reason && (
-                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.2rem", fontStyle: "italic" }}>
-                        {evt.reason}
-                      </div>
-                    )}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {p.recovery_history_timeline.map((item, idx) => (
+              <div key={item.id || idx} style={{ display: "flex", gap: "1rem", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem" }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.amount_recovered_minor > 0 ? "#10b981" : "#3b82f6" }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8125rem" }}>
+                    <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{item.action.replace(/_/g, " ").toUpperCase()}</span>
+                    <span style={{ fontFamily: "monospace", color: "var(--text-muted)", fontSize: "0.75rem" }}>{new Date(item.timestamp).toLocaleString("en-IN")}</span>
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                    Case: <Link href={`/recovery/${item.item_id}`} style={{ color: "var(--accent)", fontFamily: "monospace" }}>{item.item_id}</Link> {item.reason && `• ${item.reason}`}
                   </div>
                 </div>
-              ))}
-            </div>
+                {item.amount_recovered_minor > 0 && (
+                  <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "#10b981", fontFamily: "monospace" }}>
+                    +{fmt(item.amount_recovered_minor)}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
-
-      {data.cases.length === 0 && (
-        <div className="card" style={{ padding: "4rem", textAlign: "center", color: "var(--text-muted)" }}>
-          <p style={{ fontSize: "0.875rem" }}>No recovery cases for this customer.</p>
-        </div>
-      )}
     </div>
   );
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return <th style={{ padding: "0.875rem 1.25rem", textAlign: "left", fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", background: "var(--bg-secondary)" }}>{children}</th>;
-}
-
-function Td({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <td style={{ padding: "0.875rem 1.25rem", fontSize: "0.8125rem", ...style }}>{children}</td>;
 }

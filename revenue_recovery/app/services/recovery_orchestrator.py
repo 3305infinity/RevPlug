@@ -779,15 +779,21 @@ class RecoveryOrchestrator:
                 },
             ))
 
+        action_val = getattr(result, "action", None) or getattr(result, "action_type", proposal.action.value)
+        attempt_num = getattr(result, "attempt_number", attempt_number)
+        retry_elig = getattr(result, "retry_eligible", True if result.success else False)
+        err_code = getattr(result, "error_code", None)
+        ts = getattr(result, "executed_at", getattr(result, "timestamp", datetime.now(timezone.utc)))
+
         return {
             "success": result.success,
-            "action": result.action,
-            "attempt_number": result.attempt_number,
+            "action": action_val,
+            "attempt_number": attempt_num,
             "reason": result.reason,
-            "retry_eligible": result.retry_eligible,
-            "error_code": result.error_code,
-            "timestamp": result.timestamp.isoformat() if result.timestamp else None,
-            "metadata": result.metadata or {},
+            "retry_eligible": retry_elig,
+            "error_code": err_code,
+            "timestamp": ts.isoformat() if hasattr(ts, "isoformat") else str(ts),
+            "metadata": getattr(result, "metadata", {}) or {},
         }
 
     def _verify_outcome(self, item: RecoveryItem, execution_result: dict[str, Any] | None, events: list[AuditEvent]) -> dict[str, Any] | None:

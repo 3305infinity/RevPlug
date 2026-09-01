@@ -383,51 +383,7 @@ export default function CaseWorkspace() {
         <DecisionTraceView trace={liveTrace} detail={liveDetail} />
       </div>
 
-      {/* SHOWCASE PRESET SELECTOR */}
-      <div className="card" style={{ padding: "0.875rem 1.25rem", marginBottom: "1.25rem", background: "var(--bg-secondary)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
-          <div>
-            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              DEMO CASE REPLAY PRESETS
-            </div>
-            <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)", marginTop: 2 }}>
-              Demonstrating Autonomous Recovery vs Deterministic Safety Stops
-            </div>
-          </div>
 
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button
-              onClick={() => { setMode("showcase1"); setActiveStep(1); setIsPlaying(false); }}
-              className={`btn-ghost ${mode === "showcase1" ? "active" : ""}`}
-              style={{
-                fontSize: "0.75rem",
-                padding: "0.4rem 0.75rem",
-                borderRadius: 6,
-                border: mode === "showcase1" ? "1px solid var(--accent)" : "1px solid var(--border)",
-                background: mode === "showcase1" ? "rgba(99, 102, 241, 0.1)" : "transparent",
-                color: mode === "showcase1" ? "var(--accent)" : "var(--text-secondary)",
-              }}
-            >
-              Case 1: ₹4,999 Timeout Recovery
-            </button>
-
-            <button
-              onClick={() => { setMode("showcase2"); setActiveStep(1); setIsPlaying(false); }}
-              className={`btn-ghost ${mode === "showcase2" ? "active" : ""}`}
-              style={{
-                fontSize: "0.75rem",
-                padding: "0.4rem 0.75rem",
-                borderRadius: 6,
-                border: mode === "showcase2" ? "1px solid var(--danger)" : "1px solid var(--border)",
-                background: mode === "showcase2" ? "rgba(239, 68, 68, 0.1)" : "transparent",
-                color: mode === "showcase2" ? "var(--danger)" : "var(--text-secondary)",
-              }}
-            >
-              Case 2: ₹18,200 Fraud Safety Stop
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* CASE HEADER */}
       <div className="card" style={{ padding: "1.25rem 1.5rem", marginBottom: "1.25rem" }}>

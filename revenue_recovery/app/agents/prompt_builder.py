@@ -106,6 +106,18 @@ OUTPUT JSON SCHEMA:
             sanitized_notes = str(cust_notes).replace("\n", " ")[:300]
             lines.append(f"Customer message text [UNTRUSTED]: \"{sanitized_notes}\"")
 
+        if context.customer_profile:
+            p = context.customer_profile
+            lines.append("=== CUSTOMER 360 HISTORICAL RECOVERY PROFILE ===")
+            lines.append(f"Customer Value Tier: {p.get('customer_value_tier', 'MEDIUM')}")
+            lines.append(f"Lifetime Revenue: ₹{p.get('total_lifetime_revenue_minor', 0)/100:.2f} | Actually Recovered: ₹{p.get('actually_recovered_lifetime_minor', 0)/100:.2f}")
+            lines.append(f"Historical Recovery Rate: {p.get('historical_recovery_rate', 0)*100:.1f}%")
+            lines.append(f"Subscription State: {p.get('current_subscription_state', 'Active')}")
+            lines.append(f"Contact Fatigue: {p.get('contact_fatigue', {}).get('contacts_today', 0)}/2 contacts today (Risk: {p.get('contact_fatigue', {}).get('fatigue_risk', 'LOW')})")
+            if p.get("channel_performance"):
+                perf_summary = ", ".join([f"{c['channel_name']}: {c['success_rate_pct']}%" for c in p['channel_performance']])
+                lines.append(f"Channel Success Rates: {perf_summary}")
+
         lines.append("=== DETERMINISTIC CANDIDATE ACTIONS ===")
         lines.append(f"Valid candidates: {json.dumps(candidate_actions)}")
         lines.append("===")

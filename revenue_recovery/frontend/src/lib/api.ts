@@ -211,8 +211,20 @@ export async function fetchAPI<T>(path: string, options?: RequestInit): Promise<
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "Unknown error");
-    throw new Error(`API error ${res.status}: ${text}`);
+    let errorMsg = `HTTP ${res.status}`;
+    try {
+      const json = await res.json();
+      if (json && (json.detail || json.message || json.error)) {
+        errorMsg = json.detail || json.message || json.error;
+      }
+    } catch {
+      if (res.status === 404) {
+        errorMsg = "Requested resource or recovery case could not be found.";
+      } else {
+        errorMsg = `Server error ${res.status}`;
+      }
+    }
+    throw new Error(errorMsg);
   }
   return res.json();
 }
@@ -376,6 +388,7 @@ export const api = {
   auditEvents: () => fetchAPI<AuditEvent[]>("/api/audit-events"),
   customerDetail: (id: string) => fetchAPI<CustomerDetail>(`/api/customers/${id}`),
   customers: () => fetchAPI<CustomerDetail[]>("/api/customers"),
+  customerRecoveryProfile: (id: string) => fetchAPI<Customer360Profile>(`/api/customers/${id}/recovery-profile`),
   
   // Promises
   promises: () => fetchAPI<PromiseToPay[]>("/api/promises"),
@@ -412,6 +425,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  runSimulation: (data: Record<string, unknown>) => {
+    const itemId = data.item_id || data.id;
+    const url = itemId ? `/api/recovery-items/${itemId}/recover` : "/api/run-simulation";
+    return fetchAPI<SimulationResult>(url, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
   injectFailure: (data: { failure_type: string; item_id?: string }) =>
     fetchAPI<any>("/api/demo/inject-failure", {
       method: "POST",
@@ -581,3 +602,62 @@ export interface ScientificBenchmarkReport {
   confidence_interval_95_lower: number;
   confidence_interval_95_upper: number;
 }
+
+export interface Customer360Profile {
+  customer_id: string;
+  total_lifetime_revenue_minor: number;
+  current_amount_at_risk_minor: number;
+  actually_recovered_lifetime_minor: number;
+  historical_recovery_rate: number;
+  total_cases_count: number;
+  failed_payments_count: number;
+  successful_recovery_count: number;
+  active_cases_count: number;
+  customer_value_tier: string;
+  previous_opt_outs: boolean;
+  current_subscription_state: string;
+  payment_methods_used: string[];
+  previous_recovery_actions: string[];
+  channel_performance: Array<{
+    channel_name: string;
+    action_key: string;
+    total_attempts: number;
+    success_rate_pct: number;
+  }>;
+  contact_fatigue: {
+    contacts_today: number;
+    contacts_last_7d: number;
+    contacts_last_30d: number;
+    daily_limit: number;
+    fatigue_risk: string;
+  };
+  current_issue: {
+    item_id: string | null;
+    amount_minor: number;
+    root_cause: string;
+    failure_reason: string;
+    created_at: string | null;
+    recommended_action: string;
+    expected_net_recovery_minor: number;
+  } | null;
+  outstanding_invoices: Array<Record<string, any>>;
+  promise_to_pay_history: Array<{
+    id: string;
+    item_id: string;
+    amount_minor: number;
+    promised_date: string | null;
+    status: string;
+  }>;
+  recovery_history_timeline: Array<{
+    id: string;
+    timestamp: string;
+    item_id: string;
+    action: string;
+    reason: string;
+    amount_recovered_minor: number;
+  }>;
+  last_successful_payment_at: string | null;
+  last_failed_payment_at: string | null;
+  last_failed_reason: string | null;
+}
+

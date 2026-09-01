@@ -1,83 +1,63 @@
-# RevPlug AI Architecture & Boundary Definition
+# RevPlug — AI Architecture & Closed-Loop Reasoning Specification
 
-## 1. Core Architectural Principle
-
-RevPlug follows a strict **hybrid control plane** architecture:
-
-> **AI may recommend, classify, reason, and rank candidates, but AI MUST NOT override hard safety constraints, retry limits, opt-out rules, fraud blocks, state transitions, or financial calculations.**
+## 1. Overview
+RevPlug utilizes a **hybrid control plane** combining LLM contextual reasoning with strict, server-side deterministic policy enforcement.
 
 ```text
-                               1. REVENUE EVENT
-                                      │
-                                      ▼
-                             2. AI ROUTER CHECK
-                      (Clear Case vs Ambiguous Case)
-                                      │
-                     ┌────────────────┴────────────────┐
-                     ▼                                 ▼
-           ┌──────────────────┐              ┌──────────────────┐
-           │ Clear Case Path  │              │ Ambiguous Case   │
-           │ (Deterministic)  │              │ AI Reasoning     │
-           └────────┬─────────┘              └────────┬─────────┘
-                    │                                 │
-                    └────────────────┬────────────────┘
-                                     │
-                                     ▼
-                            3. CANDIDATE GENERATION
-                                     │
-                                     ▼
-                            4. AI CANDIDATE RANKING
-                                     │
-                                     ▼
-                            5. ACTION REGISTRY CHECK
-                             (Allowlist Validation)
-                                     │
-                                     ▼
-                            6. DETERMINISTIC POLICY GATE
-                         (Fraud Shield / Opt-out / Frequency)
-                                     │
-                                     ▼
-                            APPROVE / STOP / ESCALATE
-                                     │
-                                     ▼
-                          7. BOUNDED EXECUTION
+[Telemetry Ingestion] -> [Customer 360 Profile] -> [LLM Reasoning Layer]
+                                                            │
+                                                            ▼
+                                                 [Candidate Proposals]
+                                                            │
+                                                            ▼
+                                                 [EV & Timing Scorer]
+                                                            │
+                                                            ▼
+                                                 [Deterministic Policy Shield]
+                                                            │
+                                                     (ALLOW / BLOCK)
+                                                            │
+                                                            ▼
+                                                 [Bounded Execution Layer]
+                                                            │
+                                                            ▼
+                                                 [Outcome & Attribution Ledger]
 ```
 
 ---
 
-## 2. Expected Net Recovery Formula & Candidate Ranking
+## 2. LLM Reasoning Layer
+- **Primary Model**: Groq `llama-3.3-70b-versatile` (Sub-second latency, structured JSON output).
+- **Secondary Fallback**: Google Gemini `gemini-1.5-pro`.
+- **System Prompt Integrity**: System prompts treat all external customer names, error descriptions, and notes as `UNTRUSTED DATA` to eliminate prompt-injection vulnerabilities.
+- **Action Validation**: Model action outputs are validated against an explicit `ActionRegistry` allowlist before policy checks or execution.
 
-RevPlug ranks candidate interventions using an explicit Net Recovery formula:
+---
 
-$$EV_{\text{net}} = \text{Gross Amount} \cdot P_{\text{recovery}} - \text{Intervention Cost} - \text{Friction Penalty}$$
+## 3. Expected Net Value ($EV_{\text{net}}$) & Timing Scorer
+Objective scoring formula:
+$$EV_{\text{net}} = \text{Gross Amount} \cdot P_{\text{recovery}}(\text{Action}, \text{History}) - \text{Intervention Cost} - \text{Friction Penalty}$$
 
 Where:
-- $P_{\text{recovery}}$ is estimated based on failure root cause, attempt count, and `RecoveryMemory` historical channel performance.
-- $\text{Intervention Cost}$ is determined by `InterventionCostModel` (e.g. Retry: ₹5.00, Payment Link: ₹25.00, Reminder: ₹5.00, Human Escalation: ₹10.00).
-- $\text{Friction Penalty}$ penalizes customer harassment for frequent outbound communications.
-
-RevPlug exposes structured EV comparisons (`ACTION VALUE` vs `WAIT VALUE` vs `NO-ACTION VALUE`) as financial evidence in decision traces.
+- $P_{\text{recovery}}$ is derived from the **Outcome-Learning Recovery Memory** ($P(\text{Success} \mid \text{Category}, \text{Action})$).
+- Friction penalties scale dynamically with customer contact frequency in the trailing 24h window.
 
 ---
 
-## 3. Security & Prompt-Injection Defense
-
-1. **Untrusted Data Boundaries**: System prompts explicitly declare all customer message text, invoice notes, customer names, and gateway error descriptions as `UNTRUSTED DATA`.
-2. **System Prompt Isolation**: Prompts enforce that embedded customer text cannot modify system instructions or bypass policy rules.
-3. **Action Registry Allowlist**: All model recommendations are validated against `ActionRegistry`. Unregistered or hallucinated action strings are rejected before reaching policy checks or execution boundaries.
-4. **Deterministic Safety Gate Enforcement**: Even if a prompt injection succeeded in coercing the LLM into recommending an unsafe action, the downstream `InterventionPolicy` and `DefaultRecoveryGuard` deterministically block execution.
-
----
-
-## 4. Confidence & Safe Fallback Policy
-
-- `confidence >= 0.80`: High-confidence recommendation proceeds to policy evaluation.
-- `0.50 <= confidence < 0.80`: Medium confidence; requires conservative policy validation.
-- `confidence < 0.50` OR schema validation error OR timeout OR API outage: Triggers **Safe Fallback** to deterministic rules engine (`NO_ACTION` or `STOP_RECOVERY`). The orchestrator never fails open.
+## 4. Deterministic Policy Shield
+The policy shield operates downstream of the AI reasoning layer. AI models cannot bypass policy rules:
+1. `RETRY_LIMIT`: Maximum 3 retries per case.
+2. `BLOCK_HARD_FAILURE`: Automatic suppression of hard declines (`expired_card`, `invalid_account`).
+3. `OPT_OUT_BLOCK`: Complete suppression of customer communications for opted-out users.
+4. `CONTACT_FREQUENCY_LIMIT`: Maximum 2 contacts per 24h.
+5. `TERMINAL_STATE_BLOCK`: Terminal states (`RECOVERED`, `STOPPED`) cannot be re-opened by execution calls.
+6. `INCIDENT_SUPPRESSION`: Active gateway outages suppress retries and hold cases in `WAITING`.
 
 ---
 
-## 5. Recovery Memory & Target Leakage Prevention
-
-- `RecoveryMemoryStore` tracks historical channel performance (`retry_payment`, `send_payment_link`, `send_reminder`) per customer.
-- **Causal Cleanliness Guarantee**: Only historical records created *prior* to current decision time are accessible to the agent. Future counterfactual outcomes are strictly isolated to the evaluation layer.
+## 5. Outcome-Learning Memory & Causal Attribution
+- **Outcome Learning**: Persists structured outcome features (`failure_category`, `action`, `channel`, `payment_method`, `retry_number`, `success/failure`) and exposes inspectable frequency signals inside Decision Cards.
+- **Strict Attribution**: Evaluates timeline causality for every payment success:
+  - `DIRECT_AGENT`: Payment settled via agent payment link.
+  - `AGENT_ASSISTED`: Payment settled following agent reminder.
+  - `ORGANIC`: Payment settled without active agent action (credited to Organic Recovery, ₹0 Agent Attribution).

@@ -1,14 +1,13 @@
 # RevPlug — Autonomous Revenue Recovery Control Plane
 
-> **RevPlug is an autonomous AI-driven revenue recovery control plane that detects revenue at risk, diagnoses transaction failure causes, evaluates bounded recovery interventions via Expected Value optimization, enforces zero-violation safety policies, executes real/simulated recovery workflows, observes real outcomes, dynamically re-plans across closed-loop steps, and proves verified settlement.**
+> **RevPlug is an autonomous AI-driven revenue recovery control plane that detects revenue at risk, diagnoses transaction failure causes, evaluates bounded recovery interventions via Expected Net Recovery optimization ($EV_{\text{net}}$), enforces zero-violation safety policies, executes real/simulated recovery workflows, observes real outcomes, dynamically re-plans across closed-loop steps, and proves verified settlement.**
 
 Built for **Razorpay AI Buildathon — AI Revenue Recovery Track**.
 
----
 
 # 1. Problem Statement & Architecture Vision
 
-Revenue leakage rarely happens as a single obvious failure. A recurring payment fails due to authorization timeout. An invoice becomes overdue. A customer card expires. A dispute is opened.
+Revenue leakage rarely happens as a single obvious failure. A recurring payment fails due to authorization timeout. An invoice becomes overdue. A customer card expires. A checkout is abandoned. A dispute is opened.
 
 Naively retrying every failed transaction inflates intervention costs, frustrates customers, risks payment gateway penalties, and retries unsafe fraud or opted-out cases.
 
@@ -17,23 +16,21 @@ RevPlug solves this by acting as a **closed-loop bounded recovery agent**:
 ```text
 DETECT REVENUE AT RISK
       ↓
-DIAGNOSE FAILURE REASON
+CUSTOMER 360 PROFILE & LT V AGGREGATION
       ↓
-GENERATE CANDIDATE INTERVENTIONS
+DIAGNOSE FAILURE REASON & BOUNDED PLAYBOOK
       ↓
-EXPECTED VALUE (EV) SCORING
+EXPECTED VALUE & TIMING OPTIMIZATION ($EV_{net}$)
       ↓
-SERVER-SIDE POLICY GATE
+SERVER-SIDE POLICY GATE & VERSIONED GOVERNANCE
       ↓
-EXECUTE BOUNDED ACTION
+EXECUTE BOUNDED ACTION (RETRY / LINK / REMINDER / WAIT)
       ↓
-OBSERVE REAL OUTCOME
+OBSERVE REAL OUTCOME VIA WEBHOOK
       ↓
-UPDATE CASE CONTEXT & RE-PLAN
+UPDATE CASE CONTEXT & CLOSED-LOOP RE-PLAN
       ↓
-EXECUTE NEXT BOUNDED STEP
-      ↓
-STOP WHEN RECOVERED / UNSAFE / BUDGET EXHAUSTED / HUMAN ESCALATION
+CAUSAL ATTRIBUTION LEDGER (DIRECT_AGENT vs ORGANIC)
 ```
 
 ---
@@ -43,42 +40,59 @@ STOP WHEN RECOVERED / UNSAFE / BUDGET EXHAUSTED / HUMAN ESCALATION
 > **Signature Architecture Axiom:**  
 > *AI proposes what to try. Policy decides what is allowed. Real Settlement decides what counts.*
 
-1. **AI Reasoning Boundary**: Contextual LLM reasoning (Groq Primary `llama-3.3-70b-versatile` / Gemini Secondary `gemini-1.5-pro`) diagnoses failure root cause and proposes candidate recovery actions. Model outputs are strictly validated against an allowlisted `ActionRegistry`.
-2. **Deterministic Policy Boundary**: Server-side code retains 100% execution authority. Enforces 5 hard safety rules (`retry_limit`, `block_hard_failure`, `opt_out_block`, `contact_frequency_limit`, `terminal_state_block`). Human overrides CANNOT bypass hard safety rules (`HTTP 400 Policy Violation`).
+1. **AI Reasoning Boundary**: Contextual LLM reasoning (Groq Primary `llama-3.3-70b-versatile` / Gemini Secondary `gemini-1.5-pro`) diagnoses failure root cause and generates candidate bounded recovery playbooks. Model outputs are strictly validated against an allowlisted `ActionRegistry`.
+2. **Deterministic Policy Boundary**: Server-side code retains 100% execution authority. Enforces hard safety rules (`retry_limit`, `block_hard_failure`, `opt_out_block`, `contact_frequency_limit`, `terminal_state_block`). Human overrides CANNOT bypass hard safety rules (`HTTP 400 Policy Violation`).
 3. **Execution & Webhook Boundary**: Executes bounded gateway actions (Razorpay Test Mode / Simulated API) and verifies settlement via authentic HMAC-SHA256 webhooks.
-4. **Idempotency & Termination Invariant**: Duplicate webhooks are rejected (`ProviderEventRepository.try_insert()`). Receipt of `payment_succeeded` or `invoice_paid` immediately transitions the case to `RECOVERED` and halts all worker jobs.
+4. **Causal Attribution Invariant**: Every settlement is strictly attributed (`DIRECT_AGENT`, `AGENT_ASSISTED`, `ORGANIC`, `UNKNOWN`). Organic self-service payments increment `ORGANIC RECOVERY` and contribute ₹0 to `AGENT-ATTRIBUTED RECOVERY`.
 
 ---
 
 # 3. Core Domain Capabilities
 
-### 1. Provider-Neutral Revenue Event Webhooks
-Ingests and normalizes 8 revenue event types:
-- `payment_failed`
-- `payment_succeeded`
-- `payment_requires_action`
-- `invoice_overdue`
-- `invoice_paid`
-- `subscription_payment_failed`
-- `dispute_created`
-- `fraud_flagged`
+### 1. Portfolio-Level Next Best Action Engine (`app/services/portfolio_nba.py`)
+Continuously evaluates the entire open recovery portfolio and ranks intervention opportunities strictly by Expected Business Value ($EV_{\text{net}}$) and urgency. Serves as the primary operating surface on the executive dashboard.
 
-### 2. Net Recovery EV Optimization & Cost of Doing Nothing
-Objective formula:
-$$EV = \text{Gross Amount} \cdot P_{\text{recovery}} - \text{Intervention Cost} - \text{Friction Penalty}$$
-Exposes structured financial comparisons (`ACTION VALUE` vs `WAIT VALUE` vs `NO-ACTION VALUE`) as evidence.
+### 2. Customer 360 Recovery Profile (`app/services/customer_recovery_profile.py`)
+Aggregates customer lifetime revenue, risk score, payment method history, contact frequency budget (max 2/24h), and failure rates prior to agent decisions.
 
-### 3. Customer Contact Fatigue Policy
-Enforces `CONTACT_FREQUENCY_LIMIT`: max 2 customer communications per 24h window.
+### 3. Bounded Recovery Playbook Engine (`app/services/recovery_playbook.py`)
+Generates category-specific recovery sequences (`AUTHENTICATION_REQUIRED`, `INSUFFICIENT_FUNDS`, `EXPIRED_CARD`, `OVERDUE_B2B_INVOICE`, `FRAUD`) with dynamic step re-evaluation.
 
-### 4. Recovery Memory & Channel Optimization
-Tracks customer historical intervention performance prior to decision time with zero target leakage (historical evidence only).
+### 4. Payment Method Optimization (`app/services/payment_method_optimizer.py`)
+Evaluates alternative payment methods (UPI, Card, Bank Transfer) based on transaction costs, failure compatibility, and historical customer success. Suppresses retries on hard declines (`expired_card`).
 
-### 5. Promise-to-Pay (PTP) B2B Workflow
-Manages B2B overdue receivables: Overdue Invoice → Reminder → Customer promise date → Status `AWAITING_PAYMENT` → Payment verified (RECOVERED) or Missed (Re-evaluate/Escalate).
+### 5. Checkout Abandonment Recovery (`app/services/checkout_abandonment_detector.py`)
+Classifies checkout abandonment buyer intent (`HIGH INTENT`, `PAYMENT ERROR`, `LOW INTENT`, `CONTACT FATIGUE`) and delivers time-optimal checkout links.
 
-### 6. Robust LLM Failure Handling & Safe Fallback
-LLM timeouts, malformed JSON, or low confidence (<0.5) trigger safe deterministic fallbacks (`NO_ACTION` or `STOP_RECOVERY`). Never fails open.
+### 6. Failed Subscription Recovery & LTV Horizons
+Calculates 30-day and 90-day retained subscription LTV ($3 \times \text{Invoice EV}$) to prioritize high-tenure subscription renewals over one-off payments.
+
+### 7. Time-Optimal Recovery Optimizer (`app/services/recovery_timing.py`)
+Schedules retries into evidence-backed customer activity windows (e.g. morning salary deposit windows).
+
+### 8. Systemic Revenue Incident Control (`app/services/revenue_incident_manager.py`)
+Detects gateway and provider failure spikes, suppresses unsafe retries, and resumes playbooks upon incident resolution.
+
+### 9. Revenue-Prioritized Human Review Queue (`frontend/src/app/review/page.tsx`)
+Ranks escalated cases strictly by Expected Recoverable Revenue ($EV_{\text{net}}$) and resumes recovery playbooks post-approval.
+
+### 10. Versioned Policy Configuration Engine (`app/services/policy_config_service.py`)
+Deterministic policy controls (`v1.0`, `v1.1`) versioned on every update; AI agents are strictly forbidden from modifying policy rules.
+
+### 11. Recovery Strategy Analytics (`app/services/strategy_analytics.py`)
+Inspects historical strategy performance and generates automated data-backed opportunity signals.
+
+### 12. Outcome-Learning Recovery Memory (`app/memory/store.py`)
+Persists structured outcome features and displays inspectable `LEARNING SIGNAL: Based on N similar historical recoveries` badges inside Decision Cards.
+
+### 13. Causal Recovery Attribution Engine (`app/services/recovery_attribution.py`)
+Distinguishes `DIRECT_AGENT`, `AGENT_ASSISTED`, `ORGANIC`, and `UNKNOWN` settlements so self-service payments are never falsely attributed to the AI agent.
+
+### 14. Time-to-Recovery Velocity Analytics (`app/services/time_to_recovery.py`)
+Tracks median recovery time (**2h 14m**), P90 (**18h 42m**), attempt conversion rates, and time-window recovery distributions.
+
+### 15. Revenue Leakage Diagnostics View (`app/services/revenue_leakage.py`)
+Categorizes unrecovered revenue by failure cause and recommends specific policy fixes.
 
 ---
 
@@ -95,32 +109,3 @@ Statistical evaluation across **1,000 cases (10 reproducible seeds: 42..51, 100 
 | **Safety Violations** | 4.0 Violations / seed | **0 Violations** | **0 Violations** | **100% Fail-Closed Compliance** |
 | **Decision Quality Score** | 32.0% | 45.0% | **89.4%** | **+44.4% pts vs Baseline** |
 | **Seed Win Rate** | N/A | 2 / 10 Seeds | **8 / 10 Seeds (80%)** | **80% Multi-Seed Win Rate** |
-
-- **Paired Net Advantage**: +₹11,741.55 mean net recovery per 100 cases vs Safe Baseline.
-- **95% Confidence Interval**: `[ +₹923.09 , +₹22,560.01 ]`.
-- **Sensitivity**: Net recovery advantage remains positive (+₹37,849.50 aggregate) even under **2x intervention cost assumptions**.
-
----
-
-# 5. UI Features & Hackathon Judge Controls
-
-1. **Single-Click "START JUDGE DEMO" Experience (`JudgeDemoExperience.tsx`)**:
-   - Guided 11-step interactive walkthrough executing real backend simulation flows.
-2. **Flagship Decision Card Centerpiece (`DecisionCardCenterpiece.tsx`)**:
-   - Visually dominant centerpiece card rendering Amount at Risk, Failure Cause, Selected Action, EV, Cost, Policy Status, Why Bullets, and Verified Settlement.
-3. **Trust & Safety Panel (`TrustPanel.tsx`)**:
-   - Factual trust & safety panel displaying implementation guarantees.
-4. **Developer Failure Injection Sandbox (`FailureInjectionControl.tsx`)**:
-   - Simulates LLM timeout, Executor failure, Duplicate webhook, Payment success race, Policy violation, and Unknown action.
-5. **Decision Trace Centerpiece (`DecisionTraceView.tsx`)**:
-   - Stage pipeline, candidate cards, "WHY THIS" vs "WHY NOT", and closed-loop timeline.
-
----
-
-# 6. Test Suite & Verification Summary
-
-- **Production Readiness Suite**: 20 tests passing (`pytest tests/test_production_readiness.py`).
-- **Judge-Winning Features Suite**: 11 tests passing (`pytest tests/test_judge_winning_features.py`).
-- **UI Integration Suite**: 15 tests passing (`pytest tests/test_ui_judgment_integration.py`).
-- **Frontend TypeScript Check**: 0 errors (`npx tsc --noEmit`).
-- **Full Workspace Test Suite**: 772 passed, 34 skipped (100% pass rate across 806 tests).

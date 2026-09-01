@@ -82,6 +82,16 @@ class InterventionPolicy:
                 reason_code="customer_opted_out",
             )
 
+        if proposed_action == "retry_payment" and item.metadata.get("systemic_suppress"):
+            return PolicyDecision(
+                allowed=False,
+                requires_human_approval=False,
+                reason="Systemic payment segment outage detected — individual retries suppressed in favor of WAIT",
+                policy_rule="systemic_incident_suppress",
+                action=proposed_action,
+                reason_code="systemic_incident_active",
+            )
+
         if proposed_action == "retry_payment":
             return self._evaluate_retry(item)
         if proposed_action == "send_discount":

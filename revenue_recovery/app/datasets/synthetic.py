@@ -57,10 +57,30 @@ def _make_item(
     dataset_label: str,
     extra_metadata: dict[str, Any] | None = None,
 ) -> RecoveryItem:
+    # Ensure root_cause is never empty or unknown
+    clean_cause = root_cause if root_cause and root_cause.lower() != "unknown" else "soft"
+    actual_rec = amount_minor if status == RecoveryStatus.RECOVERED else 0
+
+    REALISTIC_ENTERPRISE_NAMES = [
+        "Swiggy Enterprise Logistics",
+        "Zomato Merchant Solutions",
+        "Acme Global Pvt Ltd",
+        "Flipkart Merchant Services",
+        "Reliance Retail Tech",
+        "Paytm Business Solutions",
+        "InMobi Media Pvt Ltd",
+        "Razorpay Enterprise Direct",
+        "PhonePe Merchant Pay",
+        "Freshworks SaaS Client",
+    ]
+    name_idx = abs(hash(customer_id)) % len(REALISTIC_ENTERPRISE_NAMES)
+    c_name = REALISTIC_ENTERPRISE_NAMES[name_idx]
+
     metadata: dict[str, Any] = {
         SYNTHETIC_MARKER: SYNTHETIC_VALUE,
         "dataset_label": dataset_label,
         "attempt_count": attempt_count,
+        "customer_name": c_name,
         **(extra_metadata or {}),
     }
     return RecoveryItem(
@@ -72,9 +92,10 @@ def _make_item(
         currency="INR",
         created_at=created_at,
         status=status,
-        root_cause=root_cause,
+        root_cause=clean_cause,
         recovery_probability=recovery_probability,
         expected_recovery_value=expected_recovery_value,
+        actual_recovery_value=actual_rec,
         intervention_cost=100,
         metadata=metadata,
     )
