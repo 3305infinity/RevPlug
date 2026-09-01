@@ -10,13 +10,16 @@ Businesses lose millions across failed payments, expired cards, abandoned checko
 ---
 
 ## 2. Solution
-RevPlug is an autonomous AI-driven revenue recovery control plane that detects revenue at risk, diagnoses transaction failure causes, evaluates bounded recovery interventions via Expected Net Recovery optimization ($EV_{\text{net}}$), enforces zero-violation safety policies, executes recovery workflows, observes real outcomes, dynamically re-plans across closed-loop steps, and proves verified settlement.
+RevPlug is an autonomous AI-driven revenue recovery control plane that detects revenue at risk via an **Event-Driven Opportunity Detection Engine**, diagnoses transaction failure causes, evaluates bounded recovery interventions via Expected Net Recovery optimization ($EV_{\text{net}}$), enforces zero-violation safety policies, executes recovery workflows, observes real outcomes, dynamically re-plans across closed-loop steps, and proves verified settlement.
 
 ---
 
 ## 3. Key Operating Features
 
-- **Portfolio-Level Next Best Action Engine**: Continuously evaluates open recovery cases and ranks intervention opportunities strictly by Expected Business Value ($EV_{\text{net}}$) and urgency.
+- **Event-Driven Revenue-at-Risk Opportunity Detection Engine**: Automatically ingests normalized revenue telemetry (`payment_failed`, `subscription_payment_failed`, `invoice_overdue`, `checkout_abandoned`, `payment_requires_action`, `dispute_created`, `fraud_flagged`), determines recoverability, and updates cases idempotently.
+- **Ranked Opportunity Inbox API (`GET /api/opportunity-inbox`)**: Ranks active revenue opportunities strictly by Expected Net Recovery ($EV_{\text{net}}$) and business priority.
+- **Portfolio Financial Summary & Single Truth**: Calculates authoritative portfolio metrics (Total Risk, Actionable Revenue, Waiting Revenue, Recovered, Intentionally Not Pursued, Available Net EV, High Priority Opportunities) directly from persisted settlement ledgers via `RecoveryFinancialsService`.
+- **Deterministic Eligibility Shields**: Fraud Risk $\rightarrow$ `BLOCKED_FRAUD`, Consent Opt-out $\rightarrow$ `BLOCKED_CONSENT`, Invoice Dispute $\rightarrow$ `HUMAN_REVIEW_DISPUTE`, Systemic Outage $\rightarrow$ `SUPPRESSED_SYSTEMIC`, Negative Net EV $\rightarrow$ `NEGATIVE_NET_EV`.
 - **Customer 360 Recovery Profile**: Aggregates customer LTV, risk score, payment history, contact frequency budget, and failure rates prior to agent decisions.
 - **Bounded Recovery Playbook Engine**: Executes multi-step recovery strategies (`AUTHENTICATION_REQUIRED`, `INSUFFICIENT_FUNDS`, `EXPIRED_CARD`, `OVERDUE_B2B_INVOICE`, `FRAUD`) with dynamic step re-evaluation.
 - **Payment Method Optimization**: Evaluates alternative payment channels (UPI, Card, Bank Transfer) and suppresses retries on hard declines (`expired_card`).
@@ -34,10 +37,11 @@ RevPlug is an autonomous AI-driven revenue recovery control plane that detects r
 
 ---
 
-## 4. 30-Second Demo
-1. Launch the web interface at `http://localhost:3000/dashboard`.
-2. View **NEXT BEST RECOVERY OPPORTUNITIES** ranked by Expected Net Business Value ($EV_{\text{net}}$).
-3. Click **Playbook →** on any case to view the closed-loop recovery trace, Decision Card centerpiece, Payment Method Optimization reasoning, and Subscription Value Protected horizon.
+## 4. 30-Second Product Demo
+
+1. Launch the web interface at `http://localhost:3000/recovery`.
+2. View **REVENUE OPERATIONS INBOX** ranked strictly by Expected Net Recovery ($EV_{\text{net}}$) with human-readable enterprise business names (*Swiggy Enterprise Logistics*, *Zomato Merchant Solutions*, *Acme Global Pvt Ltd*).
+3. Click **Single Case Control Plane →** (`/run-recovery`) to evaluate any persisted case through the full closed-loop orchestrator trace, Decision Card centerpiece, Payment Method Optimization reasoning, and HMAC settlement verifier.
 4. Open **Strategy Analytics** or **Revenue Leakage** from the sidebar to inspect strategy performance tables, opportunity signals, and causality attribution breakdown.
 
 ---
@@ -45,49 +49,54 @@ RevPlug is an autonomous AI-driven revenue recovery control plane that detects r
 ## 5. System Architecture
 
 ```text
-                                1. TELEMETRY & WEBHOOK INGESTION
-              (Provider-Neutral HMAC Verification & Idempotency Deduplication)
+                               1. TELEMETRY & WEBHOOK INGESTION
+             (Provider-Neutral HMAC Verification & Idempotency Deduplication)
                                               │
                                               ▼
-                                   2. CUSTOMER 360 PROFILE
+                             2. OPPORTUNITY DETECTION ENGINE
+                    (Root Cause Classifier & Expected Net EV Scorer)
+                                              │
+                                              ▼
+                             3. CUSTOMER 360 RECOVERY PROFILE
                    (LTV, Payment History, Contact Budget, Risk Score)
                                               │
                                               ▼
-                                   3. REASONING LAYER (AI)
+                             4. REASONING & PLAYBOOK LAYER (AI)
                    Contextual LLM Reasoning (Groq Primary / Gemini Secondary)
-                   Outputs: Root Cause Classification & Playbook Steps
+                   Outputs: Bounded Strategy & Candidate Ranking
                                               │
                                               ▼
-                                   4. EXPECTED VALUE & TIMING SCORER
-                   Scoring Matrix: EV = Recovery Probability × Value - Cost - Friction
+                             5. EXPECTED VALUE & TIMING SCORER
+                   Scoring Formula: EV_net = Gross * P_recovery - Cost - Friction
                                               │
                                               ▼
-                                   5. SERVER-SIDE POLICY GATE
-                    Deterministic Rules: Fraud Shield / Opt-out / Contact Frequency
+                             6. SERVER-SIDE POLICY GATE
+                    Deterministic Rules: Fraud Shield / Opt-out / Contact Budget
                                        ↙             ↘
                                 [ALLOW]               [BLOCK / STOP]
                                    │                         │
                                    ▼                         ▼
-                        6. BOUNDED EXECUTOR            0 API Calls Made
+                        7. BOUNDED EXECUTOR            0 API Calls Made
                       (Razorpay / Simulated API)     Capital Protected (₹18.2k)
                                    │                         │
                                    ▼                         │
-                       7. OBSERVE REAL OUTCOME               │
+                       8. OBSERVE REAL OUTCOME               │
                      (Gateway Webhook Verification)          │
                                    │                         │
                                    ▼                         │
-                       8. CLOSED-LOOP RE-PLAN                │
+                       9. CLOSED-LOOP RE-PLAN                │
                     (Pivot Strategy if Failed)               │
                                    │                         │
                                    └────────────┬────────────┘
                                                 ▼
-                                    9. IMMUTABLE AUDIT LEDGER
+                                    10. IMMUTABLE AUDIT LEDGER
                                (Causal Attribution & Outcome Learning)
 ```
 
 ---
 
 ## 6. Safety Model & Invariants
+
 - **Deterministic Policy Engine**: Enforces hard safety constraints (`retry_limit`, `block_hard_failure`, `opt_out_block`, `contact_frequency_limit`, `terminal_state_block`).
 - **Human Override Safety**: Human review decisions pass through `PolicyEngine` validation (`HTTP 400 Policy Violation` on hard blocks).
 - **Prompt-Injection Defense**: System prompts treat all external customer text as `UNTRUSTED DATA`.
@@ -133,7 +142,9 @@ npm run dev
 
 ## 9. Test Verification Matrix
 
-- **Full Pytest Suite**: `pytest` → **26 passed** (100% pass rate across active feature test suites).
+- **Full Pytest Suite**: `pytest` → **52 passed** (100% pass rate across all 13 feature test suites).
+- **Opportunity Detection Engine**: `pytest tests/test_opportunity_detection_engine.py -v` → **10/10 Passed**.
+- **End-to-End Runtime Flows**: `pytest tests/test_end_to_end_runtime_flows.py -v` → **8/8 Passed**.
 - **Strategy Analytics & Attribution**: `pytest tests/test_analytics_memory_and_attribution.py -v` → **Passed**.
 - **Portfolio NBA & Leakage View**: `pytest tests/test_nba_leakage_and_time_analytics.py -v` → **Passed**.
 - **Policy Versioning & Review Queue**: `pytest tests/test_policy_and_review_redesign.py -v` → **Passed**.

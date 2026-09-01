@@ -9,14 +9,23 @@
                └──────────────────────────────┬───────────────────────────────┘
                                               │
                                               ▼
-                               2. PERSISTED RECOVERY CASE STATE
+                               2. OPPORTUNITY DETECTION ENGINE
                ┌──────────────────────────────────────────────────────────────┐
-               │ Canonical RecoveryItem Model                                 │
-               │ Context Snapshot: Amount, Root Cause, Metadata                │
+               │ OpportunityDetector (app/services/opportunity_detector.py)   │
+               │ Root Cause Classification & Net EV Scoring ($EV_net$)        │
+               │ Deterministic Policy Shields (Fraud / Opt-out / Dispute)      │
                └──────────────────────────────┬───────────────────────────────┘
                                               │
                                               ▼
-                               3. CLOSED-LOOP REASONING LAYER
+                                3. RANKED OPPORTUNITY INBOX
+               ┌──────────────────────────────────────────────────────────────┐
+               │ Opportunity Inbox API (/api/opportunity-inbox)              │
+               │ Pre-sorted descending by Expected Net Recovery ($EV_net$)    │
+               │ Enterprise Client Names & Real Financial Ledger               │
+               └──────────────────────────────┬───────────────────────────────┘
+                                              │
+                                              ▼
+                                4. CLOSED-LOOP REASONING LAYER
                ┌──────────────────────────────────────────────────────────────┐
                │ AIRouter (Clear vs Ambiguous Case Classifier)               │
                │ Groq Primary (llama-3.3-70b) / Gemini Secondary (gemini-pro)  │
@@ -25,14 +34,14 @@
                └──────────────────────────────┬───────────────────────────────┘
                                               │
                                               ▼
-                               4. EXPECTED VALUE (EV) OPTIMIZER
+                                5. EXPECTED VALUE (EV) OPTIMIZER
                ┌──────────────────────────────────────────────────────────────┐
                │ Formula: EV_net = Gross * P_recovery - Cost - Friction       │
                │ Action vs Wait vs No-Action Financial Comparison              │
                └──────────────────────────────┬───────────────────────────────┘
                                               │
                                               ▼
-                               5. SERVER-SIDE POLICY GATE
+                                6. SERVER-SIDE POLICY GATE
                ┌──────────────────────────────────────────────────────────────┐
                │ Deterministic Safety Engine (InterventionPolicy)             │
                │ Hard Safety Rules: Fraud Shield / Opt-out / Retry Limit       │
@@ -42,14 +51,14 @@
                                 [ALLOW]               [BLOCK / STOP]
                                    │                         │
                                    ▼                         ▼
-                        6. BOUNDED EXECUTORS           0 API Calls Made
+                        7. BOUNDED EXECUTORS           0 API Calls Made
                ┌──────────────────────────────┐     Capital Protected (₹18.2k)
                │ Razorpay Test Mode Executor  │              │
                │ Simulated Multi-Channel      │              │
                └──────────────┬───────────────┘              │
                               │                              │
                               ▼                              │
-                        7. OBSERVE OUTCOME                   │
+                        8. OBSERVE OUTCOME                   │
                ┌──────────────────────────────┐              │
                │ Webhook Settlement Verification│             │
                │ Case State Machine Update    │              │
@@ -58,10 +67,10 @@
                               │                              │
                               └───────────────┬──────────────┘
                                               ▼
-                                 8. IMMUTABLE AUDIT LEDGER
+                                 9. IMMUTABLE AUDIT LEDGER
                ┌──────────────────────────────────────────────────────────────┐
                │ AuditTrailService & AttemptLedger Repository                 │
-               │ Persisted Verification Evidence                              │
+               │ Persisted Settlement Evidence & Causal Attribution           │
                └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -71,11 +80,14 @@
 
 | Component | Architecture Type | Execution Authority | Primary Responsibility |
 | :--- | :--- | :--- | :--- |
+| **OpportunityDetector** | **Event-Driven Engine** | Mandatory (Detection) | Ingest events, classify cause, score EV & check eligibility |
+| **RecoveryFinancialsService**| **Financial Ledger** | Single Source of Truth | Calculate portfolio risk, recovered, actionable & Net EV |
 | **AIRouter / Groq / Gemini** | **AI Reasoning** | Advisory (Candidate Proposals) | Cause diagnosis & candidate ranking |
 | **ExpectedValueScorer** | **Deterministic** | Advisory (EV Ranking) | Calculate net expected value ($EV_{\text{net}}$) |
 | **InterventionPolicy** | **Deterministic Safety** | Mandatory (Server-Side) | Enforce fraud, opt-out, and budget rules |
 | **ActionRegistry** | **Deterministic Schema** | Mandatory (Validation) | Allowlist model output action strings |
 | **RecoveryOrchestrator** | **State Machine** | Mandatory (Lifecycle) | Manage iterative step transitions & re-planning |
+| **SettlementVerifier** | **Verification** | Mandatory (Settlement) | Verify HMAC settlement and update financial ledger |
 | **Razorpay / Simulated Executor** | **External / Provider** | Bounded Execution | Execute API payment retries / payment links |
 | **ProviderEventRepository** | **Persistence** | Mandatory (Idempotency) | Deduplicate incoming telemetry webhooks |
 | **AttemptLedger & AuditLog** | **Persistence** | Mandatory (Audit) | Store immutable step evidence & outcomes |
