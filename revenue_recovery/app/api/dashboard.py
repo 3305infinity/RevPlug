@@ -476,6 +476,31 @@ def api_human_review_action(
     }
 
 
+@router.get("/api/recovery-items/{item_id}/clear-preview")
+def api_clear_recovery_item_preview(
+    item_id: str,
+    container: PersistenceContainer = Depends(get_container),
+) -> Response:
+    """Return real counts of operational records associated with a recovery case prior to deletion."""
+    preview = container.get_clear_preview(item_id)
+    if preview is None:
+        return JSONResponse(status_code=404, content={"error": f"Recovery item {item_id!r} not found"})
+    return JSONResponse(status_code=200, content=preview)
+
+
+@router.delete("/api/recovery-items/{item_id}")
+@router.post("/api/recovery-items/{item_id}/clear")
+def api_clear_recovery_item(
+    item_id: str,
+    container: PersistenceContainer = Depends(get_container),
+) -> Response:
+    """Transactionally clear a recovery case and all corresponding operational data."""
+    result = container.clear_recovery_item(item_id)
+    if result is None:
+        return JSONResponse(status_code=404, content={"error": f"Recovery item {item_id!r} not found"})
+    return JSONResponse(status_code=200, content=result)
+
+
 @router.get("/api/dashboard/unrecovered-breakdown")
 def api_unrecovered_breakdown(container: PersistenceContainer = Depends(get_container)) -> dict[str, Any]:
     """Aggregate unrecovered revenue grouped by policy reason and failure category."""

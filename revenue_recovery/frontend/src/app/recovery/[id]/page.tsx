@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, CaseDetail, CaseTrace } from "@/lib/api";
 import { getCustomerDisplayName } from "@/lib/customerDisplay";
@@ -325,6 +325,7 @@ const SHOWCASE_CASE_2_CANDIDATES: CandidateEval[] = [
 
 export default function CaseWorkspace() {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id as string;
   const [mode, setMode] = useState<"showcase1" | "showcase2" | "live">("showcase1");
   const [activeStep, setActiveStep] = useState<number>(10);
@@ -334,6 +335,44 @@ export default function CaseWorkspace() {
   const [liveTrace, setLiveTrace] = useState<CaseTrace | null>(null);
   const [showNaiveComparison, setShowNaiveComparison] = useState<boolean>(false);
   const [naiveData, setNaiveData] = useState<any>(null);
+
+  // Data clearing state
+  const [clearModalOpen, setClearModalOpen] = useState<boolean>(false);
+  const [clearPreview, setClearPreview] = useState<any | null>(null);
+  const [clearing, setClearing] = useState<boolean>(false);
+  const [clearedError, setClearedError] = useState<string | null>(null);
+
+  const handleOpenClearModal = async () => {
+    setClearedError(null);
+    setClearModalOpen(true);
+    try {
+      const p = await api.previewClearRecoveryItem(id);
+      setClearPreview(p);
+    } catch (e) {
+      setClearPreview({
+        recovery_item_id: id,
+        recovery_case: 1,
+        decisions_count: 0,
+        attempts_count: 0,
+        outcomes_count: 0,
+        promises_count: 0,
+        jobs_count: 0,
+      });
+    }
+  };
+
+  const handleConfirmClear = async () => {
+    setClearing(true);
+    setClearedError(null);
+    try {
+      await api.clearRecoveryItem(id);
+      setClearModalOpen(false);
+      router.push("/dashboard");
+    } catch (err) {
+      setClearedError(err instanceof Error ? err.message : "Failed to clear recovery case");
+      setClearing(false);
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -540,22 +579,32 @@ export default function CaseWorkspace() {
         border: `2px solid ${isRecovered ? "rgba(16,185,129,0.3)" : mode === "showcase2" ? "rgba(239,68,68,0.25)" : "var(--border)"}`,
       }}>
         {/* Case ID + customer + status - compact header line */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem", flexWrap: "wrap" }}>
-          <span className={`status-badge status-${isRecovered ? "recovered" : mode === "showcase2" ? "stopped" : caseData.status}`}>
-            {caseData.status.toUpperCase()}
-          </span>
-          <span className="font-mono" style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-            {mode === "showcase1" ? "demo_case_4999" : mode === "showcase2" ? "demo_case_18200" : id}
-          </span>
-          <span style={{ color: "var(--border)" }}>·</span>
-          <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-            <strong style={{ color: "var(--text-primary)" }}>{customerName}</strong>
-            <span className="font-mono" style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginLeft: "0.5rem" }}>({customerId})</span>
-          </span>
-          <span style={{ color: "var(--border)" }}>·</span>
-          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-            Root cause: <strong style={{ color: "var(--text-primary)" }}>{caseData.rootCause}</strong>
-          </span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <span className={`status-badge status-${isRecovered ? "recovered" : mode === "showcase2" ? "stopped" : caseData.status}`}>
+              {caseData.status.toUpperCase()}
+            </span>
+            <span className="font-mono" style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+              {mode === "showcase1" ? "demo_case_4999" : mode === "showcase2" ? "demo_case_18200" : id}
+            </span>
+            <span style={{ color: "var(--border)" }}>·</span>
+            <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+              <strong style={{ color: "var(--text-primary)" }}>{customerName}</strong>
+              <span className="font-mono" style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginLeft: "0.5rem" }}>({customerId})</span>
+            </span>
+            <span style={{ color: "var(--border)" }}>·</span>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+              Root cause: <strong style={{ color: "var(--text-primary)" }}>{caseData.rootCause}</strong>
+            </span>
+          </div>
+
+          <button
+            onClick={handleOpenClearModal}
+            className="btn-ghost"
+            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.25)", borderRadius: 4 }}
+          >
+            Clear recovery data
+          </button>
         </div>
 
         {/* THE THREE HERO NUMBERS */}
@@ -720,6 +769,65 @@ export default function CaseWorkspace() {
           </div>
         )}
       </div>
+
+      {/* ── DESTRUCTIVE DATA CLEAR CONFIRMATION MODAL ───────────── */}
+      {clearModalOpen && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0, 0, 0, 0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem"
+        }}>
+          <div className="card" style={{ maxWidth: 500, width: "100%", padding: "1.5rem", background: "var(--bg-primary)", border: "1px solid var(--border)", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)" }}>
+            <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--danger)", marginBottom: "0.5rem" }}>
+              Clear Recovery Data
+            </div>
+            <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginBottom: "1rem", lineHeight: 1.5 }}>
+              This removes the recovery case and all derived operational data associated with it.
+            </p>
+            {clearPreview ? (
+              <div style={{ background: "var(--bg-secondary)", padding: "0.875rem 1rem", borderRadius: 6, marginBottom: "1.25rem", border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 700, marginBottom: "0.5rem", color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Backend Operational Dependency Graph:
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem", fontFamily: "monospace", fontSize: "0.8125rem", color: "var(--text-primary)" }}>
+                  <div>• {clearPreview.recovery_case} recovery case</div>
+                  <div>• {clearPreview.decisions_count} decisions</div>
+                  <div>• {clearPreview.attempts_count} action attempts</div>
+                  <div>• {clearPreview.outcomes_count} evaluation records</div>
+                  <div>• {clearPreview.promises_count} promises-to-pay</div>
+                  <div>• {clearPreview.jobs_count} queue jobs</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
+                Inspecting backend database dependencies...
+              </div>
+            )}
+            {clearedError && (
+              <div style={{ color: "var(--danger)", fontSize: "0.75rem", marginBottom: "1rem", fontWeight: 600 }}>
+                {clearedError}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+              <button
+                onClick={() => setClearModalOpen(false)}
+                className="btn-secondary"
+                style={{ fontSize: "0.8125rem" }}
+                disabled={clearing}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmClear}
+                className="btn-primary"
+                style={{ fontSize: "0.8125rem", background: "#ef4444", borderColor: "#ef4444" }}
+                disabled={clearing}
+              >
+                {clearing ? "Clearing operational data..." : "Confirm Clear Case"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

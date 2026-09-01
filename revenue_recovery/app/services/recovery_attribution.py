@@ -127,16 +127,9 @@ class RecoveryAttributionEngine:
                 )
             )
 
-        # Baseline fallback for empty test datasets
-        if total_rec == 0:
-            total_rec = 398500000
-            agent_rec = 328000000
-            organic_rec = 45000000
-            assisted_rec = 25500000
-
         total_agent_full = agent_rec + assisted_rec
-        dir_pct = (total_agent_full / max(1, total_rec)) * 100
-        org_pct = (organic_rec / max(1, total_rec)) * 100
+        dir_pct = (total_agent_full / total_rec * 100.0) if total_rec > 0 else 0.0
+        org_pct = (organic_rec / total_rec * 100.0) if total_rec > 0 else 0.0
 
         return RecoveryAttributionReport(
             total_recovered_minor=total_rec,

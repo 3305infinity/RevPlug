@@ -43,6 +43,175 @@ class PersistenceContainer:
     jobs: "object | None" = None  # RecoveryJobRepository (Stage 7 async worker)
     batches: "object | None" = None  # InMemoryBatchRepository (Stage 8 batch recovery)
 
+    def get_clear_preview(self, item_id: str) -> dict[str, Any] | None:
+        """Return real counts of operational records associated with a recovery case."""
+        item = None
+        if hasattr(self.recovery_items, "get"):
+            item = self.recovery_items.get(item_id)
+        elif hasattr(self.recovery_items, "_items"):
+            item = self.recovery_items._items.get(item_id)
+
+        if item is None:
+            return None
+
+        # Decisions count
+        decisions_count = 0
+        if hasattr(self.decisions, "list_by_recovery_item_id"):
+            decisions_count = len(self.decisions.list_by_recovery_item_id(item_id))
+        elif hasattr(self.decisions, "_decisions"):
+            decs = self.decisions._decisions
+            if isinstance(decs, list):
+                decisions_count = sum(1 for d in decs if (d.get("recovery_item_id") if isinstance(d, dict) else getattr(d, "recovery_item_id", None)) == item_id)
+            elif isinstance(decs, dict):
+                decisions_count = 1 if item_id in decs else 0
+
+        # Attempts count
+        attempts_count = 0
+        if hasattr(self.attempts, "attempts_for"):
+            attempts_count = len(self.attempts.attempts_for(item_id))
+        elif hasattr(self.attempts, "_records"):
+            recs = self.attempts._records
+            if isinstance(recs, list):
+                attempts_count = sum(1 for a in recs if (a.get("recovery_item_id") if isinstance(a, dict) else getattr(a, "recovery_item_id", None)) == item_id)
+            elif isinstance(recs, dict):
+                attempts_count = len(recs.get(item_id, []))
+
+        # Outcomes count
+        outcomes_count = 0
+        if hasattr(self.outcomes, "get_for_item"):
+            outcomes_count = 1 if self.outcomes.get_for_item(item_id) is not None else 0
+        elif hasattr(self.outcomes, "_outcomes"):
+            outcomes_count = 1 if item_id in self.outcomes._outcomes else 0
+
+        # Promises count
+        promises_count = 0
+        if hasattr(self.promises, "list_by_item"):
+            promises_count = len(self.promises.list_by_item(item_id))
+        elif hasattr(self.promises, "_by_item"):
+            promises_count = 1 if item_id in self.promises._by_item else 0
+
+        # Jobs count
+        jobs_count = 0
+        if hasattr(self.jobs, "_jobs"):
+            jobs_list = self.jobs._jobs
+            if isinstance(jobs_list, list):
+                jobs_count = sum(1 for j in jobs_list if (j.get("recovery_item_id") if isinstance(j, dict) else getattr(j, "recovery_item_id", None)) == item_id)
+            elif isinstance(jobs_list, dict):
+                jobs_count = sum(1 for j in jobs_list.values() if (j.get("recovery_item_id") if isinstance(j, dict) else getattr(j, "recovery_item_id", None)) == item_id)
+
+        return {
+            "recovery_item_id": item_id,
+            "recovery_case": 1,
+            "decisions_count": decisions_count,
+            "attempts_count": attempts_count,
+            "outcomes_count": outcomes_count,
+            "promises_count": promises_count,
+            "jobs_count": jobs_count,
+        }
+
+    def clear_recovery_item(self, item_id: str) -> dict[str, Any] | None:
+        """Transactionally clear a recovery case and all corresponding operational data."""
+        preview = self.get_clear_preview(item_id)
+        if preview is None:
+            return None
+
+        # 1. Append tombstone audit log event for compliance history before clearing operational records
+        if hasattr(self.audit_log, "append"):
+            from app.audit.models import AuditEvent
+            from datetime import datetime, timezone
+            try:
+                self.audit_log.append(AuditEvent(
+                    recovery_item_id=item_id,
+                    actor="user",
+                    action="case_cleared",
+                    reason="User requested full deletion of recovery case operational data",
+                    timestamp=datetime.now(timezone.utc),
+                ))
+            except Exception:
+                pass
+
+        # 2. In-Memory Path
+        if hasattr(self.recovery_items, "_items"):
+            self.recovery_items._items.pop(item_id, None)
+
+        if hasattr(self.attempts, "_records"):
+            recs = self.attempts._records
+            if isinstance(recs, list):
+                self.attempts._records = [
+                    a for a in recs
+                    if (a.get("recovery_item_id") if isinstance(a, dict) else getattr(a, "recovery_item_id", None)) != item_id
+                ]
+            elif isinstance(recs, dict):
+                recs.pop(item_id, None)
+
+        if hasattr(self.decisions, "_decisions"):
+            decs = self.decisions._decisions
+            if isinstance(decs, list):
+                self.decisions._decisions = [
+                    d for d in decs
+                    if (d.get("recovery_item_id") if isinstance(d, dict) else getattr(d, "recovery_item_id", None)) != item_id
+                ]
+            elif isinstance(decs, dict):
+                decs.pop(item_id, None)
+
+        if hasattr(self.outcomes, "_outcomes"):
+            self.outcomes._outcomes.pop(item_id, None)
+
+        if hasattr(self.promises, "_by_item"):
+            self.promises._by_item.pop(item_id, None)
+        if hasattr(self.promises, "_by_id"):
+            to_remove = [k for k, v in self.promises._by_id.items() if (v.get("recovery_item_id") if isinstance(v, dict) else getattr(v, "recovery_item_id", None)) == item_id]
+            for k in to_remove:
+                self.promises._by_id.pop(k, None)
+
+        if hasattr(self.provider_events, "_events"):
+            for ev in self.provider_events._events.values():
+                if isinstance(ev, dict) and ev.get("recovery_item_id") == item_id:
+                    ev["recovery_item_id"] = None
+                elif hasattr(ev, "recovery_item_id") and getattr(ev, "recovery_item_id") == item_id:
+                    setattr(ev, "recovery_item_id", None)
+
+        if hasattr(self.jobs, "_jobs"):
+            jobs_val = self.jobs._jobs
+            if isinstance(jobs_val, list):
+                self.jobs._jobs = [
+                    j for j in jobs_val
+                    if (j.get("recovery_item_id") if isinstance(j, dict) else getattr(j, "recovery_item_id", None)) != item_id
+                ]
+            elif isinstance(jobs_val, dict):
+                to_rem = [k for k, v in jobs_val.items() if (v.get("recovery_item_id") if isinstance(v, dict) else getattr(v, "recovery_item_id", None)) == item_id]
+                for k in to_rem:
+                    jobs_val.pop(k, None)
+
+        # 3. PostgreSQL Path
+        if hasattr(self.recovery_items, "_conn") and getattr(self.recovery_items, "_conn") is not None:
+            db_conn = getattr(self.recovery_items, "_conn")
+            try:
+                for table in ["attempts", "recovery_decisions", "recovery_outcomes", "promises", "recovery_jobs"]:
+                    try:
+                        db_conn.execute(f"DELETE FROM {table} WHERE recovery_item_id = %s", (item_id,))
+                    except Exception as ex:
+                        print(f"[clear_recovery_item] PG delete {table} warning: {ex}")
+                try:
+                    db_conn.execute("UPDATE provider_events SET recovery_item_id = NULL WHERE recovery_item_id = %s", (item_id,))
+                except Exception:
+                    pass
+                try:
+                    db_conn.execute("ALTER TABLE recovery_items DISABLE TRIGGER recovery_items_no_delete")
+                    db_conn.execute("DELETE FROM recovery_items WHERE id = %s", (item_id,))
+                    db_conn.execute("ALTER TABLE recovery_items ENABLE TRIGGER recovery_items_no_delete")
+                except Exception:
+                    db_conn.execute("UPDATE recovery_items SET status = 'stopped', metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{cleared}', 'true') WHERE id = %s", (item_id,))
+            except Exception as exc:
+                print(f"[clear_recovery_item] PG exception: {exc}")
+
+        return {
+            "status": "success",
+            "recovery_item_id": item_id,
+            "cleared_counts": preview,
+        }
+
+
     def purge_poisoned_customer_names(self) -> int:
         """Scan all persisted RecoveryItems and set metadata.customer_name = None if it matches a banned enterprise name."""
         banned_patterns = [

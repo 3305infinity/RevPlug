@@ -54,8 +54,9 @@ class PortfolioNextBestActionEngine:
         open_items = [i for i in items if i.status not in (RecoveryStatus.RECOVERED, RecoveryStatus.STOPPED)]
 
         if not open_items:
-            open_items = items[:10]
+            return []
 
+        from app.domain.customer_names import derive_customer_name
         opportunities: list[OpportunityItem] = []
 
         for idx, item in enumerate(open_items):
@@ -87,12 +88,15 @@ class PortfolioNextBestActionEngine:
                 reason = "Optimal morning retry window (10:00–11:30 AM) aligned with customer salary deposit history"
                 urgency = "MEDIUM"
 
+            meta = item.metadata if isinstance(item.metadata, dict) else {}
+            c_name = meta.get("customer_name") or derive_customer_name(item.customer_id)
+
             opportunities.append(
                 OpportunityItem(
                     rank=0,
                     item_id=item.id,
                     customer_id=item.customer_id,
-                    customer_name=f"Acme Corp {item.customer_id[-4:]}" if len(item.customer_id) >= 4 else item.customer_id,
+                    customer_name=c_name,
                     amount_at_risk_minor=amt,
                     expected_net_recovery_minor=exp_ev,
                     action=action,

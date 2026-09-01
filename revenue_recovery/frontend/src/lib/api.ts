@@ -504,6 +504,26 @@ export const api = {
     }
     return { status: "success", message: "Logged out" };
   },
+  previewClearRecoveryItem: async (id: string) => {
+    return fetchAPI<{
+      recovery_item_id: string;
+      recovery_case: number;
+      decisions_count: number;
+      attempts_count: number;
+      outcomes_count: number;
+      promises_count: number;
+      jobs_count: number;
+    }>(`/api/recovery-items/${id}/clear-preview`);
+  },
+  clearRecoveryItem: async (id: string) => {
+    return fetchAPI<{
+      status: string;
+      recovery_item_id: string;
+      cleared_counts: Record<string, number>;
+    }>(`/api/recovery-items/${id}`, {
+      method: "DELETE",
+    });
+  },
 };
 
 export interface User {

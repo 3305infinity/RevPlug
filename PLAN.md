@@ -16,7 +16,32 @@
 ---
 
 # Phase 1 — Payment Recovery Core & Ingestion `[COMPLETED]`
+The /recovery queue is currently showing internal smoke-test and stress-test
+fixture data mixed in with real demo cases. I found rows with customer_id
+"razorpay_customer" (dozens of identical ₹500 rows), refs like
+"pay_smoke_002", and raw UUID-style refs like
+"pay_3022e0e8-a836-4d3a-8434-62cef502a1a6" — these come from smoke tests /
+stress tests (check scripts/smoke_test_razorpay.py, tests/test_stress_*.py,
+and wherever stress/smoke fixtures get written to the same persistence
+layer as demo data).
 
+Fix this properly, not by filtering in the UI:
+1. Find where smoke_test/stress_test scripts create RecoveryItems and make
+   them write to a clearly separate namespace/tag (e.g. metadata:
+   {"source": "smoke_test"} or a dedicated in-memory-only test container),
+   NOT the same container/DB the frontend dashboard reads from.
+2. Add a hard filter in the API layer (wherever /api/opportunity-inbox and
+   /api/items are served) that excludes any item tagged as smoke_test or
+   stress_test from ever appearing in dashboard-facing endpoints, even if
+   one leaks in accidentally.
+3. Add a cleanup script (or reuse /api/demo/reset) that purges any existing
+   smoke/stress items from the current dev database right now.
+4. Add a test asserting that running the smoke test suite does not increase
+   the count returned by /api/opportunity-inbox.
+
+After this, the recovery queue should only ever show real demo/synthetic
+dataset cases (the ones from app/datasets/synthetic.py) or genuinely
+webhook-triggered cases — never test fixtures.
 **Goal:** Run deterministic payment recovery core and provider-neutral webhook ingestion.
 
 - `[x]` Implement provider-neutral `/webhooks/events` boundary supporting 8 normalized revenue event types.

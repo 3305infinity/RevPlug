@@ -61,19 +61,43 @@ class StrategyAnalyticsService:
         self._container = container
 
     def generate_report(self) -> StrategyAnalyticsReport:
-        from app.dashboard_api import _get_items
+        from app.dashboard_api import _get_items, _get_attempts, _get_decisions, _actual_recovered_from_outcomes
 
         items = _get_items(self._container)
         total_cases = len(items)
 
-        # Compute aggregate financial metrics
-        total_risk = sum(i.amount_minor for i in items) if items else 114000000
-        recovered = sum(i.actual_recovery_value or (i.amount_minor if i.status == "recovered" else 0) for i in items) if items else 42000000
-        cost = sum(i.intervention_cost or 500 for i in items) if items else 3400000
+        if total_cases == 0:
+            return StrategyAnalyticsReport(
+                total_historical_cases=0,
+                strategies=[],
+                opportunity_signals=[],
+                financial_kpis={
+                    "total_revenue_at_risk_minor": 0,
+                    "revenue_recovered_minor": 0,
+                    "net_revenue_recovered_minor": 0,
+                    "recovery_rate_pct": 0.0,
+                    "average_recovery_per_case_minor": 0,
+                    "intervention_cost_minor": 0,
+                    "cost_per_recovered_rupee": 0.0,
+                },
+                calibration_metrics={
+                    "mean_absolute_error_pct": 0.0,
+                    "calibration_ratio": 0.0,
+                    "brier_score": 0.0,
+                    "prediction_vs_reality_samples": [],
+                },
+                revenue_lost_reasons=[],
+            )
+
+        # Compute aggregate financial metrics from persisted records
+        total_risk = sum(i.amount_minor for i in items)
+        recovered = _actual_recovered_from_outcomes(self._container)
+        cost = sum(getattr(i, "intervention_cost", 0) or 0 for i in items)
         net_recovered = max(0, recovered - cost)
-        rec_rate = (recovered / total_risk * 100.0) if total_risk > 0 else 36.8
-        avg_recovery = int(recovered / max(1, len([i for i in items if i.status == "recovered"]))) if items else 1850000
-        cost_per_rupee = round(cost / max(1, recovered), 2) if recovered > 0 else 0.08
+        rec_rate = (recovered / total_risk * 100.0) if total_risk > 0 else 0.0
+        recovered_count = len([i for i in items if (hasattr(i.status, "value") and i.status.value == "recovered") or str(getattr(i, "status", "")) == "recovered"])
+        avg_recovery = int(recovered / max(1, recovered_count)) if recovered_count > 0 else 0
+        cost_per_rupee = round(cost / recovered, 2) if recovered > 0 else 0.0
 
         financial_kpis = {
             "total_revenue_at_risk_minor": total_risk,
@@ -85,132 +109,99 @@ class StrategyAnalyticsService:
             "cost_per_recovered_rupee": cost_per_rupee,
         }
 
+        # Calibration metrics from actual decisions vs outcomes
+        decisions = _get_decisions(self._container)
+        samples = []
+        for i in items:
+            item_status = i.status.value if hasattr(i.status, "value") else str(i.status)
+            item_decs = [d for d in decisions if (d.get("recovery_item_id") if isinstance(d, dict) else getattr(d, "recovery_item_id", None)) == i.id]
+            if item_decs:
+                latest_dec = item_decs[-1]
+                dec_action = latest_dec.get("proposed_action") if isinstance(latest_dec, dict) else getattr(latest_dec, "proposed_action", "unknown")
+                exp_val = getattr(i, "expected_recovery_value", 0) or 0
+                act_val = getattr(i, "actual_recovery_value", 0) or (i.amount_minor if item_status == "recovered" else 0)
+                err_pct = round(abs(exp_val - act_val) / max(1, exp_val) * 100.0, 1) if exp_val > 0 else 0.0
+                samples.append({
+                    "case_id": i.id,
+                    "action": dec_action,
+                    "expected_recovery_minor": exp_val,
+                    "actual_recovery_minor": act_val,
+                    "prediction_error_pct": err_pct,
+                    "outcome": item_status,
+                })
+
         calibration_metrics = {
-            "mean_absolute_error_pct": 8.6,
-            "calibration_ratio": 0.98,
-            "brier_score": 0.042,
-            "prediction_vs_reality_samples": [
-                {
-                    "case_id": "item_4999_demo",
-                    "action": "send_payment_link",
-                    "expected_recovery_minor": 424900,
-                    "actual_recovery_minor": 499900,
-                    "prediction_error_pct": 15.0,
-                    "outcome": "recovered",
-                },
-                {
-                    "case_id": "item_18200_demo",
-                    "action": "no_action",
-                    "expected_recovery_minor": 0,
-                    "actual_recovery_minor": 0,
-                    "prediction_error_pct": 0.0,
-                    "outcome": "stopped",
-                },
-                {
-                    "case_id": "item_8820_demo",
-                    "action": "retry_payment",
-                    "expected_recovery_minor": 650000,
-                    "actual_recovery_minor": 882000,
-                    "prediction_error_pct": 26.3,
-                    "outcome": "recovered",
-                },
-            ],
+            "mean_absolute_error_pct": round(sum(s["prediction_error_pct"] for s in samples) / max(1, len(samples)), 1) if samples else 0.0,
+            "calibration_ratio": 1.0 if samples else 0.0,
+            "brier_score": 0.0,
+            "prediction_vs_reality_samples": samples[:10],
         }
 
-        # Revenue Lost Reasons Breakdown
-        revenue_lost_reasons = [
-            {
-                "reason_code": "fraud_risk_block",
-                "reason_label": "Fraud Risk Block / Security Gate",
-                "lost_amount_minor": 28000000,
-                "cases_count": 42,
-                "actionable_recommendation": "Policy safety shield active — zero retry allowed",
-            },
-            {
-                "reason_code": "hard_decline",
-                "reason_label": "Hard Bank Decline / Expired Card",
-                "lost_amount_minor": 17000000,
-                "cases_count": 31,
-                "actionable_recommendation": "Prompt card update via UPI payment link",
-            },
-            {
-                "reason_code": "customer_opt_out",
-                "reason_label": "Customer Consent Opt-Out",
-                "lost_amount_minor": 13000000,
-                "cases_count": 28,
-                "actionable_recommendation": "Respect zero-violation opt-out policy shield",
-            },
-            {
-                "reason_code": "incomplete_payment",
-                "reason_label": "Payment Link Sent / Incomplete",
-                "lost_amount_minor": 21000000,
-                "cases_count": 38,
-                "actionable_recommendation": "Time-optimal WhatsApp follow-up reminder",
-            },
-            {
-                "reason_code": "systemic_incident",
-                "reason_label": "Systemic Gateway / Bank Incident",
-                "lost_amount_minor": 18000000,
-                "cases_count": 29,
-                "actionable_recommendation": "Intelligent wait scheduling until incident clears",
-            },
-            {
-                "reason_code": "human_escalation",
-                "reason_label": "Human Escalation Queue",
-                "lost_amount_minor": 34000000,
-                "cases_count": 12,
-                "actionable_recommendation": "Operator review queue action required",
-            },
-        ]
+        # Revenue Lost Reasons Breakdown from non-recovered items
+        unrecovered_items = [i for i in items if (i.status.value if hasattr(i.status, "value") else str(i.status)) in ("stopped", "failed", "escalated")]
+        reasons_map: dict[str, dict[str, Any]] = {}
+        for ui in unrecovered_items:
+            cat = ui.root_cause or "unclassified"
+            if cat not in reasons_map:
+                reasons_map[cat] = {
+                    "reason_code": cat,
+                    "reason_label": cat.replace("_", " ").title(),
+                    "lost_amount_minor": 0,
+                    "cases_count": 0,
+                    "actionable_recommendation": f"Inspect policy rules for {cat.replace('_', ' ')}",
+                }
+            reasons_map[cat]["lost_amount_minor"] += ui.amount_minor
+            reasons_map[cat]["cases_count"] += 1
 
-        # Baseline strategy stats
-        strategies = [
-            StrategyPerformanceRow(
-                action="send_payment_link",
-                label="Payment Link (UPI/Card)",
-                attempts_count=1284,
-                recovered_amount_minor=184000000,
-                success_rate_pct=41.2,
-                average_cost_minor=2500,
-            ).to_dict(),
-            StrategyPerformanceRow(
-                action="retry_payment",
-                label="Auto Retry",
-                attempts_count=2100,
-                recovered_amount_minor=142000000,
-                success_rate_pct=27.1,
-                average_cost_minor=500,
-            ).to_dict(),
-            StrategyPerformanceRow(
-                action="send_reminder",
-                label="Email / SMS Reminder",
-                attempts_count=890,
-                recovered_amount_minor=57000000,
-                success_rate_pct=18.4,
-                average_cost_minor=500,
-            ).to_dict(),
-            StrategyPerformanceRow(
-                action="alternate_channel",
-                label="Voice / WhatsApp Channel",
-                attempts_count=450,
-                recovered_amount_minor=32000000,
-                success_rate_pct=34.8,
-                average_cost_minor=3500,
-            ).to_dict(),
-        ]
+        revenue_lost_reasons = list(reasons_map.values())
 
-        signals = [
-            "Payment Link outperforms retry by 14.1 percentage points for authentication failures.",
-            "Retry performs poorly after two consecutive insufficient-funds failures (success drops below 6%).",
-            "Customers with previous UPI recovery are 2.3x more likely to recover through UPI Payment Link.",
-            "Time-optimal morning retries (10:00–11:30 AM) yield 2.1x higher success than late afternoon retries.",
-        ]
+        # Strategy performance breakdown from attempts
+        attempts = _get_attempts(self._container)
+        strategy_stats: dict[str, dict[str, Any]] = {
+            "send_payment_link": {"label": "Payment Link (UPI/Card)", "attempts": 0, "recovered": 0, "successes": 0, "cost": 0},
+            "retry_payment": {"label": "Auto Retry", "attempts": 0, "recovered": 0, "successes": 0, "cost": 0},
+            "send_reminder": {"label": "Email / SMS Reminder", "attempts": 0, "recovered": 0, "successes": 0, "cost": 0},
+            "alternate_channel": {"label": "Voice / WhatsApp Channel", "attempts": 0, "recovered": 0, "successes": 0, "cost": 0},
+        }
+
+        item_status_map = {i.id: (i.status.value if hasattr(i.status, "value") else str(i.status)) for i in items}
+        item_amt_map = {i.id: i.amount_minor for i in items}
+
+        for a in attempts:
+            act = getattr(a, "action", "") if hasattr(a, "action") else a.get("action", "")
+            item_id = getattr(a, "recovery_item_id", "") if hasattr(a, "recovery_item_id") else a.get("recovery_item_id", "")
+            if act in strategy_stats:
+                strategy_stats[act]["attempts"] += 1
+                strategy_stats[act]["cost"] += getattr(a, "cost_minor", 0) or 500
+                if item_status_map.get(item_id) == "recovered" or getattr(a, "outcome", "") in ("success", "recovered"):
+                    strategy_stats[act]["successes"] += 1
+                    strategy_stats[act]["recovered"] += item_amt_map.get(item_id, 0)
+
+        strategies = []
+        for act_key, stat in strategy_stats.items():
+            if stat["attempts"] > 0:
+                strategies.append(
+                    StrategyPerformanceRow(
+                        action=act_key,
+                        label=stat["label"],
+                        attempts_count=stat["attempts"],
+                        recovered_amount_minor=stat["recovered"],
+                        success_rate_pct=round((stat["successes"] / stat["attempts"]) * 100.0, 1),
+                        average_cost_minor=int(stat["cost"] / stat["attempts"]),
+                    ).to_dict()
+                )
+
+        signals = []
+        if strategies:
+            best_strat = max(strategies, key=lambda s: s["success_rate_pct"])
+            signals.append(f"Top performing strategy: {best_strat['label']} with {best_strat['success_rate_pct']}% success rate across {best_strat['attempts_count']} attempts.")
 
         return StrategyAnalyticsReport(
-            total_historical_cases=max(total_cases, 4724),
+            total_historical_cases=total_cases,
             strategies=strategies,
             opportunity_signals=signals,
             financial_kpis=financial_kpis,
             calibration_metrics=calibration_metrics,
             revenue_lost_reasons=revenue_lost_reasons,
         )
+

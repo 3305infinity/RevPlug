@@ -62,70 +62,59 @@ class RevenueLeakageAnalytics:
         from app.dashboard_api import _get_items
 
         items = _get_items(self._container)
-        total_risk = sum(i.amount_minor for i in items) or 114000000
+        total_risk = sum(i.amount_minor for i in items)
 
-        categories = [
-            LeakageCategoryRow(
-                category_id="auth",
-                category_label="Authentication Failures (3DS)",
-                amount_at_risk_minor=28000000,
-                recoverable_estimate_minor=24000000,
-                actual_recovered_minor=20000000,
-                unrecovered_minor=8000000,
-                recovery_rate_pct=71.4,
-                recommended_policy_change="Enable instant UPI Payment Link fallback when 3DS session times out.",
-            ).to_dict(),
-            LeakageCategoryRow(
-                category_id="insufficient",
-                category_label="Insufficient Funds (Soft)",
-                amount_at_risk_minor=21000000,
-                recoverable_estimate_minor=16000000,
-                actual_recovered_minor=11000000,
-                unrecovered_minor=10000000,
-                recovery_rate_pct=52.4,
-                recommended_policy_change="Shift retries to 10:00–11:30 AM window following customer salary deposit patterns.",
-            ).to_dict(),
-            LeakageCategoryRow(
-                category_id="expired",
-                category_label="Expired Cards (Hard Decline)",
-                amount_at_risk_minor=17000000,
-                recoverable_estimate_minor=12000000,
-                actual_recovered_minor=9000000,
-                unrecovered_minor=8000000,
-                recovery_rate_pct=52.9,
-                recommended_policy_change="Suppress card auto-retries immediately; send card update link on first failure.",
-            ).to_dict(),
-            LeakageCategoryRow(
-                category_id="abandonment",
-                category_label="Checkout Abandonment",
-                amount_at_risk_minor=13000000,
-                recoverable_estimate_minor=11000000,
-                actual_recovered_minor=8000000,
-                unrecovered_minor=5000000,
-                recovery_rate_pct=61.5,
-                recommended_policy_change="Trigger payment link within 15 mins for HIGH INTENT checkouts.",
-            ).to_dict(),
-            LeakageCategoryRow(
-                category_id="dispute",
-                category_label="Disputes & Invoicing",
-                amount_at_risk_minor=11000000,
-                recoverable_estimate_minor=4000000,
-                actual_recovered_minor=2000000,
-                unrecovered_minor=9000000,
-                recovery_rate_pct=18.2,
-                recommended_policy_change="Escalate disputed invoices directly to human review queue.",
-            ).to_dict(),
-            LeakageCategoryRow(
-                category_id="fraud",
-                category_label="Fraud-Protected Guardrails",
-                amount_at_risk_minor=9000000,
-                recoverable_estimate_minor=0,
-                actual_recovered_minor=0,
-                unrecovered_minor=9000000,
-                recovery_rate_pct=0.0,
-                recommended_policy_change="Maintain strict Policy Shield suppression for fraud risk flags.",
-            ).to_dict(),
-        ]
+        if not items:
+            return RevenueLeakageReport(
+                total_revenue_at_risk_minor=0,
+                total_unrecovered_minor=0,
+                categories=[],
+            )
+
+        cat_groups: dict[str, dict[str, Any]] = {}
+        for i in items:
+            cat_id = (i.root_cause or "unclassified").lower()
+            if cat_id not in cat_groups:
+                cat_groups[cat_id] = {
+                    "category_id": cat_id,
+                    "category_label": cat_id.replace("_", " ").title(),
+                    "amount_at_risk_minor": 0,
+                    "recoverable_estimate_minor": 0,
+                    "actual_recovered_minor": 0,
+                    "unrecovered_minor": 0,
+                    "recovery_rate_pct": 0.0,
+                    "recommended_policy_change": f"Evaluate recovery workflow rules for {cat_id.replace('_', ' ')}",
+                }
+
+            status_str = i.status.value if hasattr(i.status, "value") else str(i.status)
+            amt = i.amount_minor
+            cat_groups[cat_id]["amount_at_risk_minor"] += amt
+            exp_val = getattr(i, "expected_recovery_value", 0) or int(amt * 0.7)
+            cat_groups[cat_id]["recoverable_estimate_minor"] += exp_val
+
+            if status_str == "recovered":
+                rec_val = getattr(i, "actual_recovery_value", 0) or amt
+                cat_groups[cat_id]["actual_recovered_minor"] += rec_val
+            elif status_str in ("stopped", "failed", "escalated"):
+                cat_groups[cat_id]["unrecovered_minor"] += amt
+
+        categories = []
+        for g in cat_groups.values():
+            risk = g["amount_at_risk_minor"]
+            rec = g["actual_recovered_minor"]
+            g["recovery_rate_pct"] = round((rec / risk * 100.0), 1) if risk > 0 else 0.0
+            categories.append(
+                LeakageCategoryRow(
+                    category_id=g["category_id"],
+                    category_label=g["category_label"],
+                    amount_at_risk_minor=g["amount_at_risk_minor"],
+                    recoverable_estimate_minor=g["recoverable_estimate_minor"],
+                    actual_recovered_minor=g["actual_recovered_minor"],
+                    unrecovered_minor=g["unrecovered_minor"],
+                    recovery_rate_pct=g["recovery_rate_pct"],
+                    recommended_policy_change=g["recommended_policy_change"],
+                ).to_dict()
+            )
 
         total_unrecovered = sum(c["unrecovered_minor"] for c in categories)
 
@@ -134,3 +123,4 @@ class RevenueLeakageAnalytics:
             total_unrecovered_minor=total_unrecovered,
             categories=categories,
         )
+

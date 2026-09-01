@@ -296,3 +296,70 @@ class TestHumanInTheLoop:
         assert detail["expected_recovery_value"] == 85000
         assert detail["amount_minor"] == 100000
 
+    def test_clear_recovery_item_preview_and_execution(self, client):
+        """DELETE /api/recovery-items/{id} transactionally removes operational item & descendants."""
+        from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+        from datetime import datetime, timezone
+        container = client.app.state.container
+
+        item_id = "clear_test_case_999"
+        item = RecoveryItem(
+            id=item_id,
+            source_type=SourceType.PAYMENT_FAILURE,
+            external_id="ext_clear_999",
+            customer_id="cust_clear_999",
+            amount_minor=50000,
+            currency="INR",
+            created_at=datetime.now(timezone.utc),
+            status=RecoveryStatus.QUEUED,
+        )
+        container.recovery_items.save(item)
+
+        # Add a decision
+        if hasattr(container.decisions, "save"):
+            container.decisions.save({
+                "recovery_item_id": item_id,
+                "agent_name": "mock",
+                "proposed_action": "send_payment_link",
+                "reason": "testing clear",
+                "confidence": 0.9,
+                "policy_allowed": True,
+            })
+
+        # Test preview endpoint
+        prev_resp = client.get(f"/api/recovery-items/{item_id}/clear-preview")
+        assert prev_resp.status_code == 200
+        preview = prev_resp.json()
+        assert preview["recovery_case"] == 1
+        assert preview["decisions_count"] >= 1
+
+        # Test clear endpoint
+        clear_resp = client.delete(f"/api/recovery-items/{item_id}")
+        assert clear_resp.status_code == 200
+        result = clear_resp.json()
+        assert result["status"] == "success"
+        assert result["recovery_item_id"] == item_id
+
+        # Verify case is gone
+        get_resp = client.get(f"/api/recovery-items/{item_id}")
+        assert get_resp.status_code == 404
+
+        # Idempotent delete on non-existent case returns 404
+        clear_again = client.delete(f"/api/recovery-items/{item_id}")
+        assert clear_again.status_code == 404
+
+    def test_strategy_analytics_empty_state_without_fake_data(self, client):
+        """Strategy analytics returns 0 cases and empty arrays when no data exists, without fake fallbacks."""
+        container = client.app.state.container
+        container.reset_demo_data()
+
+        resp = client.get("/api/strategy-analytics")
+        assert resp.status_code == 200
+        report = resp.json()
+        assert report["total_historical_cases"] == 0
+        assert report["strategies"] == []
+        assert report["opportunity_signals"] == []
+        assert report["financial_kpis"]["total_revenue_at_risk_minor"] == 0
+        assert report["financial_kpis"]["revenue_recovered_minor"] == 0
+
+

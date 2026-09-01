@@ -93,6 +93,7 @@ export default function StrategyAnalyticsPage() {
 
   const kpis = report.financial_kpis || {};
   const calib = report.calibration_metrics || {};
+  const hasData = (report.total_historical_cases ?? 0) > 0;
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", paddingBottom: "3rem" }}>
@@ -106,45 +107,62 @@ export default function StrategyAnalyticsPage() {
             Revenue Recovery Analytics &amp; Lost Reasons
           </h1>
           <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>
-            Persisted historical outcomes ({(report?.total_historical_cases ?? 4724).toLocaleString()} cases). Closed-loop model calibration, strategy ROI, and revenue leakage diagnostics.
+            Persisted historical outcomes ({report.total_historical_cases.toLocaleString()} cases). Closed-loop model calibration, strategy ROI, and revenue leakage diagnostics.
           </div>
         </div>
       </div>
 
-      {/* 1. FINANCIAL KPIS GRID */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
-        <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>REVENUE AT RISK</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#ef4444", marginTop: 4, fontFamily: "monospace" }}>
-            {fmt(kpis.total_revenue_at_risk_minor ?? 114000000)}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Gross revenue exposed</div>
+      {!hasData ? (
+        <div className="card" style={{ padding: "4rem 2rem", textAlign: "center", border: "1px solid var(--border)" }}>
+          <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>📊</div>
+          <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.5rem", color: "var(--text-primary)" }}>
+            No strategy outcomes yet
+          </h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", maxWidth: 500, margin: "0 auto 1.5rem auto", lineHeight: 1.5 }}>
+            Run recovery cases to generate verified strategy performance data, model calibration metrics, and revenue leakage diagnostics.
+          </p>
+          <Link href="/dashboard" className="btn-primary" style={{ fontSize: "0.8125rem" }}>
+            Go to Operations Control Plane →
+          </Link>
         </div>
+      ) : (
+        <>
+          {/* 1. FINANCIAL KPIS GRID */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
+            <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>REVENUE AT RISK</div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#ef4444", marginTop: 4, fontFamily: "monospace" }}>
+                {fmt(kpis.total_revenue_at_risk_minor ?? 0)}
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Gross revenue exposed</div>
+            </div>
 
-        <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>NET REVENUE RECOVERED</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#10b981", marginTop: 4, fontFamily: "monospace" }}>
-            {fmt(kpis.net_revenue_recovered_minor ?? 38600000)}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "#10b981", marginTop: 2 }}>After ₹34L intervention cost</div>
-        </div>
+            <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>NET REVENUE RECOVERED</div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#10b981", marginTop: 4, fontFamily: "monospace" }}>
+                {fmt(kpis.net_revenue_recovered_minor ?? 0)}
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "#10b981", marginTop: 2 }}>
+                After {fmt(kpis.intervention_cost_minor ?? 0)} intervention cost
+              </div>
+            </div>
 
-        <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>RECOVERY RATE</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#3b82f6", marginTop: 4, fontFamily: "monospace" }}>
-            {kpis.recovery_rate_pct ?? 36.8}%
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Average recovery rate</div>
-        </div>
+            <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>RECOVERY RATE</div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#3b82f6", marginTop: 4, fontFamily: "monospace" }}>
+                {kpis.recovery_rate_pct ?? 0}%
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Average recovery rate</div>
+            </div>
 
-        <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>COST PER RECOVERED RUPEE</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#a78bfa", marginTop: 4, fontFamily: "monospace" }}>
-            ₹{kpis.cost_per_recovered_rupee ?? 0.08}
+            <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>COST PER RECOVERED RUPEE</div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#a78bfa", marginTop: 4, fontFamily: "monospace" }}>
+                ₹{kpis.cost_per_recovered_rupee ?? 0}
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Cost per ₹1 recovered</div>
+            </div>
           </div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>8 paise spent per ₹1 recovered</div>
-        </div>
-      </div>
 
       {/* 2. PREDICTION VS REALITY MODEL CALIBRATION BLOCK */}
       <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem", borderLeft: "4px solid #3b82f6" }}>
@@ -297,6 +315,8 @@ export default function StrategyAnalyticsPage() {
           </tbody>
         </table>
       </div>
-    </div>
+    </>
+  )}
+</div>
   );
 }

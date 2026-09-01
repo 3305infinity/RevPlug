@@ -159,26 +159,26 @@ class CustomerRecoveryProfileService:
             {
                 "channel_name": "Payment Link",
                 "action_key": "send_payment_link",
-                "total_attempts": max(1, action_stats["send_payment_link"]["total"]),
-                "success_rate_pct": 72.0 if action_stats["send_payment_link"]["total"] == 0 else round(action_stats["send_payment_link"]["success"] / action_stats["send_payment_link"]["total"] * 100, 1),
+                "total_attempts": action_stats["send_payment_link"]["total"],
+                "success_rate_pct": round(action_stats["send_payment_link"]["success"] / action_stats["send_payment_link"]["total"] * 100, 1) if action_stats["send_payment_link"]["total"] > 0 else 0.0,
             },
             {
                 "channel_name": "Auto Retry",
                 "action_key": "retry_payment",
-                "total_attempts": max(1, action_stats["retry_payment"]["total"]),
-                "success_rate_pct": 31.0 if action_stats["retry_payment"]["total"] == 0 else round(action_stats["retry_payment"]["success"] / action_stats["retry_payment"]["total"] * 100, 1),
+                "total_attempts": action_stats["retry_payment"]["total"],
+                "success_rate_pct": round(action_stats["retry_payment"]["success"] / action_stats["retry_payment"]["total"] * 100, 1) if action_stats["retry_payment"]["total"] > 0 else 0.0,
             },
             {
                 "channel_name": "Email / SMS",
                 "action_key": "send_reminder",
-                "total_attempts": max(1, action_stats["send_reminder"]["total"]),
-                "success_rate_pct": 18.0 if action_stats["send_reminder"]["total"] == 0 else round(action_stats["send_reminder"]["success"] / action_stats["send_reminder"]["total"] * 100, 1),
+                "total_attempts": action_stats["send_reminder"]["total"],
+                "success_rate_pct": round(action_stats["send_reminder"]["success"] / action_stats["send_reminder"]["total"] * 100, 1) if action_stats["send_reminder"]["total"] > 0 else 0.0,
             },
             {
                 "channel_name": "Voice / Chat",
                 "action_key": "alternate_channel",
-                "total_attempts": max(1, action_stats["alternate_channel"]["total"]),
-                "success_rate_pct": 44.0 if action_stats["alternate_channel"]["total"] == 0 else round(action_stats["alternate_channel"]["success"] / action_stats["alternate_channel"]["total"] * 100, 1),
+                "total_attempts": action_stats["alternate_channel"]["total"],
+                "success_rate_pct": round(action_stats["alternate_channel"]["success"] / action_stats["alternate_channel"]["total"] * 100, 1) if action_stats["alternate_channel"]["total"] > 0 else 0.0,
             },
         ]
 
