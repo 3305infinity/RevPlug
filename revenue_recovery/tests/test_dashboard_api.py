@@ -270,3 +270,29 @@ class TestHumanInTheLoop:
         assert meta["sample_count"] == 50
         assert "revplug" in data
         assert "baseline" in data
+
+    def test_recovery_item_expected_recovery_value_populated(self, client):
+        """Recovery item detail should populate expected_recovery_value when recovery_probability is present."""
+        from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+        from datetime import datetime, timezone
+        container = client.app.state.container
+        item = RecoveryItem(
+            id="item_ev_test_100",
+            source_type=SourceType.PAYMENT_FAILURE,
+            external_id="ext_ev_100",
+            customer_id="cust_ev_100",
+            amount_minor=100000,
+            currency="INR",
+            created_at=datetime.now(timezone.utc),
+            status=RecoveryStatus.QUEUED,
+            recovery_probability=0.85,
+            expected_recovery_value=85000,
+        )
+        container.recovery_items.save(item)
+
+        resp = client.get("/api/recovery-items/item_ev_test_100")
+        assert resp.status_code == 200
+        detail = resp.json()
+        assert detail["expected_recovery_value"] == 85000
+        assert detail["amount_minor"] == 100000
+

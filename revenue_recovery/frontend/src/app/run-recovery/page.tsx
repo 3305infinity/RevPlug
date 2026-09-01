@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { api, RecoveryItem, SimulationResult } from "@/lib/api";
+import { getCustomerDisplayName } from "@/lib/customerDisplay";
 import DecisionTraceView from "@/components/recovery/DecisionTraceView";
 
 type Phase = "idle" | "running" | "complete" | "error";
@@ -196,7 +197,7 @@ export default function SingleCaseRecoveryControlPlane() {
                     {fmt(item.amount_minor)}
                   </div>
                   <div style={{ fontSize: "0.6875rem", color: "var(--text-secondary)", marginTop: 2, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-                    Cust: {item.customer_id} • {item.root_cause || "Soft Decline"}
+                    Cust: {getCustomerDisplayName(item.customer_id)} • {item.root_cause || "Soft Decline"}
                   </div>
                 </button>
               );
@@ -232,7 +233,8 @@ export default function SingleCaseRecoveryControlPlane() {
                   </span>
                 </div>
                 <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 4 }}>
-                  Customer: <Link href={`/customers/${selectedItem.customer_id}`} style={{ color: "var(--accent)" }}>{selectedItem.customer_id}</Link>
+                  Customer: <Link href={`/customers/${selectedItem.customer_id}`} style={{ color: "var(--accent)" }}>{getCustomerDisplayName(selectedItem.customer_id)}</Link>
+                  <span className="font-mono" style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginLeft: "0.5rem" }}>({selectedItem.customer_id})</span>
                 </div>
               </div>
 

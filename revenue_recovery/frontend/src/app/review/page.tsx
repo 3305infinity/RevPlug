@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, RecoveryItem } from "@/lib/api";
+import { getCustomerDisplayName } from "@/lib/customerDisplay";
 
 interface EscalatedCase {
   id: string;
@@ -131,7 +132,7 @@ export default function HumanReviewQueuePage() {
                     </span>
                   </div>
                   <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 4 }}>
-                    CUSTOMER: {c.customer_name} (<Link href={`/customers/${c.customer_id}`} style={{ color: "var(--accent)" }}>{c.customer_id}</Link>)
+                    CUSTOMER: {getCustomerDisplayName(c.customer_id, c.customer_name)} (<Link href={`/customers/${c.customer_id}`} style={{ color: "var(--accent)", fontFamily: "monospace" }}>Ref: {c.customer_id}</Link>)
                   </div>
                 </div>
 

@@ -28,20 +28,36 @@ _AT_RISK_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_
 
 
 def _get_items(container) -> list:
-    """Extract all recovery items from the container.
-
-    Works with both InMemoryRecoveryItemRepository (_items dict)
-    and PostgresRecoveryItemRepository (list_all via _conn).
-    """
+    """Extract all recovery items from the container, filtering out smoke/stress test fixtures."""
     repo = container.recovery_items
+    raw_items = []
     if hasattr(repo, "_items"):
-        return list(repo._items.values())
-    if hasattr(repo, "list_all"):
+        raw_items = list(repo._items.values())
+    elif hasattr(repo, "list_all"):
         try:
-            return repo.list_all()
+            raw_items = repo.list_all()
         except Exception:
-            return []
-    return []
+            raw_items = []
+
+    filtered = []
+    for item in raw_items:
+        meta = getattr(item, "metadata", {}) or {}
+        if not isinstance(meta, dict):
+            meta = {}
+        src = str(meta.get("source", "")).lower()
+        if src in ("smoke_test", "stress_test", "test_fixture"):
+            continue
+        if meta.get("is_test_fixture") is True:
+            continue
+        item_id = str(getattr(item, "id", "")).lower()
+        ext_id = str(getattr(item, "external_id", "")).lower()
+        cust_id = str(getattr(item, "customer_id", "")).lower()
+
+        if "smoke" in item_id or "smoke" in ext_id or ext_id.startswith("pay_smoke") or ext_id.startswith("evt_smoke"):
+            continue
+        filtered.append(item)
+
+    return filtered
 
 
 def _get_attempts(container) -> list:
@@ -763,12 +779,61 @@ def build_audit_events_list(container, filter_by: str | None = None) -> list[dic
 # Serialisers
 # ---------------------------------------------------------------------------
 
-def _item_to_dict(item) -> dict[str, Any]:
+def _derive_classification_method(item, container=None) -> str:
+    """Derive classification_method from persisted audit events and metadata.
+
+    Returns one of: 'RULES' | 'LLM_PRIMARY' | 'LLM_FALLBACK'
+    """
+    meta = dict(item.metadata) if item.metadata else {}
+
+    # Prefer explicit field written by AI router at classification time
+    explicit = meta.get("classification_method") or meta.get("diagnosis_path")
+    if explicit:
+        mapping = {
+            "rules": "RULES",
+            "llm": "LLM_PRIMARY",
+            "llm_primary": "LLM_PRIMARY",
+            "fallback": "LLM_FALLBACK",
+            "llm_fallback": "LLM_FALLBACK",
+            "RULES": "RULES",
+            "LLM_PRIMARY": "LLM_PRIMARY",
+            "LLM_FALLBACK": "LLM_FALLBACK",
+        }
+        return mapping.get(str(explicit), str(explicit).upper())
+
+    # Fall back to scanning audit events for AI router signals
+    if container is not None:
+        try:
+            events = list(container.audit_log.events_for(item.id)) if hasattr(container.audit_log, "events_for") else []
+            for e in events:
+                action = getattr(e, "action", "") or ""
+                e_meta = getattr(e, "metadata", {}) or {}
+                if action in ("agent_completed", "agent_started") or e_meta.get("use_ai") is True:
+                    if e_meta.get("llm_fallback"):
+                        return "LLM_FALLBACK"
+                    return "LLM_PRIMARY"
+                if e_meta.get("llm_fallback"):
+                    return "LLM_FALLBACK"
+        except Exception:
+            pass
+
+    return "RULES"
+
+
+def _item_to_dict(item, container=None) -> dict[str, Any]:
+    from app.domain.customer_names import derive_customer_name
+    meta = dict(item.metadata) if item.metadata else {}
+    c_name = derive_customer_name(item.customer_id, meta.get("customer_name"))
+    meta["customer_name"] = c_name
+
+    classification_method = _derive_classification_method(item, container)
+
     return {
         "id": item.id,
         "source_type": item.source_type.value,
         "external_id": item.external_id,
         "customer_id": item.customer_id,
+        "customer_name": c_name,
         "amount_minor": item.amount_minor,
         "currency": item.currency,
         "created_at": item.created_at.isoformat(),
@@ -782,7 +847,8 @@ def _item_to_dict(item) -> dict[str, Any]:
         "stopped_rule": getattr(item, "stopped_rule", None),
         "priority": getattr(item, "priority", None),
         "score_version": getattr(item, "score_version", None),
-        "metadata": item.metadata,
+        "classification_method": classification_method,
+        "metadata": meta,
     }
 
 
@@ -838,4 +904,109 @@ def _promise_to_dict(promise) -> dict[str, Any]:
         "created_at": promise.created_at.isoformat() if promise.created_at else None,
         "fulfilled_at": promise.fulfilled_at.isoformat() if promise.fulfilled_at else None,
         "metadata": promise.metadata,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Capital Protected Summary
+# ---------------------------------------------------------------------------
+
+_BLOCK_REASON_LABELS = {
+    "fraud": "Fraud Risk Shield",
+    "opt_out": "Customer Opt-Out / Consent",
+    "hard_decline": "Hard Decline — Card Expired / Invalid",
+    "promise_active": "Active Promise-to-Pay",
+    "negative_ev": "Negative Expected Value",
+    "human_review": "Human Escalation Review",
+}
+
+
+def build_capital_protected_summary(container) -> dict[str, Any]:
+    """Aggregate capital protected: money NOT pursued due to policy decisions.
+
+    Capital protected = items in status 'stopped' or 'escalated' where the system
+    deliberately declined to retry, protecting the business from fraud, compliance,
+    or economic harm.
+    """
+    from app.domain.customer_names import derive_customer_name
+
+    items = _get_items(container)
+    protected_items = [
+        i for i in items
+        if (i.status.value if hasattr(i.status, "value") else str(i.status)) in ("stopped", "escalated")
+    ]
+
+    total_minor = sum(i.amount_minor for i in protected_items)
+    breakdown: dict[str, dict] = {
+        k: {"label": v, "count": 0, "amount_minor": 0}
+        for k, v in _BLOCK_REASON_LABELS.items()
+    }
+
+    itemized: list[dict] = []
+    for item in protected_items:
+        meta = item.metadata or {}
+        status_str = item.status.value if hasattr(item.status, "value") else str(item.status)
+        reason_raw = (
+            getattr(item, "stopped_reason", "") or
+            meta.get("stopped_reason") or
+            meta.get("stop_reason") or
+            ""
+        ).lower()
+        root = (item.root_cause or "").lower()
+
+        # Classify block reason
+        if "fraud" in reason_raw or "fraud" in root:
+            bucket = "fraud"
+        elif "opt" in reason_raw or "consent" in reason_raw:
+            bucket = "opt_out"
+        elif "hard" in reason_raw or "hard" in root or "expired" in reason_raw:
+            bucket = "hard_decline"
+        elif "promise" in reason_raw:
+            bucket = "promise_active"
+        elif status_str == "escalated":
+            bucket = "human_review"
+        elif "ev" in reason_raw or "negative" in reason_raw:
+            bucket = "negative_ev"
+        else:
+            bucket = "negative_ev"  # safe default
+
+        breakdown[bucket]["count"] += 1
+        breakdown[bucket]["amount_minor"] += item.amount_minor
+
+        # Human-readable decline line
+        amount_inr = item.amount_minor / 100
+        amount_fmt = f"\u20b9{amount_inr:,.0f}"
+        bucket_label = _BLOCK_REASON_LABELS.get(bucket, bucket)
+        c_name = derive_customer_name(item.customer_id, meta.get("customer_name"))
+        human_line = f"{amount_fmt} \u2014 {c_name}: declined ({bucket_label})"
+        if reason_raw:
+            human_line = f"{amount_fmt} \u2014 {c_name}: declined — {reason_raw[:80]}"
+
+        itemized.append({
+            "id": item.id,
+            "customer_id": item.customer_id,
+            "customer_name": c_name,
+            "amount_minor": item.amount_minor,
+            "status": status_str,
+            "block_reason": bucket,
+            "block_reason_label": bucket_label,
+            "human_readable_line": human_line,
+        })
+
+    # Sort itemized by amount descending
+    itemized.sort(key=lambda x: -x["amount_minor"])
+
+    # Only include breakdown buckets with at least one case
+    breakdown_list = [
+        {"reason": k, **v}
+        for k, v in breakdown.items()
+        if v["count"] > 0
+    ]
+    breakdown_list.sort(key=lambda x: -x["amount_minor"])
+
+    return {
+        "total_capital_protected_minor": total_minor,
+        "case_count": len(protected_items),
+        "breakdown_by_reason": breakdown_list,
+        "itemized_cases": itemized,
     }

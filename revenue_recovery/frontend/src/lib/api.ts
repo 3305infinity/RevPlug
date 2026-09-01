@@ -281,6 +281,7 @@ export interface EvaluationRunResult {
     safety_statistics?: Record<string, number>;
     opted_out_customer_count: number;
     case_ids: string[];
+    calibration_buckets?: Record<string, any>;
   };
   revplug: {
     cases_evaluated: number;
@@ -297,6 +298,7 @@ export interface EvaluationRunResult {
     intervention_cost: number;
     cost_per_recovery: number;
     unnecessary_interventions: number;
+    net_revenue_recovered?: number;
     rules_classified_count?: number;
     llm_classified_count?: number;
     llm_fallback_count?: number;
@@ -414,6 +416,8 @@ export const api = {
   
   // Decision Trace & Scientific Benchmark
   caseTrace: (id: string) => fetchAPI<CaseTrace>(`/api/recovery-items/${id}/trace`),
+  naiveBaseline: (id: string) => fetchAPI<NaiveBaselineResult>(`/api/recovery-items/${id}/naive-baseline`),
+  batchSummary: (id: string) => fetchAPI<any>(`/api/batches/${id}/summary`),
   latestBenchmark: () => fetchAPI<ScientificBenchmarkReport>("/api/benchmark/latest"),
 
   // Lifecycle & Audit
@@ -518,9 +522,24 @@ export interface CandidateAction {
   selected?: boolean;
 }
 
+export interface NaiveBaselineResult {
+  case_id: string;
+  baseline_mode: string;
+  action_taken: string;
+  attempts_made: number;
+  intervention_cost_minor: number;
+  estimated_outcome: string;
+  actual_recovered_minor: number;
+  unnecessary_intervention: boolean;
+  policy_violations: string[];
+  has_policy_violations: boolean;
+  summary: string;
+}
+
 export interface CaseTrace {
   item_id: string;
   status: string;
+  classification_method?: string;
   amount_at_risk_minor: number;
   expected_recovery_minor: number;
   verified_recovery_minor: number;

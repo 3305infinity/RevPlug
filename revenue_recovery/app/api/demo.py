@@ -79,7 +79,10 @@ async def api_demo_payment_failure(
     payment_id = payload.get("payment_id", f"pay_demo_{int(time.time())}")
     error_reason = payload.get("error_reason", "payment_timed_out")
 
+    from app.domain.customer_names import derive_customer_name
     customer_id = payload.get("customer_id", "razorpay_customer")
+    customer_name = derive_customer_name(customer_id, payload.get("customer_name"))
+
     razorpay_payload = {
         "entity": "event",
         "account_id": "acc_DEMO",
@@ -114,6 +117,7 @@ async def api_demo_payment_failure(
     response_body: dict[str, Any] = {
         "status": status,
         "recovery_item_id": item.id if item else None,
+        "customer_name": customer_name,
         "audit_event_count": len(audit_events),
     }
     if item is not None:
@@ -121,6 +125,7 @@ async def api_demo_payment_failure(
             db_item = container.recovery_items.get(item.id)
             if db_item:
                 db_item.metadata["is_synthetic"] = True
+                db_item.metadata["customer_name"] = customer_name
                 if isinstance(payload.get("metadata"), dict):
                     db_item.metadata.update(payload["metadata"])
                 if payload.get("event_type"):

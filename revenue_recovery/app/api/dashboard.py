@@ -509,6 +509,12 @@ def api_recovery_items(container: PersistenceContainer = Depends(get_container))
     from app.dashboard_api import build_recovery_items_list
     return build_recovery_items_list(container)
 
+@router.get("/api/portfolio/capital-protected")
+def api_capital_protected(container: PersistenceContainer = Depends(get_container)) -> dict[str, Any]:
+    """Portfolio-level capital protected summary: money safely declined due to fraud, policy, or negative EV."""
+    from app.dashboard_api import build_capital_protected_summary
+    return build_capital_protected_summary(container)
+
 @router.get("/api/recovery-items/{item_id}")
 def api_recovery_item_detail(item_id: str, container: PersistenceContainer = Depends(get_container)) -> Response:
     from app.dashboard_api import build_case_detail
@@ -912,3 +918,70 @@ def api_next_action(item_id: str, container: PersistenceContainer = Depends(get_
         "retry_budget_remaining": retry_budget,
     }
     return JSONResponse(status_code=200, content=response)
+
+
+@router.get("/api/recovery-items/{item_id}/naive-baseline")
+def api_case_naive_baseline(item_id: str, container: PersistenceContainer = Depends(get_container)) -> Response:
+    """Compute naive retry baseline action, cost, policy violations, and outcome for a single case."""
+    item = None
+    if hasattr(container.recovery_items, "get"):
+        item = container.recovery_items.get(item_id)
+
+    if item is None:
+        from app.domain.models import RecoveryItem, RecoveryStatus
+        if item_id == "demo_case_4999":
+            item = RecoveryItem(
+                id="demo_case_4999",
+                customer_id="cust_razor_101",
+                amount_minor=499900,
+                status=RecoveryStatus.RECOVERED,
+                root_cause="network_timeout",
+                metadata={"original_category": "soft", "is_synthetic": True}
+            )
+        elif item_id == "demo_case_18200":
+            item = RecoveryItem(
+                id="demo_case_18200",
+                customer_id="cust_risk_909",
+                amount_minor=1820000,
+                status=RecoveryStatus.STOPPED,
+                root_cause="fraud_suspected",
+                metadata={"original_category": "fraud", "fraud_flag": True, "is_synthetic": True}
+            )
+        else:
+            return JSONResponse(status_code=404, content={"error": f"Item {item_id} not found"})
+
+    from app.services.baseline_evaluator import BaselineEvaluator
+    evaluator = BaselineEvaluator(mode="naive", rng_seed=42)
+    res = evaluator.evaluate_case(item, case_index=0)
+
+    cat = str(item.root_cause or "").lower()
+    orig_cat = str(item.metadata.get("original_category", "")).lower()
+    is_fraud = cat in ("fraud", "security_or_fraud") or orig_cat == "fraud" or item.metadata.get("fraud_flag")
+    is_optout = bool(item.metadata.get("customer_opted_out"))
+    is_hard = cat in ("hard", "hard_decline") or orig_cat == "hard"
+
+    violations = []
+    if is_fraud:
+        violations.append("FRAUD_RETRY_PROHIBITED")
+    if is_optout:
+        violations.append("CUSTOMER_OPT_OUT_VIOLATION")
+    if is_hard:
+        violations.append("HARD_DECLINE_UNRETRYABLE")
+
+    return JSONResponse(status_code=200, content={
+        "case_id": item_id,
+        "baseline_mode": "naive_retry_bot",
+        "action_taken": "retry_payment",
+        "attempts_made": res.attempts_made,
+        "intervention_cost_minor": res.intervention_cost,
+        "estimated_outcome": res.outcome,
+        "actual_recovered_minor": res.actual_recovered,
+        "unnecessary_intervention": res.unnecessary_intervention,
+        "policy_violations": violations,
+        "has_policy_violations": len(violations) > 0,
+        "summary": (
+            f"Naive bot executed fixed retry_payment without checking policy gates. "
+            + (f"Incurred {len(violations)} policy violations ({', '.join(violations)})." if violations else "Spent intervention cost without optimal channel selection.")
+        )
+    })
+

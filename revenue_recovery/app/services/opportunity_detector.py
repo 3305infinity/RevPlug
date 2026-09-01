@@ -97,16 +97,32 @@ class OpportunityDetector:
 
         root_cause = classify_root_cause(raw_reason)
 
-        # 1. Check idempotency: find existing RecoveryItem for this external_id or customer_id
+        # 1. Check idempotency: find existing RecoveryItem across in-memory or database repos
         items_repo = self._container.recovery_items
+        all_items: list[RecoveryItem] = []
+        if hasattr(items_repo, "list_all"):
+            try:
+                all_items = items_repo.list_all()
+            except Exception:
+                all_items = []
+        elif hasattr(items_repo, "_items"):
+            all_items = list(items_repo._items.values())
+
         existing_item: RecoveryItem | None = None
-        if hasattr(items_repo, "find_by_external_id"):
-            existing_item = items_repo.find_by_external_id(external_id)
-        if existing_item is None and hasattr(items_repo, "_items"):
-            for item in items_repo._items.values():
-                if item.external_id == external_id or (item.customer_id == customer_id and item.status not in (RecoveryStatus.RECOVERED, RecoveryStatus.STOPPED)):
-                    existing_item = item
-                    break
+        for item in all_items:
+            ext = getattr(item, "external_id", None)
+            cust = getattr(item, "customer_id", None)
+            amt = getattr(item, "amount_minor", None)
+            cause = getattr(item, "root_cause", None)
+            status_val = getattr(item, "status", None)
+            status_str = status_val.value if hasattr(status_val, "value") else str(status_val)
+
+            if ext == external_id:
+                existing_item = item
+                break
+            if cust == customer_id and (amt == amount_minor or root_cause == cause) and status_str not in ("recovered", "stopped"):
+                existing_item = item
+                break
 
         now = datetime.now(timezone.utc)
 

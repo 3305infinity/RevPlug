@@ -608,10 +608,12 @@ class EvaluationService:
         calibration_summary = {}
         for b_name, b_data in buckets.items():
             cnt = b_data["count"]
+            insufficient = cnt < 10
             calibration_summary[b_name] = {
                 "count": cnt,
                 "avg_predicted_probability": round(b_data["predicted_sum"] / cnt, 4) if cnt > 0 else 0.0,
                 "actual_recovery_rate": round(b_data["actual_recovered_count"] / cnt, 4) if cnt > 0 else 0.0,
+                "insufficient_sample": insufficient,
             }
 
         net_rev = ros_result.actual_recovered - ros_result.intervention_cost

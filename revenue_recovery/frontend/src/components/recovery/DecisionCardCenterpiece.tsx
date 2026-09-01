@@ -21,6 +21,11 @@ export default function DecisionCardCenterpiece({ trace, detail }: Props) {
 
   const isRecovered = actualRecovered > 0 || trace?.status === "RECOVERED" || detail?.status === "recovered";
 
+  const classificationMethod: string = detail?.classification_method || trace?.classification_method || "RULES";
+  const classMethodColor = classificationMethod === "LLM_PRIMARY" ? "#a78bfa" : classificationMethod === "LLM_FALLBACK" ? "#fbbf24" : "#38bdf8";
+  const classMethodBg = classificationMethod === "LLM_PRIMARY" ? "rgba(167, 139, 250, 0.15)" : classificationMethod === "LLM_FALLBACK" ? "rgba(251, 191, 36, 0.15)" : "rgba(56, 189, 248, 0.1)";
+  const classMethodLabel = classificationMethod === "LLM_PRIMARY" ? "🤖 LLM PRIMARY" : classificationMethod === "LLM_FALLBACK" ? "⚡ LLM FALLBACK" : "⚙️ RULES ENGINE";
+
   return (
     <div
       style={{
@@ -44,9 +49,16 @@ export default function DecisionCardCenterpiece({ trace, detail }: Props) {
             ₹{amountAtRisk.toLocaleString("en-IN", { minimumFractionDigits: 2 })} AT RISK
           </h2>
         </div>
-        <span style={{ background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", border: "1px solid rgba(96, 165, 250, 0.4)", padding: "4px 10px", borderRadius: 6, fontSize: "0.75rem", fontWeight: 700 }}>
-          {failureCategory.toUpperCase()}
-        </span>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.35rem" }}>
+          <span style={{ background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", border: "1px solid rgba(96, 165, 250, 0.4)", padding: "4px 10px", borderRadius: 6, fontSize: "0.75rem", fontWeight: 700 }}>
+            {failureCategory.toUpperCase()}
+          </span>
+          <span
+            title={`Classification: ${classificationMethod}`}
+            style={{ background: classMethodBg, color: classMethodColor, border: `1px solid ${classMethodColor}44`, padding: "3px 8px", borderRadius: 5, fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.04em" }}>
+            {classMethodLabel}
+          </span>
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.25rem" }}>

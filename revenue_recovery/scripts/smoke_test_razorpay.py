@@ -96,7 +96,7 @@ def _build_payload() -> dict[str, object]:
                     "vpa": None,
                     "email": "smoke.test@example.invalid",
                     "contact": "+910000000000",
-                    "notes": [],
+                    "notes": {"source": "smoke_test"},
                     "fee": None,
                     "tax": None,
                     "error_code": "BAD_REQUEST_ERROR",

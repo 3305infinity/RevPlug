@@ -1,10 +1,10 @@
 {
-  "evaluation_id": "7105349b-22e5-446e-a197-2e333c46e103",
+  "evaluation_id": "c898665d-6dd0-49eb-8afb-25fa3bd1fe77",
   "seed": 42,
   "count": 10,
   "status": "completed",
-  "started_at": "2026-09-01T04:55:43.194168+00:00",
-  "completed_at": "2026-09-01T04:55:43.202262+00:00",
+  "started_at": "2026-09-01T08:11:06.673881+00:00",
+  "completed_at": "2026-09-01T08:11:06.686042+00:00",
   "dataset": {
     "count": 10,
     "seed": 42,
@@ -44,27 +44,32 @@
       "0.0-0.2": {
         "count": 3,
         "avg_predicted_probability": 0.0667,
-        "actual_recovery_rate": 0.0
+        "actual_recovery_rate": 0.0,
+        "insufficient_sample": true
       },
       "0.2-0.4": {
         "count": 0,
         "avg_predicted_probability": 0.0,
-        "actual_recovery_rate": 0.0
+        "actual_recovery_rate": 0.0,
+        "insufficient_sample": true
       },
       "0.4-0.6": {
         "count": 2,
         "avg_predicted_probability": 0.45,
-        "actual_recovery_rate": 1.0
+        "actual_recovery_rate": 1.0,
+        "insufficient_sample": true
       },
       "0.6-0.8": {
         "count": 5,
         "avg_predicted_probability": 0.64,
-        "actual_recovery_rate": 0.4
+        "actual_recovery_rate": 0.4,
+        "insufficient_sample": true
       },
       "0.8-1.0": {
         "count": 0,
         "avg_predicted_probability": 0.0,
-        "actual_recovery_rate": 0.0
+        "actual_recovery_rate": 0.0,
+        "insufficient_sample": true
       }
     },
     "economic_metrics": {

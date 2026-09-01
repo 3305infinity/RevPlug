@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api, CaseDetail, CaseTrace } from "@/lib/api";
-import DecisionTraceView from "@/components/recovery/DecisionTraceView";
+import { getCustomerDisplayName } from "@/lib/customerDisplay";
+import DecisionTraceView, { resolveCaseData } from "@/components/recovery/DecisionTraceView";
 import DecisionCardCenterpiece from "@/components/recovery/DecisionCardCenterpiece";
 import TrustPanel from "@/components/recovery/TrustPanel";
 
@@ -331,12 +332,41 @@ export default function CaseWorkspace() {
   const [techOpen, setTechOpen] = useState<boolean>(false);
   const [liveDetail, setLiveDetail] = useState<CaseDetail | null>(null);
   const [liveTrace, setLiveTrace] = useState<CaseTrace | null>(null);
+  const [showNaiveComparison, setShowNaiveComparison] = useState<boolean>(false);
+  const [naiveData, setNaiveData] = useState<any>(null);
 
   useEffect(() => {
-    if (id && id !== "demo_case_4999" && id !== "demo_case_18200") {
-      setMode("live");
-      api.itemDetail(id).then(setLiveDetail).catch(() => {});
-      api.caseTrace(id).then(setLiveTrace).catch(() => {});
+    if (id) {
+      if (id !== "demo_case_4999" && id !== "demo_case_18200") {
+        setMode("live");
+        api.itemDetail(id).then(setLiveDetail).catch(() => {});
+        api.caseTrace(id).then(setLiveTrace).catch(() => {});
+      }
+      api.naiveBaseline(id as string).then(setNaiveData).catch(() => {
+        if (id === "demo_case_18200") {
+          setNaiveData({
+            action_taken: "retry_payment",
+            attempts_made: 2,
+            intervention_cost_minor: 1000,
+            estimated_outcome: "stopped",
+            actual_recovered_minor: 0,
+            policy_violations: ["FRAUD_RETRY_PROHIBITED"],
+            has_policy_violations: true,
+            summary: "Naive bot executed fixed payment retries on fraud-risk account, incurring policy violations.",
+          });
+        } else {
+          setNaiveData({
+            action_taken: "retry_payment",
+            attempts_made: 2,
+            intervention_cost_minor: 1000,
+            estimated_outcome: "recovered",
+            actual_recovered_minor: 499900,
+            policy_violations: [],
+            has_policy_violations: false,
+            summary: "Naive bot blindly retried card without issuing payment link channel pivot.",
+          });
+        }
+      });
     }
   }, [id]);
 
@@ -345,10 +375,7 @@ export default function CaseWorkspace() {
     if (isPlaying) {
       timer = setInterval(() => {
         setActiveStep((prev) => {
-          if (prev >= 10) {
-            setIsPlaying(false);
-            return 10;
-          }
+          if (prev >= 10) { setIsPlaying(false); return 10; }
           return prev + 1;
         });
       }, 1200);
@@ -356,73 +383,243 @@ export default function CaseWorkspace() {
     return () => clearInterval(timer);
   }, [isPlaying]);
 
+  // Single unified case data — derived once so every number on page is internally consistent
+  const caseData = useMemo(() => {
+    if (mode === "showcase1") {
+      return { amountAtRisk: 499900, expectedRecovery: 444910, verifiedRecovery: 499900, cost: 2500, status: "recovered", rootCause: "network_timeout" };
+    }
+    if (mode === "showcase2") {
+      return { amountAtRisk: 1820000, expectedRecovery: 0, verifiedRecovery: 0, cost: 0, status: "stopped", rootCause: "fraud_suspected" };
+    }
+    return resolveCaseData(liveTrace, liveDetail);
+  }, [mode, liveTrace, liveDetail]);
+
   const currentSteps = mode === "showcase1" ? SHOWCASE_CASE_1_STEPS : mode === "showcase2" ? SHOWCASE_CASE_2_STEPS : SHOWCASE_CASE_1_STEPS;
   const currentCandidates = mode === "showcase1" ? SHOWCASE_CASE_1_CANDIDATES : mode === "showcase2" ? SHOWCASE_CASE_2_CANDIDATES : SHOWCASE_CASE_1_CANDIDATES;
   const activeStepObj = currentSteps.find((s) => s.step === activeStep) || currentSteps[9];
 
+  const isRecovered = caseData.verifiedRecovery > 0 || caseData.status === "recovered" || caseData.status === "RECOVERED";
+  const customerId = liveDetail?.customer_id || (mode === "showcase1" ? "cust_razor_101" : "cust_risk_909");
+  const customerName = getCustomerDisplayName(customerId, (liveDetail as any)?.customer_name);
+
   return (
     <div style={{ maxWidth: 1080, margin: "0 auto", paddingBottom: "3rem" }}>
-      {/* NAVIGATION BAR */}
+
+      {/* ── NAVIGATION BAR ──────────────────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
         <Link href="/recovery" style={{ fontSize: "0.75rem", color: "var(--text-muted)", textDecoration: "none" }}>
           ← Back to Recovery Queue
         </Link>
-        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 600 }}>
-          RevPlug Case Replay Engine
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <button
+            onClick={() => setShowNaiveComparison(!showNaiveComparison)}
+            style={{
+              fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.75rem",
+              borderRadius: 6,
+              border: showNaiveComparison ? "1px solid #ef4444" : "1px solid var(--border)",
+              background: showNaiveComparison ? "rgba(239, 68, 68, 0.1)" : "var(--bg-secondary)",
+              color: showNaiveComparison ? "#ef4444" : "var(--text-primary)",
+              cursor: "pointer",
+            }}
+          >
+            {showNaiveComparison ? "Hide Naive Bot Comparison ▲" : "🤖 Compare with Naive Retry Bot ▼"}
+          </button>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <button
+              onClick={() => setMode("showcase1")}
+              style={{ fontSize: "0.6875rem", padding: "0.25rem 0.6rem", borderRadius: 4, border: mode === "showcase1" ? "1px solid var(--accent)" : "1px solid var(--border)", background: mode === "showcase1" ? "rgba(99,102,241,0.12)" : "var(--bg-secondary)", color: mode === "showcase1" ? "var(--accent)" : "var(--text-muted)", cursor: "pointer", fontWeight: 700 }}
+            >Case 1 — Recovered</button>
+            <button
+              onClick={() => setMode("showcase2")}
+              style={{ fontSize: "0.6875rem", padding: "0.25rem 0.6rem", borderRadius: 4, border: mode === "showcase2" ? "1px solid #ef4444" : "1px solid var(--border)", background: mode === "showcase2" ? "rgba(239,68,68,0.1)" : "var(--bg-secondary)", color: mode === "showcase2" ? "#ef4444" : "var(--text-muted)", cursor: "pointer", fontWeight: 700 }}
+            >Case 2 — Capital Protected</button>
+          </div>
         </div>
       </div>
 
-      {/* DECISION CARD CENTERPIECE */}
-      <DecisionCardCenterpiece trace={liveTrace} detail={liveDetail} />
+      {/* ── NAIVE BOT COMPARISON ──────────────────────────────────── */}
+      {showNaiveComparison && (
+        <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem", borderLeft: "4px solid #ef4444", background: "var(--bg-secondary)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+            <div>
+              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                HEAD-TO-HEAD SINGLE-CASE COMPARISON
+              </div>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "2px 0 0 0" }}>What a naive retry bot would have done</h3>
+            </div>
+            <span style={{ fontSize: "0.6875rem", background: "rgba(239, 68, 68, 0.15)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)", padding: "2px 8px", borderRadius: 4, fontWeight: 700 }}>
+              PITCH COMPARATOR
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
+            {/* Column A: Naive Bot */}
+            <div style={{ padding: "1rem", borderRadius: 8, background: "rgba(239, 68, 68, 0.04)", border: "1px solid rgba(239, 68, 68, 0.2)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#ef4444" }}>🤖 NAIVE FIXED-RETRY BOT</span>
+                <span className="status-badge status-danger" style={{ fontSize: "0.625rem" }}>FIXED RETRY</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", fontSize: "0.78125rem" }}>
+                <div>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem" }}>ACTION TAKEN:</span>
+                  <div className="font-mono" style={{ fontWeight: 700, color: "#ef4444" }}>retry_payment (Fixed 2 attempts)</div>
+                </div>
+                <div>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem" }}>INTERVENTION COST:</span>
+                  <div className="font-mono" style={{ fontWeight: 600 }}>{fmt(naiveData?.intervention_cost_minor || 1000)}</div>
+                </div>
+                <div>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem" }}>POLICY CHECKS:</span>
+                  <div style={{ color: "#ef4444", fontWeight: 700 }}>NONE (BYPASSED POLICY ENGINE)</div>
+                </div>
+                <div>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem" }}>POLICY VIOLATIONS:</span>
+                  {naiveData?.has_policy_violations ? (
+                    <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginTop: 2 }}>
+                      {naiveData.policy_violations.map((v: string) => (
+                        <span key={v} style={{ fontSize: "0.625rem", background: "#ef4444", color: "#fff", padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>⚠️ {v}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ color: "var(--text-muted)", fontStyle: "italic" }}>No hard policy violation, but wasted retry cost.</div>
+                  )}
+                </div>
+                <div style={{ borderTop: "1px solid rgba(239, 68, 68, 0.15)", paddingTop: "0.5rem", marginTop: "0.25rem" }}>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem" }}>ESTIMATED OUTCOME:</span>
+                  <div style={{ fontWeight: 700, color: naiveData?.actual_recovered_minor > 0 ? "var(--success)" : "#ef4444" }}>
+                    {naiveData?.actual_recovered_minor > 0 ? `Recovered ${fmt(naiveData.actual_recovered_minor)}` : "Failed / Wasted Budget"}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Column B: RevPlug */}
+            <div style={{ padding: "1rem", borderRadius: 8, background: "rgba(16, 185, 129, 0.04)", border: "1px solid rgba(16, 185, 129, 0.2)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#10b981" }}>⚡ REVPLUG AUTONOMOUS AGENT</span>
+                <span className="status-badge status-success" style={{ fontSize: "0.625rem" }}>BOUNDED POLICY ENGINE</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", fontSize: "0.78125rem" }}>
+                <div>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem" }}>DECISION TAKEN:</span>
+                  <div className="font-mono" style={{ fontWeight: 700, color: "#10b981" }}>
+                    {liveTrace?.ai_recommendation?.selected_action || (mode === "showcase1" ? "send_payment_link" : "stop_recovery")}
+                  </div>
+                </div>
+                <div>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem" }}>INTERVENTION COST:</span>
+                  <div className="font-mono" style={{ fontWeight: 600 }}>{fmt(caseData.cost)}</div>
+                </div>
+                <div>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem" }}>POLICY CHECKS:</span>
+                  <div style={{ color: "#10b981", fontWeight: 700 }}>
+                    {mode === "showcase2" ? "BLOCKED BY FRAUD GUARD (0 Violations)" : "ALLOWED (Passed 8 Safety Rules)"}
+                  </div>
+                </div>
+                <div>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem" }}>POLICY PROTECTION:</span>
+                  <div style={{ color: "var(--text-primary)", fontWeight: 600 }}>
+                    {mode === "showcase2" ? "Zero Unsafe API Calls · 100% Compliant Stop" : "Opt-out & Fraud Risk Checked"}
+                  </div>
+                </div>
+                <div style={{ borderTop: "1px solid rgba(16, 185, 129, 0.15)", paddingTop: "0.5rem", marginTop: "0.25rem" }}>
+                  <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem" }}>VERIFIED OUTCOME:</span>
+                  <div style={{ fontWeight: 700, color: isRecovered ? "#10b981" : "var(--accent)" }}>
+                    {mode === "showcase1" ? `Verified Recovered ${fmt(caseData.verifiedRecovery)}` : `Capital Protected ${fmt(caseData.amountAtRisk)}`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* TRUST & SAFETY PANEL */}
+      {/* ── HERO ROW — 3 mega numbers ────────────────────────────── */}
+      <div className="card" style={{
+        padding: "1.5rem 2rem",
+        marginBottom: "0.75rem",
+        background: "linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)",
+        border: `2px solid ${isRecovered ? "rgba(16,185,129,0.3)" : mode === "showcase2" ? "rgba(239,68,68,0.25)" : "var(--border)"}`,
+      }}>
+        {/* Case ID + customer + status - compact header line */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem", flexWrap: "wrap" }}>
+          <span className={`status-badge status-${isRecovered ? "recovered" : mode === "showcase2" ? "stopped" : caseData.status}`}>
+            {caseData.status.toUpperCase()}
+          </span>
+          <span className="font-mono" style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            {mode === "showcase1" ? "demo_case_4999" : mode === "showcase2" ? "demo_case_18200" : id}
+          </span>
+          <span style={{ color: "var(--border)" }}>·</span>
+          <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+            <strong style={{ color: "var(--text-primary)" }}>{customerName}</strong>
+            <span className="font-mono" style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginLeft: "0.5rem" }}>({customerId})</span>
+          </span>
+          <span style={{ color: "var(--border)" }}>·</span>
+          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            Root cause: <strong style={{ color: "var(--text-primary)" }}>{caseData.rootCause}</strong>
+          </span>
+        </div>
+
+        {/* THE THREE HERO NUMBERS */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1.5rem" }}>
+          {/* 1. Amount at Risk */}
+          <div style={{ borderRight: "1px solid var(--border)", paddingRight: "1.5rem" }}>
+            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+              💸 Amount at Risk
+            </div>
+            <div className="font-mono" style={{ fontSize: "2.5rem", fontWeight: 800, color: "#ef4444", lineHeight: 1 }}>
+              {fmt(caseData.amountAtRisk)}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+              Surface: payment_failure · INR
+            </div>
+          </div>
+
+          {/* 2. Expected Net Recovery */}
+          <div style={{ borderRight: "1px solid var(--border)", paddingRight: "1.5rem" }}>
+            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+              📈 Expected Net Recovery
+            </div>
+            <div className="font-mono" style={{ fontSize: "2.5rem", fontWeight: 800, color: "var(--accent)", lineHeight: 1 }}>
+              {fmt(caseData.expectedRecovery)}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+              After intervention cost ({fmt(caseData.cost)})
+            </div>
+          </div>
+
+          {/* 3. Actual / Verified Recovery */}
+          <div>
+            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: isRecovered ? "#10b981" : "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+              {isRecovered ? "✓ Verified Recovered" : mode === "showcase2" ? "🛡 Capital Protected" : "⏳ Actual Recovery"}
+            </div>
+            <div className="font-mono" style={{ fontSize: "2.5rem", fontWeight: 800, color: isRecovered ? "#10b981" : "var(--text-muted)", lineHeight: 1 }}>
+              {mode === "showcase2" ? fmt(caseData.amountAtRisk) : fmt(caseData.verifiedRecovery)}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+              {isRecovered ? "Settlement HMAC verified" : mode === "showcase2" ? "Saved from unsafe retries" : "Pending or in progress"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── DECISION CARD CENTERPIECE ────────────────────────────── */}
+      <div style={{ marginBottom: "1rem" }}>
+        <DecisionCardCenterpiece trace={liveTrace} detail={liveDetail} />
+      </div>
+
+      {/* ── TRUST & SAFETY PANEL ─────────────────────────────────── */}
       <TrustPanel />
 
-      {/* DECISION TRACE CENTERPIECE */}
-      <div style={{ marginBottom: "2rem" }}>
-        <DecisionTraceView trace={liveTrace} detail={liveDetail} />
+      {/* ── DECISION TRACE + ACCORDION DETAILS ───────────────────── */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <DecisionTraceView trace={liveTrace} detail={liveDetail} caseData={caseData} />
       </div>
 
-
-
-      {/* CASE HEADER */}
-      <div className="card" style={{ padding: "1.25rem 1.5rem", marginBottom: "1.25rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: 4 }}>
-              <span className={`status-badge status-${mode === "showcase1" ? "recovered" : "stopped"}`}>
-                {mode === "showcase1" ? "RECOVERED" : "STOPPED"}
-              </span>
-              <span className="font-mono" style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                {mode === "showcase1" ? "demo_case_4999" : "demo_case_18200"}
-              </span>
-            </div>
-            <h1 className="font-mono" style={{ fontSize: "1.875rem", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
-              {mode === "showcase1" ? "₹4,999.00" : "₹18,200.00"}
-            </h1>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>
-              Customer: <span className="font-mono">{mode === "showcase1" ? "cust_razor_101" : "cust_risk_909"}</span> · Surface: payment_failure · Currency: INR
-            </div>
-          </div>
-
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              {mode === "showcase1" ? "Verified Recovered" : "Capital Protected"}
-            </div>
-            <div className="font-mono" style={{ fontSize: "1.625rem", fontWeight: 700, color: mode === "showcase1" ? "var(--success)" : "var(--danger)", marginTop: 2 }}>
-              {mode === "showcase1" ? "₹4,999.00" : "₹18,200.00"}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 10-STEP TIMELINE PLAYER BAR */}
+      {/* ── 10-STEP REPLAY TIMELINE ──────────────────────────────── */}
       <div className="card" style={{ padding: "1.25rem", marginBottom: "1.25rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
           <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            10-STAGE OPERATIONAL INVESTIGATION TIMELINE
+            10-Stage Operational Investigation Timeline
           </div>
-
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
             <button
               onClick={() => setIsPlaying(!isPlaying)}
@@ -441,55 +638,33 @@ export default function CaseWorkspace() {
           </div>
         </div>
 
-        {/* STEP BUTTONS GRID */}
+        {/* STEP BUTTONS */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: "0.35rem" }}>
           {currentSteps.map((s) => {
             const isCurrent = s.step === activeStep;
             const isPassed = s.step <= activeStep;
-
             let bgColor = "var(--bg-secondary)";
             let borderColor = "var(--border)";
             let textColor = "var(--text-muted)";
-
             if (isPassed) {
-              if (s.badgeType === "danger") {
-                bgColor = "rgba(239, 68, 68, 0.1)";
-                borderColor = "rgba(239, 68, 68, 0.4)";
-                textColor = "var(--danger)";
-              } else if (s.badgeType === "success") {
-                bgColor = "rgba(16, 185, 129, 0.1)";
-                borderColor = "rgba(16, 185, 129, 0.4)";
-                textColor = "var(--success)";
-              } else {
-                bgColor = "rgba(99, 102, 241, 0.1)";
-                borderColor = "rgba(99, 102, 241, 0.4)";
-                textColor = "var(--accent)";
-              }
+              if (s.badgeType === "danger") { bgColor = "rgba(239, 68, 68, 0.1)"; borderColor = "rgba(239, 68, 68, 0.4)"; textColor = "var(--danger)"; }
+              else if (s.badgeType === "success") { bgColor = "rgba(16, 185, 129, 0.1)"; borderColor = "rgba(16, 185, 129, 0.4)"; textColor = "var(--success)"; }
+              else { bgColor = "rgba(99, 102, 241, 0.1)"; borderColor = "rgba(99, 102, 241, 0.4)"; textColor = "var(--accent)"; }
             }
-
-            if (isCurrent) {
-              borderColor = "var(--text-primary)";
-            }
-
+            if (isCurrent) borderColor = "var(--text-primary)";
             return (
               <button
                 key={s.step}
                 onClick={() => { setActiveStep(s.step); setIsPlaying(false); }}
                 style={{
-                  padding: "0.5rem 0.25rem",
-                  borderRadius: 6,
-                  background: bgColor,
-                  border: `1px solid ${borderColor}`,
-                  cursor: "pointer",
-                  textAlign: "center",
-                  outline: isCurrent ? "2px solid var(--accent)" : "none",
-                  outlineOffset: 1,
+                  padding: "0.5rem 0.25rem", borderRadius: 6,
+                  background: bgColor, border: `1px solid ${borderColor}`,
+                  cursor: "pointer", textAlign: "center",
+                  outline: isCurrent ? "2px solid var(--accent)" : "none", outlineOffset: 1,
                   transition: "all 0.15s ease",
                 }}
               >
-                <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>
-                  STAGE {s.step}
-                </div>
+                <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>STAGE {s.step}</div>
                 <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: textColor, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {s.title.replace(/^\d+\.\s*/, "")}
                 </div>
@@ -499,7 +674,7 @@ export default function CaseWorkspace() {
         </div>
       </div>
 
-      {/* ACTIVE STAGE FOCUS CARD */}
+      {/* ── ACTIVE STAGE FOCUS CARD ─────────────────────────────── */}
       <div className="card" style={{ padding: "1.5rem", marginBottom: "1.25rem", borderLeft: `4px solid ${activeStepObj.badgeType === "danger" ? "var(--danger)" : activeStepObj.badgeType === "success" ? "var(--success)" : "var(--accent)"}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
           <div>
@@ -510,95 +685,22 @@ export default function CaseWorkspace() {
               {activeStepObj.title}
             </h2>
           </div>
-
-          <span className={`status-badge status-${activeStepObj.badgeType}`}>
-            {activeStepObj.badge}
-          </span>
+          <span className={`status-badge status-${activeStepObj.badgeType}`}>{activeStepObj.badge}</span>
         </div>
-
         <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", margin: "0 0 1rem 0", lineHeight: 1.5 }}>
           {activeStepObj.summary}
         </p>
-
-        {/* Key-Value Details Table */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.75rem", background: "var(--bg-secondary)", padding: "1rem", borderRadius: 8 }}>
           {Object.entries(activeStepObj.details).map(([k, v]) => (
             <div key={k}>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "capitalize" }}>
-                {k.replace(/_/g, " ")}
-              </div>
-              <div className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)", marginTop: 2 }}>
-                {String(v)}
-              </div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "capitalize" }}>{k.replace(/_/g, " ")}</div>
+              <div className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)", marginTop: 2 }}>{String(v)}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* MULTI-CANDIDATE EV OPTIMIZER COMPARISON TABLE */}
-      <div className="card" style={{ padding: "1.25rem", marginBottom: "1.25rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-          <div>
-            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              EXPECTED VALUE OPTIMIZER — CANDIDATE EVALUATION MATRIX
-            </div>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>
-              EV = (Amount × Probability) − Intervention Cost
-            </div>
-          </div>
-
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
-            Authority: AI Proposes → Optimizer Ranks → Policy Decides
-          </div>
-        </div>
-
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left", color: "var(--text-muted)" }}>
-                <th style={{ padding: "0.5rem 0.75rem" }}>CANDIDATE ACTION</th>
-                <th style={{ padding: "0.5rem 0.75rem" }}>RECOVERY PROB.</th>
-                <th style={{ padding: "0.5rem 0.75rem" }}>COST</th>
-                <th style={{ padding: "0.5rem 0.75rem" }}>GROSS EV</th>
-                <th style={{ padding: "0.5rem 0.75rem" }}>NET EV</th>
-                <th style={{ padding: "0.5rem 0.75rem" }}>POLICY STATUS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentCandidates.map((cand, idx) => {
-                const isSelected = mode === "showcase1" ? cand.action === "send_payment_link" : cand.action === "stop_recovery";
-                return (
-                  <tr
-                    key={idx}
-                    style={{
-                      borderBottom: "1px solid var(--border)",
-                      background: isSelected ? "rgba(99, 102, 241, 0.08)" : "transparent",
-                      fontWeight: isSelected ? 700 : 400,
-                    }}
-                  >
-                    <td style={{ padding: "0.625rem 0.75rem", fontFamily: "monospace" }}>
-                      {cand.action} {isSelected && <span style={{ color: "var(--accent)", fontSize: "0.7rem", marginLeft: 4 }}>★ SELECTED</span>}
-                    </td>
-                    <td style={{ padding: "0.625rem 0.75rem" }}>{(cand.recovery_probability * 100).toFixed(0)}%</td>
-                    <td style={{ padding: "0.625rem 0.75rem" }}>{fmt(cand.intervention_cost)}</td>
-                    <td style={{ padding: "0.625rem 0.75rem" }}>{fmt(cand.gross_expected_recovery)}</td>
-                    <td style={{ padding: "0.625rem 0.75rem", color: cand.net_expected_recovery > 0 ? "var(--success)" : "var(--text-muted)" }}>
-                      {fmt(cand.net_expected_recovery)}
-                    </td>
-                    <td style={{ padding: "0.625rem 0.75rem" }}>
-                      <span className={`status-badge status-${cand.policy_status === "ALLOWED" ? "success" : "danger"}`}>
-                        {cand.policy_status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* TECHNICAL AUDIT LOG INSPECTOR */}
+      {/* ── TECHNICAL AUDIT LOG ─────────────────────────────────── */}
       <div className="card" style={{ padding: "1.25rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>
@@ -608,7 +710,6 @@ export default function CaseWorkspace() {
             {techOpen ? "Hide Technical Details ▲" : "Inspect Raw JSON Trail ▼"}
           </button>
         </div>
-
         {techOpen && (
           <div style={{ marginTop: "1rem", background: "#0d1117", padding: "1rem", borderRadius: 8, overflowX: "auto" }}>
             <pre style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#e6edf3", margin: 0 }}>

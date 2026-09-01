@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api, Customer360Profile } from "@/lib/api";
+import { getCustomerDisplayName } from "@/lib/customerDisplay";
 
 type Status = "loading" | "error" | "ready";
 
@@ -112,7 +113,7 @@ export default function CustomerDetail() {
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>
-              Customer 360: <span style={{ fontFamily: "monospace" }}>{p.customer_id}</span>
+              Customer 360: <span>{getCustomerDisplayName(p.customer_id)}</span>
             </h1>
             <span style={{
               fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 4, fontWeight: 700,

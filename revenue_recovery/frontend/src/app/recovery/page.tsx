@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { api, RecoveryItem } from "@/lib/api";
+import { getCustomerDisplayName } from "@/lib/customerDisplay";
 import CreateCaseModal from "@/components/recovery/CreateCaseModal";
+import CapitalProtectedPanel from "@/components/dashboard/CapitalProtectedPanel";
 
 type StatusFilter = "all" | "at_risk" | "recovering" | "awaiting_customer" | "recovered" | "escalated" | "stopped" | "failed";
 
@@ -170,13 +172,20 @@ export default function RecoveryInboxPage() {
           <div style={{ fontSize: "0.75rem", color: "#10b981", marginTop: 2 }}>HMAC verified settlement</div>
         </div>
 
-        <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>POLICY SAFETY STOPS</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#f59e0b", marginTop: 4, fontFamily: "monospace" }}>
-            {items.filter((i) => i.status === "stopped").length}
+        <div style={{ padding: "1rem", background: "linear-gradient(135deg, rgba(251, 191, 36, 0.10) 0%, rgba(245, 158, 11, 0.05) 100%)", borderRadius: 8, border: "1px solid rgba(251, 191, 36, 0.3)" }}>
+          <div style={{ fontSize: "0.6875rem", color: "#f59e0b", textTransform: "uppercase", fontWeight: 700 }}>🛡 CAPITAL PROTECTED</div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#fbbf24", marginTop: 4, fontFamily: "monospace" }}>
+            {fmt(items.filter((i) => i.status === "stopped" || i.status === "escalated").reduce((acc, i) => acc + i.amount_minor, 0))}
           </div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Opt-out & fraud shielded</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>
+            {items.filter((i) => i.status === "stopped" || i.status === "escalated").length} policy-blocked cases
+          </div>
         </div>
+      </div>
+
+      {/* CAPITAL PROTECTED DETAIL PANEL */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <CapitalProtectedPanel />
       </div>
 
       {/* FILTER TOOLBAR & SEARCH BAR */}
@@ -266,7 +275,7 @@ export default function RecoveryInboxPage() {
                   <tr key={item.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.75rem" }}>
                       <div style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "0.875rem" }}>
-                        {(item as any).customer_name || item.metadata?.customer_name || item.customer_id}
+                        {getCustomerDisplayName(item.customer_id, (item as any).customer_name || item.metadata?.customer_name)}
                       </div>
                       <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
                         Ref: <Link href={`/recovery/${item.id}`} style={{ color: "var(--accent)", fontFamily: "monospace" }}>{item.id}</Link>

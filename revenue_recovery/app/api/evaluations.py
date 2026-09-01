@@ -160,6 +160,78 @@ def api_get_batch(batch_id: str, container: PersistenceContainer = Depends(get_c
     
     return JSONResponse(status_code=200, content=summary)
 
+@router.get("/api/batches/{batch_id}/summary")
+def api_get_batch_summary(batch_id: str, container: PersistenceContainer = Depends(get_container)) -> Response:
+    """Returns headline metrics, 4-way outcome breakdown, and complete audit trail export for a batch."""
+    if not hasattr(container, "batches") or container.batches is None:
+        return JSONResponse(status_code=500, content={"error": "Batches not configured"})
+        
+    from app.services.batch_service import BatchService
+    batch_svc = BatchService(
+        batch_repo=container.batches,
+        recovery_items_repo=container.recovery_items,
+        outcomes_repo=container.outcomes,
+    )
+    
+    summary = batch_svc.summarize_batch(batch_id)
+    if summary is None:
+        return JSONResponse(status_code=404, content={"error": "Batch not found"})
+        
+    items = batch_svc._get_batch_items(batch_id)
+    from app.dashboard_api import _item_to_dict
+    item_dicts = [_item_to_dict(i) for i in items]
+    
+    # 4-way outcome breakdown with counts and amounts
+    recovered_items = [d for d in item_dicts if d.get("status") == "recovered"]
+    stopped_items = [d for d in item_dicts if d.get("status") == "stopped"]
+    escalated_items = [d for d in item_dicts if d.get("status") == "escalated"]
+    pending_items = [d for d in item_dicts if d.get("status") not in {"recovered", "stopped", "escalated"}]
+    
+    breakdown = {
+        "RECOVERED": {
+            "count": len(recovered_items),
+            "amount_minor": sum(d.get("actual_recovery_value", d.get("amount_minor", 0)) for d in recovered_items),
+            "label": "Verified Settlement"
+        },
+        "STOPPED": {
+            "count": len(stopped_items),
+            "amount_minor": sum(d.get("amount_minor", 0) for d in stopped_items),
+            "label": "Policy Safety Stop"
+        },
+        "ESCALATED": {
+            "count": len(escalated_items),
+            "amount_minor": sum(d.get("amount_minor", 0) for d in escalated_items),
+            "label": "Human Review Escalation"
+        },
+        "PENDING": {
+            "count": len(pending_items),
+            "amount_minor": sum(d.get("amount_minor", 0) for d in pending_items),
+            "label": "Active / In Pipeline"
+        }
+    }
+    
+    # Audit trail export log
+    audit_log = []
+    for d in item_dicts:
+        audit_log.append({
+            "case_id": d.get("id"),
+            "customer_id": d.get("customer_id"),
+            "customer_name": d.get("customer_name"),
+            "amount_minor": d.get("amount_minor"),
+            "failure_category": d.get("failure_category"),
+            "status": d.get("status"),
+            "proposed_action": d.get("recommended_action"),
+            "policy_check": "ALLOWED" if d.get("status") != "stopped" else "BLOCKED",
+            "block_rule": d.get("stopped_rule") or d.get("stopped_reason"),
+            "settlement_verified": d.get("status") == "recovered",
+            "classification_method": d.get("classification_method", "RULES")
+        })
+        
+    summary["breakdown"] = breakdown
+    summary["audit_log"] = audit_log
+    summary["items"] = item_dicts
+    return JSONResponse(status_code=200, content=summary)
+
 @router.post("/api/batches/{batch_id}/enqueue")
 def api_enqueue_batch(batch_id: str, container: PersistenceContainer = Depends(get_container)) -> Response:
     if not hasattr(container, "batches") or container.batches is None:

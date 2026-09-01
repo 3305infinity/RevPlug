@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { api, CustomerDetail } from "@/lib/api";
+import { getCustomerDisplayName } from "@/lib/customerDisplay";
 
 type Status = "loading" | "error" | "ready";
 
@@ -66,7 +67,7 @@ export default function Customers() {
         <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.25rem", background: "var(--accent-subtle)", border: "1px solid rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
           <div>
             <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--accent)", marginBottom: 2 }}>
-              Showing cases for Customer {selectedCustomer.customer_id.slice(-4)}
+              Showing cases for {getCustomerDisplayName(selectedCustomer.customer_id)}
             </div>
             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
               {selectedCustomer.cases.length} case{selectedCustomer.cases.length !== 1 ? "s" : ""} · {fmt(selectedCustomer.revenue_at_risk)} revenue at risk
@@ -100,14 +101,14 @@ export default function Customers() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem", gap: "1rem", flexWrap: "wrap" }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                  <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Customer {customer.customer_id.slice(-4)}</div>
+                  <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>{getCustomerDisplayName(customer.customer_id)}</div>
                   {customer.opt_out && <span className="status-badge status-stopped">Opted Out</span>}
                   <Link href={`/customers/${customer.customer_id}`} onClick={(e) => e.stopPropagation()} style={{ fontSize: "0.6875rem", color: "var(--accent)", textDecoration: "none" }}>
                     Open →
                   </Link>
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
-                  {customer.customer_id}
+                  Ref: {customer.customer_id}
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
@@ -141,7 +142,7 @@ export default function Customers() {
       {selectedCustomer && (
         <div style={{ marginTop: "1.5rem" }}>
           <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>
-            Cases for Customer {selectedCustomer.customer_id.slice(-4)}
+            Cases for {getCustomerDisplayName(selectedCustomer.customer_id)}
           </h3>
           <div style={{ display: "grid", gap: "0.5rem" }}>
             {selectedCustomer.cases.map((item) => (

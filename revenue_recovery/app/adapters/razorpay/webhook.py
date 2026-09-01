@@ -813,7 +813,16 @@ class RazorpayWebhookService:
         normalized: NormalizedFailure,
     ) -> RecoveryItem:
         import uuid
+        from app.domain.customer_names import derive_customer_name
         extracted_cust = razorpay_failure.customer_id or self._default_customer_id
+        # Detect smoke/stress test sources
+        is_smoke = (
+            "smoke" in razorpay_failure.razorpay_event_id.lower()
+            or "smoke" in razorpay_failure.razorpay_payment_id.lower()
+            or (isinstance(razorpay_failure.raw_payload, dict) and isinstance(razorpay_failure.raw_payload.get("notes"), dict) and razorpay_failure.raw_payload.get("notes", {}).get("source") == "smoke_test")
+        )
+        source_tag = "smoke_test" if is_smoke else "webhook"
+
         return RecoveryItem(
             id=str(uuid.uuid4()),
             source_type=SourceType.PAYMENT_FAILURE,
@@ -826,6 +835,10 @@ class RazorpayWebhookService:
             root_cause=normalized.category.value,
             recovery_probability=None,
             metadata={
+                "source": source_tag,
+                "is_synthetic": is_smoke,
+                "is_test_fixture": is_smoke,
+                "customer_name": derived_name,
                 "razorpay_payment_id": razorpay_failure.razorpay_payment_id,
                 "error_code": normalized.code,
                 "error_source": razorpay_failure.error_source,

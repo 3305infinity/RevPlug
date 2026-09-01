@@ -61,20 +61,8 @@ def _make_item(
     clean_cause = root_cause if root_cause and root_cause.lower() != "unknown" else "soft"
     actual_rec = amount_minor if status == RecoveryStatus.RECOVERED else 0
 
-    REALISTIC_ENTERPRISE_NAMES = [
-        "Swiggy Enterprise Logistics",
-        "Zomato Merchant Solutions",
-        "Acme Global Pvt Ltd",
-        "Flipkart Merchant Services",
-        "Reliance Retail Tech",
-        "Paytm Business Solutions",
-        "InMobi Media Pvt Ltd",
-        "Razorpay Enterprise Direct",
-        "PhonePe Merchant Pay",
-        "Freshworks SaaS Client",
-    ]
-    name_idx = abs(hash(customer_id)) % len(REALISTIC_ENTERPRISE_NAMES)
-    c_name = REALISTIC_ENTERPRISE_NAMES[name_idx]
+    from app.domain.customer_names import derive_customer_name
+    c_name = derive_customer_name(customer_id, extra_metadata.get("customer_name") if extra_metadata else None)
 
     metadata: dict[str, Any] = {
         SYNTHETIC_MARKER: SYNTHETIC_VALUE,

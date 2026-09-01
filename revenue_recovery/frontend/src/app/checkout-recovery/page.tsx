@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getCustomerDisplayName } from "@/lib/customerDisplay";
 import Link from "next/link";
 
 interface CheckoutSummary {
@@ -169,7 +170,7 @@ export default function CheckoutRecoveryPage() {
                 <td style={{ padding: "0.75rem", fontFamily: "monospace", fontWeight: 600, color: "var(--accent)" }}>
                   {item.checkout_id}
                 </td>
-                <td style={{ padding: "0.75rem", color: "var(--text-primary)" }}>{item.customer_id}</td>
+                <td style={{ padding: "0.75rem", color: "var(--text-primary)", fontWeight: 600 }}>{getCustomerDisplayName(item.customer_id)}</td>
                 <td style={{ padding: "0.75rem", fontFamily: "monospace", fontWeight: 600 }}>{fmt(item.cart_value_minor)}</td>
                 <td style={{ padding: "0.75rem" }}>
                   <span style={{

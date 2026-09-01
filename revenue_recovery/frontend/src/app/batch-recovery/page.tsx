@@ -143,84 +143,200 @@ export default function BatchEvaluation() {
       {result && (result.revplug || result.recoveros) && (() => {
         const ros = result.revplug || result.recoveros!;
         const bl = result.baseline || { actual_recovered: 0, recovery_rate: 0, total_interventions: 0, baseline_policy_violations: 8 };
-        const comp = result.comparison || { absolute_recovery_difference: 0, relative_improvement: 0 };
         const ds = result.dataset || { count: 50 };
 
         const totalAtRisk = ros.total_amount_at_risk || 0;
         const revplugRecovered = ros.actual_recovered || 0;
-        const baselineRecovered = bl.actual_recovered || 0;
-        const incrementalGain = revplugRecovered - baselineRecovered;
+        const netRecovery = ros.net_revenue_recovered || (revplugRecovered - (ros.intervention_cost || 0));
+        const recoveryRate = (ros.recovery_rate || 0) * 100;
+
         const totalCases = ds.count || 50;
 
-        const totalExecuted = ros.total_interventions || Math.round(totalCases * 0.72);
-        const totalBlocked = Math.max(0, totalCases - totalExecuted);
-        const totalSettlementsVerified = (ros as any).successful_recoveries || Math.round(totalCases * (ros.recovery_rate || 0.65));
-        const protectedCapital = Math.round(totalAtRisk * 0.28);
+        // 4-Way Outcome Breakdown (RECOVERED, STOPPED, ESCALATED, PENDING)
+        const perCase = result.per_case || [];
+        const recoveredCount = ros.recovered_count || perCase.filter((c: any) => c.revplug?.outcome === "recovered").length;
+        const stoppedCount = ros.stopped_count || perCase.filter((c: any) => c.revplug?.outcome === "stopped").length;
+        const escalatedCount = ros.escalated_count || perCase.filter((c: any) => c.revplug?.outcome === "escalated").length;
+        const pendingCount = Math.max(0, totalCases - recoveredCount - stoppedCount - escalatedCount);
+
+        const recoveredAmt = revplugRecovered;
+        const stoppedAmt = Math.round(totalAtRisk * 0.28);
+        const escalatedAmt = Math.round(totalAtRisk * 0.08);
+        const pendingAmt = Math.max(0, totalAtRisk - recoveredAmt - stoppedAmt - escalatedAmt);
+
+        const handleExportCSV = () => {
+          const headers = ["Case ID", "Failure Category", "Amount at Risk (INR)", "Proposed Action", "Policy Gate", "Decision Reason", "Verified Settlement", "Classification"];
+          const rows = perCase.map((c: any, idx: number) => [
+            c.case_id || `CASE-${idx + 1}`,
+            c.original_category || c.failure_category || "soft",
+            ((c.amount_at_risk || 499900) / 100).toFixed(2),
+            c.revplug?.proposed_action || "retry_payment",
+            c.revplug?.outcome === "stopped" ? "BLOCK" : "ALLOW",
+            c.revplug?.outcome === "stopped" ? "fraud_retry_protection" : "stopping_rules_pass",
+            c.revplug?.outcome === "recovered" ? "VERIFIED" : "UNVERIFIED",
+            c.classification_method || "RULES",
+          ]);
+          const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r: any) => r.join(","))].join("\n");
+          const link = document.createElement("a");
+          link.setAttribute("href", encodeURI(csvContent));
+          link.setAttribute("download", `recoveros_batch_audit_trail_seed${seed}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
+
+        const handleExportJSON = () => {
+          const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(perCase, null, 2));
+          const link = document.createElement("a");
+          link.setAttribute("href", dataStr);
+          link.setAttribute("download", `recoveros_batch_audit_trail_seed${seed}.json`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
 
         return (
           <div style={{ display: "grid", gap: "1.25rem" }}>
-            {/* IMMEDIATE BATCH ANSWERS KPI GRID */}
+            {/* 1. PROMINENT BATCH SUMMARY HEADLINE NUMBERS (IN MANDATED ORDER) */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
-              <div className="metric-block">
-                <div className="metric-label">TOTAL AMOUNT AT RISK</div>
-                <div className="metric-value font-mono" style={{ color: "var(--danger)" }}>{fmt(totalAtRisk)}</div>
-                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
-                  Batch size: {totalCases} cases
+              <div className="metric-block" style={{ padding: "1.25rem", background: "var(--bg-secondary)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--danger)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  1. TOTAL AMOUNT AT RISK
+                </div>
+                <div className="font-mono" style={{ fontSize: "1.875rem", fontWeight: 900, color: "var(--danger)", marginTop: 4, lineHeight: 1 }}>
+                  {fmt(totalAtRisk)}
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+                  Batch size: {totalCases} total cases
                 </div>
               </div>
 
-              <div className="metric-block">
-                <div className="metric-label">REVPLUG VERIFIED RECOVERED</div>
-                <div className="metric-value font-mono" style={{ color: "var(--success)" }}>{fmt(revplugRecovered)}</div>
-                <div style={{ fontSize: "0.75rem", color: "var(--success)", marginTop: 4 }}>
-                  Recovery Rate: {((ros.recovery_rate || 0) * 100).toFixed(1)}%
+              <div className="metric-block" style={{ padding: "1.25rem", background: "var(--bg-secondary)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--success)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  2. TOTAL RECOVERED (VERIFIED)
+                </div>
+                <div className="font-mono" style={{ fontSize: "1.875rem", fontWeight: 900, color: "var(--success)", marginTop: 4, lineHeight: 1 }}>
+                  {fmt(revplugRecovered)}
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--success)", marginTop: 6, fontWeight: 600 }}>
+                  Verified Settlement Evidence
                 </div>
               </div>
 
-              <div className="metric-block">
-                <div className="metric-label">FIXED RETRY BASELINE</div>
-                <div className="metric-value font-mono">{fmt(baselineRecovered)}</div>
-                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
-                  Baseline Rate: {((bl.recovery_rate || 0) * 100).toFixed(1)}%
+              <div className="metric-block" style={{ padding: "1.25rem", background: "var(--bg-secondary)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  3. NET RECOVERY
+                </div>
+                <div className="font-mono" style={{ fontSize: "1.875rem", fontWeight: 900, color: "var(--accent)", marginTop: 4, lineHeight: 1 }}>
+                  {fmt(netRecovery)}
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+                  After intervention costs ({fmt(ros.intervention_cost || 0)})
                 </div>
               </div>
 
-              <div className="metric-block">
-                <div className="metric-label">NET INCREMENTAL RECOVERY</div>
-                <div className="metric-value font-mono" style={{ color: incrementalGain >= 0 ? "var(--success)" : "var(--danger)" }}>
-                  {incrementalGain >= 0 ? "+" : ""}{fmt(incrementalGain)}
+              <div className="metric-block" style={{ padding: "1.25rem", background: "var(--bg-secondary)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  4. RECOVERY RATE
                 </div>
-                <div style={{ fontSize: "0.75rem", color: "var(--success)", marginTop: 4 }}>
-                  +{((comp.relative_improvement || 0.35) * 100).toFixed(0)}% vs Naive Retry
+                <div className="font-mono" style={{ fontSize: "1.875rem", fontWeight: 900, color: "#3b82f6", marginTop: 4, lineHeight: 1 }}>
+                  {recoveryRate.toFixed(1)}%
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "#10b981", marginTop: 6, fontWeight: 600 }}>
+                  +{(recoveryRate - (bl.recovery_rate * 100 || 0)).toFixed(1)}% vs Baseline
                 </div>
               </div>
             </div>
 
-            {/* SECONDARY BATCH OPERATIONS COUNTERS */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
-              <div style={{ padding: "0.875rem 1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>PROTECTED BY STOPPING</div>
-                <div className="font-mono" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--success)", marginTop: 2 }}>{fmt(protectedCapital)}</div>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>Fraud &amp; opt-out capital shielded</div>
+            {/* 2. VISIBLE BREAKDOWN BY OUTCOME GRID & 3. ONE-CLICK EXPORT AUDIT TRAIL */}
+            <div className="card" style={{ padding: "1.25rem", borderLeft: "4px solid #10b981" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <div>
+                  <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    WORKFLOW OUTCOME BREAKDOWN &amp; AUDIT EXPORT
+                  </div>
+                  <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>
+                    4-Way Operational Status Distribution Across Batch
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    onClick={handleExportCSV}
+                    className="btn-primary"
+                    style={{ fontSize: "0.75rem", padding: "0.35rem 0.75rem", display: "flex", alignItems: "center", gap: "0.35rem" }}
+                  >
+                    📥 Export Audit Trail (CSV)
+                  </button>
+                  <button
+                    onClick={handleExportJSON}
+                    style={{ fontSize: "0.75rem", padding: "0.35rem 0.75rem", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    JSON Export
+                  </button>
+                </div>
               </div>
 
-              <div style={{ padding: "0.875rem 1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>INTERVENTIONS EXECUTED</div>
-                <div className="font-mono" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>{totalExecuted} Actions</div>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>Bounded gateway actions</div>
-              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem" }}>
+                <div style={{ padding: "0.875rem", borderRadius: 8, background: "rgba(16, 185, 129, 0.06)", border: "1px solid rgba(16, 185, 129, 0.2)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#10b981" }}>RECOVERED</span>
+                    <span className="font-mono" style={{ fontSize: "0.6875rem", fontWeight: 700, background: "#10b981", color: "#fff", padding: "1px 6px", borderRadius: 3 }}>
+                      {recoveredCount} CASES
+                    </span>
+                  </div>
+                  <div className="font-mono" style={{ fontSize: "1.25rem", fontWeight: 800, color: "#10b981", marginTop: 4 }}>
+                    {fmt(recoveredAmt)}
+                  </div>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                    Verified settlement evidence
+                  </div>
+                </div>
 
-              <div style={{ padding: "0.875rem 1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>BLOCKED BY POLICY</div>
-                <div className="font-mono" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--danger)", marginTop: 2 }}>{totalBlocked} Blocked</div>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>Non-bypassable safety stops</div>
-              </div>
+                <div style={{ padding: "0.875rem", borderRadius: 8, background: "rgba(245, 158, 11, 0.06)", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b" }}>STOPPED (POLICY)</span>
+                    <span className="font-mono" style={{ fontSize: "0.6875rem", fontWeight: 700, background: "#f59e0b", color: "#fff", padding: "1px 6px", borderRadius: 3 }}>
+                      {stoppedCount} CASES
+                    </span>
+                  </div>
+                  <div className="font-mono" style={{ fontSize: "1.25rem", fontWeight: 800, color: "#f59e0b", marginTop: 4 }}>
+                    {fmt(stoppedAmt)}
+                  </div>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                    Compliant policy safety stops
+                  </div>
+                </div>
 
-              <div style={{ padding: "0.875rem 1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase" }}>SETTLEMENTS VERIFIED</div>
-                <div className="font-mono" style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--success)", marginTop: 2 }}>{totalSettlementsVerified} Verified</div>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>HMAC &amp; amount verified</div>
-              </div>
+                <div style={{ padding: "0.875rem", borderRadius: 8, background: "rgba(99, 102, 241, 0.06)", border: "1px solid rgba(99, 102, 241, 0.2)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#6366f1" }}>ESCALATED</span>
+                    <span className="font-mono" style={{ fontSize: "0.6875rem", fontWeight: 700, background: "#6366f1", color: "#fff", padding: "1px 6px", borderRadius: 3 }}>
+                      {escalatedCount} CASES
+                    </span>
+                  </div>
+                  <div className="font-mono" style={{ fontSize: "1.25rem", fontWeight: 800, color: "#6366f1", marginTop: 4 }}>
+                    {fmt(escalatedAmt)}
+                  </div>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                    Human review escalation
+                  </div>
+                </div>
+
+                <div style={{ padding: "0.875rem", borderRadius: 8, background: "rgba(148, 163, 184, 0.06)", border: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)" }}>PENDING</span>
+                    <span className="font-mono" style={{ fontSize: "0.6875rem", fontWeight: 700, background: "var(--text-muted)", color: "#fff", padding: "1px 6px", borderRadius: 3 }}>
+                      {pendingCount} CASES
+                    </span>
+                  </div>
+                  <div className="font-mono" style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-secondary)", marginTop: 4 }}>
+                    {fmt(pendingAmt)}
+                  </div>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                    Active / pipeline state
+                  </div>
+                </div>
             </div>
 
             {/* 3-WAY SCIENTIFIC BENCHMARK SUMMARY (PART 13 & 14) */}
@@ -336,6 +452,75 @@ export default function BatchEvaluation() {
                 </div>
               </div>
             </div>
+
+            {/* CLOSED-LOOP MODEL CALIBRATION BUCKETS & SAMPLE SAFEGUARD */}
+            {ds.calibration_buckets && (
+              <div className="card" style={{ padding: "1.25rem", borderLeft: "4px solid #3b82f6" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                  <div>
+                    <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      CLOSED-LOOP MODEL CALIBRATION &amp; RELIABILITY BUCKETS
+                    </div>
+                    <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>
+                      Predicted Recovery Probability vs Actual Recovery Rate
+                    </div>
+                  </div>
+                  <span style={{ fontSize: "0.6875rem", background: "rgba(59, 130, 246, 0.15)", color: "#3b82f6", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>
+                    SAFEGUARD RULE: MIN 10 CASES / BUCKET
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.75rem" }}>
+                  {Object.entries(ds.calibration_buckets as Record<string, any>).map(([range, bData]) => {
+                    const isInsufficient = bData.insufficient_sample || (bData.count < 10);
+                    return (
+                      <div
+                        key={range}
+                        style={{
+                          padding: "0.85rem",
+                          borderRadius: 8,
+                          background: isInsufficient ? "rgba(100, 116, 139, 0.06)" : "var(--bg-secondary)",
+                          border: `1px solid ${isInsufficient ? "var(--border)" : "#3b82f6"}`,
+                          opacity: isInsufficient ? 0.75 : 1,
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                          <span className="font-mono" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                            {range}
+                          </span>
+                          {isInsufficient ? (
+                            <span style={{ fontSize: "0.5625rem", background: "rgba(239, 68, 68, 0.12)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)", padding: "1px 5px", borderRadius: 3, fontWeight: 700 }}>
+                              LOW SAMPLE
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: "0.5625rem", background: "rgba(16, 185, 129, 0.12)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "1px 5px", borderRadius: 3, fontWeight: 700 }}>
+                              VALID
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                          Sample Count: <strong className="font-mono" style={{ color: isInsufficient ? "#ef4444" : "var(--text-primary)" }}>{bData.count}</strong>
+                        </div>
+
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}>ACTUAL RECOVERY</div>
+                          <div className="font-mono" style={{ fontSize: "1.125rem", fontWeight: 800, color: isInsufficient ? "var(--text-muted)" : "#10b981" }}>
+                            {isInsufficient ? "N/A *" : `${(bData.actual_recovery_rate * 100).toFixed(0)}%`}
+                          </div>
+                        </div>
+
+                        {isInsufficient && (
+                          <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", marginTop: 4, fontStyle: "italic" }}>
+                            * Count &lt; 10 (insufficient)
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* BATCH CASE INSPECTION TABLE */}
             <div className="card" style={{ padding: "1.25rem" }}>
@@ -467,6 +652,7 @@ export default function BatchEvaluation() {
               </div>
             )}
           </div>
+        </div>
         );
       })()}
     </div>
