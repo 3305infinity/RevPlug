@@ -183,7 +183,7 @@ class TestAgentWebhookIntegration:
         audit = container.audit_log
         policy = InterventionPolicy(
             max_retry_attempts=3,
-            opted_out_customer_ids=frozenset({"razorpay_customer"}),
+            opted_out_customer_ids=frozenset({"cust_optout_test"}),
         )
         orchestrator = RecoveryAgentOrchestrator(
             agent=agent,
@@ -205,6 +205,7 @@ class TestAgentWebhookIntegration:
             orchestrator=orchestrator,
         )
         payload = _payload("evt_optout", "pay_optout", "payment_timed_out")
+        payload["payload"]["payment"]["entity"]["customer_id"] = "cust_optout_test"
         body = json.dumps(payload).encode()
         sig = _sign(body)
         item, events, status = svc.process_webhook(body, sig)

@@ -71,7 +71,7 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
       zIndex: 100,
     }}>
       {/* Brand Header */}
-      <div style={{ padding: "0.875rem 1rem", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ padding: "1rem 1rem", borderBottom: "1px solid var(--border)" }}>
         <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: "0.625rem", textDecoration: "none" }}>
           <div style={{
             width: 28, height: 28, borderRadius: 6,
@@ -90,22 +90,6 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
             </div>
           </div>
         </Link>
-        {/* Evaluation workspace badge */}
-        <div style={{
-          marginTop: "0.625rem",
-          padding: "0.25rem 0.5rem",
-          background: "rgba(245, 158, 11, 0.08)",
-          border: "1px solid rgba(245, 158, 11, 0.25)",
-          borderRadius: 4,
-          fontSize: "0.5625rem",
-          fontWeight: 600,
-          color: "#d97706",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          lineHeight: 1.4,
-        }}>
-          Evaluation Workspace · RevenueRecovery-v1
-        </div>
       </div>
 
       {/* Navigation Links */}

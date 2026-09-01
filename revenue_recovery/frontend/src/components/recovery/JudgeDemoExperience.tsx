@@ -35,7 +35,7 @@ export default function JudgeDemoExperience() {
           error_reason: "authentication_required",
           method: "card",
           customer_id: "cust_demo_judge_101",
-          customer_name: "Swiggy Enterprise Logistics",
+          customer_name: "Evaluation Customer #101",
         });
         setSimResult(res);
       }

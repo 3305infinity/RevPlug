@@ -35,7 +35,7 @@ def test_smoke_test_does_not_pollute_opportunity_inbox():
                 "entity": {
                     "id": "pay_smoke_isolation_001",
                     "entity": "payment",
-                    "customer_id": "razorpay_customer",
+                    "customer_id": "cust_smoke_test_001",
                     "amount": 50000,
                     "currency": "INR",
                     "status": "failed",

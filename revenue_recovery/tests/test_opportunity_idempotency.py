@@ -24,7 +24,7 @@ def test_demo_scenario_idempotency_does_not_create_duplicate_rows():
         "error_reason": "authentication_required",
         "method": "card",
         "customer_id": "cust_demo_pivot_101",
-        "customer_name": "Swiggy Enterprise Logistics",
+        "customer_name": "Test Merchant Alpha",
         "metadata": {"failure_category": "authentication_required"},
     }
 

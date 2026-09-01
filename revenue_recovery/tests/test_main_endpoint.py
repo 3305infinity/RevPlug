@@ -461,7 +461,7 @@ class TestCustomerDetailAPI:
         assert resp.status_code == 200
         item_id = resp.json()["recovery_item_id"]
 
-        detail_resp = client.get(f"/api/customers/{_SOFT_FAILURE_PAYLOAD['payload']['payment']['entity'].get('customer_id', 'razorpay_customer')}")
+        detail_resp = client.get(f"/api/customers/{_SOFT_FAILURE_PAYLOAD['payload']['payment']['entity'].get('customer_id', 'cust_test_webhook_001')}")
         assert detail_resp.status_code == 200
         data = detail_resp.json()
         assert "customer_id" in data

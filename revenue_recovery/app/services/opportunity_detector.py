@@ -84,8 +84,9 @@ class OpportunityDetector:
         event_type = str(event.get("event_type", "payment_failed")).lower()
         raw_reason = str(event.get("failure_reason") or event.get("reason") or "payment_timed_out").lower()
         external_id = str(event.get("reference_id") or event.get("invoice_id") or event.get("external_id") or f"ref_{int(time.time())}")
-        customer_name = str(event.get("customer_name") or "Acme Global").strip()
-        customer_id = str(event.get("customer_id") or f"cust_{customer_name.lower().replace(' ', '_')}").strip()
+        raw_cust_name = event.get("customer_name")
+        customer_name = str(raw_cust_name).strip() if raw_cust_name and str(raw_cust_name).strip() else None
+        customer_id = str(event.get("customer_id") or f"cust_anon_{external_id[:8]}").strip()
         amount_minor = int(event.get("amount_minor", 0))
         currency = str(event.get("currency", "INR")).upper()
 

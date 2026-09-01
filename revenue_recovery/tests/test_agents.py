@@ -286,13 +286,13 @@ class TestOrchestrator:
         assert result.proposal.action == RecoveryAction.SEND_PAYMENT_LINK
 
     def test_opt_out_blocks_outbound(self, audit_log, agent):
-        policy = InterventionPolicy(opted_out_customer_ids=frozenset({"razorpay_customer"}))
+        policy = InterventionPolicy(opted_out_customer_ids=frozenset({"cust_optout_test"}))
         orch = RecoveryAgentOrchestrator(
             agent=agent,
             policy_engine=policy,
             audit_log=audit_log,
         )
-        ctx = _ctx(failure_category=FailureCategory.SOFT, attempt_count=0)
+        ctx = _ctx(failure_category=FailureCategory.SOFT, attempt_count=0, customer_id="cust_optout_test")
         result = orch.decide(ctx)
         # Agent proposes RETRY_PAYMENT, but customer is opted out.
         # The policy engine checks opt-out first.

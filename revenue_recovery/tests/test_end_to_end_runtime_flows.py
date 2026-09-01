@@ -14,8 +14,8 @@ def test_1_create_recovery_case_valid_succeeds():
     """Valid case creation creates a persisted RecoveryItem and returns 201."""
     client = TestClient(app)
     payload = {
-        "customer_id": "cust_acme_inc",
-        "customer_name": "Acme Global Retail",
+        "customer_id": "cust_test_inc",
+        "customer_name": "Test Merchant Alpha",
         "amount_minor": 499900,
         "currency": "INR",
         "event_type": "payment_failed",

@@ -16,7 +16,7 @@ RevPlug is an autonomous AI-driven revenue recovery control plane that detects r
 
 ## 3. Product Operating Experience
 1. Launch the web interface at `http://localhost:3000/recovery`.
-2. Explore the **REVENUE OPERATIONS INBOX** (`GET /api/opportunity-inbox`) pre-sorted by Expected Net Recovery ($EV_{\text{net}}$) with enterprise client names (*Swiggy Enterprise*, *Zomato Merchant*, *Acme Global*).
+2. Explore the **REVENUE OPERATIONS INBOX** (`GET /api/opportunity-inbox`) pre-sorted by Expected Net Recovery ($EV_{\text{net}}$) with synthetic evaluation customers and neutral identifiers.
 3. Navigate to **Single Case Control Plane** (`/run-recovery`) to evaluate any persisted case through the full closed-loop orchestrator trace, Decision Card centerpiece, Payment Method Optimization reasoning, and HMAC settlement verifier.
 4. Watch RevPlug detect revenue at risk, diagnose root causes, attempt payment retries, observe execution failures, dynamically pivot to Payment Links, verify HMAC payment settlement, and update the financial ledger with **0 policy violations**.
 

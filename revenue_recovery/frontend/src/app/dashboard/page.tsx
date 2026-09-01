@@ -192,9 +192,6 @@ export default function OperationsDashboard() {
           </h1>
         </div>
         <div style={{ display: "flex", gap: "0.625rem", alignItems: "center" }}>
-          <span style={{ fontSize: "0.625rem", fontWeight: 600, color: "#d97706", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(217,119,6,0.2)", padding: "3px 8px", borderRadius: 4, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-            Evaluation Workspace
-          </span>
           <Link href="/policy-config" className="btn-secondary" style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}>
             Policy
           </Link>

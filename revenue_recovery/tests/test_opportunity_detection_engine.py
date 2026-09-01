@@ -41,8 +41,8 @@ def test_2_duplicate_event_does_not_create_duplicate_opportunity():
     ref_id = "inv_opp_duplicate_999"
     event = {
         "event_type": "payment_failed",
-        "customer_id": "cust_swiggy_b2b",
-        "customer_name": "Swiggy Enterprise",
+        "customer_id": "cust_test_b2b",
+        "customer_name": "Test Merchant Alpha",
         "amount_minor": 750000,
         "failure_reason": "soft_gateway_timeout",
         "reference_id": ref_id,
@@ -63,8 +63,8 @@ def test_3_payment_success_closes_opportunity():
     ref_id = "inv_close_test_404"
     fail_evt = {
         "event_type": "payment_failed",
-        "customer_id": "cust_zomato_log",
-        "customer_name": "Zomato Logistics",
+        "customer_id": "cust_test_log",
+        "customer_name": "Test Merchant Beta",
         "amount_minor": 300000,
         "reference_id": ref_id,
     }

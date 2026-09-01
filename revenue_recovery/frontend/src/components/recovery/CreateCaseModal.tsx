@@ -142,7 +142,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
             </label>
             <input
               type="text"
-              placeholder="Acme Global Inc"
+              placeholder="Enterprise Client"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}

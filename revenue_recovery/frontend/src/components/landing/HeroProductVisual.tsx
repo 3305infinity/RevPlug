@@ -26,7 +26,7 @@ export default function HeroProductVisual() {
           <span style={{ color: "var(--text-secondary)" }}>CASE #pay_demo_1787993826</span>
         </div>
         <div style={{ display: "flex", gap: "1.25rem", color: "var(--text-muted)", fontSize: "0.6875rem" }}>
-          <span>CUSTOMER: razorpay_customer</span>
+          <span>CUSTOMER: cust_checkout_101</span>
           <span>CURRENCY: INR</span>
         </div>
       </div>
