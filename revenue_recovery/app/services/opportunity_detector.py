@@ -248,6 +248,7 @@ class OpportunityDetector:
             priority=priority_label,
             stopped_reason=reason if status == RecoveryStatus.STOPPED else None,
             metadata={
+                "source": str(event.get("source") or "webhook_live"),
                 "customer_name": customer_name,
                 "recommended_action": rec_action,
                 "expected_net_ev_minor": net_ev,

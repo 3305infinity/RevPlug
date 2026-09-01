@@ -821,7 +821,7 @@ class RazorpayWebhookService:
             or "smoke" in razorpay_failure.razorpay_payment_id.lower()
             or (isinstance(razorpay_failure.raw_payload, dict) and isinstance(razorpay_failure.raw_payload.get("notes"), dict) and razorpay_failure.raw_payload.get("notes", {}).get("source") == "smoke_test")
         )
-        source_tag = "smoke_test" if is_smoke else "webhook"
+        source_tag = "smoke_test" if is_smoke else "webhook_live"
 
         return RecoveryItem(
             id=str(uuid.uuid4()),

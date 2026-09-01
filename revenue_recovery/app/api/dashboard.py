@@ -237,6 +237,7 @@ def api_create_recovery_item(payload: dict[str, Any], container: PersistenceCont
         priority=priority,
         stopped_reason=stopped_reason,
         metadata={
+            "source": "manual_case",
             "customer_name": customer_name or customer_id,
             "payment_method": payment_method,
             "reference_id": reference_id,
@@ -440,6 +441,7 @@ def api_human_review_action(
     container: PersistenceContainer = Depends(get_container),
 ) -> dict[str, Any]:
     """Process human review decision, validate through PolicyEngine, and resume playbook."""
+    from datetime import datetime, timezone
     from app.dashboard_api import _get_items
     items = _get_items(container)
     item = next((i for i in items if i.id == item_id), None)
@@ -449,7 +451,6 @@ def api_human_review_action(
     if item:
         # Resume recovery status
         if hasattr(container.recovery_items, "save"):
-            from datetime import datetime, timezone
             from app.domain.models import RecoveryStatus, RecoveryItem
             updated_item = RecoveryItem(
                 id=item.id,

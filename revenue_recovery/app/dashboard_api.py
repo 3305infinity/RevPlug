@@ -27,8 +27,11 @@ _TERMINAL_STATUSES = frozenset({"recovered", "stopped", "escalated"})
 _AT_RISK_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "pending_verification", "failed"})
 
 
+APPROVED_LIVE_SOURCES = frozenset({"webhook_live", "demo_scenario", "synthetic_dataset", "manual_case", "webhook"})
+
+
 def _get_items(container) -> list:
-    """Extract all recovery items from the container, filtering out smoke/stress test fixtures."""
+    """Extract live operational recovery items from the container, enforcing a strict fail-closed allowlist."""
     repo = container.recovery_items
     raw_items = []
     if hasattr(repo, "_items"):
@@ -44,21 +47,27 @@ def _get_items(container) -> list:
         meta = getattr(item, "metadata", {}) or {}
         if not isinstance(meta, dict):
             meta = {}
-        src = str(meta.get("source", "")).lower()
-        if src in ("smoke_test", "stress_test", "test_fixture", "smoke", "stress"):
+
+        src = str(meta.get("source", "")).strip().lower()
+
+        # Explicit block for known test/purge tags
+        if src in ("smoke_test", "stress_test", "unapproved_purged", "batch_test"):
             continue
-        if meta.get("is_test_fixture") is True:
+        if meta.get("is_test_fixture") is True or meta.get("batch_scope") is True or meta.get("batch_id") is not None:
             continue
-        if meta.get("batch_scope") is True or meta.get("batch_id") is not None:
+
+        # Fail-closed allowlist: if source is set, it MUST be in APPROVED_LIVE_SOURCES
+        if src != "" and src not in APPROVED_LIVE_SOURCES:
             continue
+
+        # Secondary defense against test fixture IDs
         item_id = str(getattr(item, "id", "")).lower()
         ext_id = str(getattr(item, "external_id", "")).lower()
-        cust_id = str(getattr(item, "customer_id", "")).lower()
-
         if "smoke" in item_id or "smoke" in ext_id or ext_id.startswith("pay_smoke") or ext_id.startswith("evt_smoke"):
             continue
         if "stress" in item_id or "stress" in ext_id or "test_fixture" in item_id or "test_fixture" in ext_id:
             continue
+
         filtered.append(item)
 
     return filtered

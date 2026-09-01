@@ -21,6 +21,18 @@ def api_purge_batch_items(container: PersistenceContainer = Depends(get_containe
     count = container.purge_batch_items()
     return {"status": "success", "purged_count": count, "message": f"Purged {count} batch-scoped synthetic items."}
 
+@router.post("/api/demo/purge-poisoned-names")
+def api_purge_poisoned_names(container: PersistenceContainer = Depends(get_container)):
+    """Scan persisted RecoveryItems and set customer_name = None for any matching banned enterprise names."""
+    count = container.purge_poisoned_customer_names()
+    return {"status": "success", "poisoned_names_cleared": count, "message": f"Cleared {count} poisoned customer names."}
+
+@router.post("/api/demo/purge-unapproved-items")
+def api_purge_unapproved_items(container: PersistenceContainer = Depends(get_container)):
+    """Purge all unapproved load/stress/test items not in the approved live source list."""
+    stats = container.purge_unapproved_items()
+    return {"status": "success", **stats}
+
 @router.get("/api/demo/datasets")
 def api_demo_datasets() -> list[dict[str, Any]]:
     from app.datasets.synthetic import list_datasets
@@ -130,6 +142,7 @@ async def api_demo_payment_failure(
         if hasattr(container.recovery_items, "get"):
             db_item = container.recovery_items.get(item.id)
             if db_item:
+                db_item.metadata["source"] = "demo_scenario"
                 db_item.metadata["is_synthetic"] = True
                 db_item.metadata["customer_name"] = customer_name
                 if isinstance(payload.get("metadata"), dict):
@@ -228,6 +241,7 @@ async def api_demo_hinglish_recovery(
         expected_recovery_value=extracted.amount_minor or 1500000,
         actual_recovery_value=0,
         metadata={
+            "source": "demo_scenario",
             "hinglish_text": text,
             "extracted_intent": extracted.intent,
             "promised_date": extracted.promised_date,

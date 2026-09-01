@@ -43,6 +43,129 @@ class PersistenceContainer:
     jobs: "object | None" = None  # RecoveryJobRepository (Stage 7 async worker)
     batches: "object | None" = None  # InMemoryBatchRepository (Stage 8 batch recovery)
 
+    def purge_poisoned_customer_names(self) -> int:
+        """Scan all persisted RecoveryItems and set metadata.customer_name = None if it matches a banned enterprise name."""
+        banned_patterns = [
+            "swiggy", "zomato", "acme global", "flipkart", "reliance retail",
+            "paytm business", "inmobi", "razorpay enterprise", "phonepe", "freshworks",
+            "pvt ltd", "enterprise direct", "merchant pay"
+        ]
+        count = 0
+
+        # In-memory path
+        if hasattr(self.recovery_items, "_items"):
+            items_repo = getattr(self.recovery_items, "_items")
+            for item in list(items_repo.values()):
+                meta = getattr(item, "metadata", {}) or {}
+                if isinstance(meta, dict):
+                    c_name = meta.get("customer_name")
+                    if c_name and isinstance(c_name, str):
+                        if any(pat in c_name.lower() for pat in banned_patterns):
+                            meta["customer_name"] = None
+                            count += 1
+
+        # Postgres path
+        if hasattr(self.recovery_items, "_conn") and getattr(self.recovery_items, "_conn") is not None:
+            db_conn = getattr(self.recovery_items, "_conn")
+            try:
+                import json
+                rows = db_conn.fetchall("SELECT id, metadata FROM recovery_items")
+                if rows:
+                    poisoned_ids = []
+                    for r in rows:
+                        if isinstance(r, dict):
+                            i_id = r.get("id")
+                            m = r.get("metadata") or {}
+                            if isinstance(m, dict):
+                                cn = m.get("customer_name")
+                                if cn and isinstance(cn, str):
+                                    if any(pat in cn.lower() for pat in banned_patterns):
+                                        if i_id:
+                                            poisoned_ids.append(i_id)
+                    if poisoned_ids:
+                        for p_id in poisoned_ids:
+                            try:
+                                row = db_conn.fetchone("SELECT metadata FROM recovery_items WHERE id = %s", (p_id,))
+                                if row and "metadata" in row and isinstance(row["metadata"], dict):
+                                    meta = row["metadata"]
+                                    meta["customer_name"] = None
+                                    db_conn.execute("UPDATE recovery_items SET metadata = %s WHERE id = %s", (json.dumps(meta), p_id))
+                                    count += 1
+                            except Exception as ex:
+                                print(f"[purge_poisoned_customer_names] item update warning: {ex}")
+            except Exception as exc:
+                print(f"[purge_poisoned_customer_names] Postgres warning: {exc}")
+
+        return count
+
+    def purge_unapproved_items(self) -> dict[str, int]:
+        """Purge all accumulated load/stress/test/unapproved items whose source is NOT in APPROVED_LIVE_SOURCES."""
+        approved_sources = {"webhook_live", "demo_scenario", "manual_case"}
+        unapproved_ids: set[str] = set()
+
+        # In-memory path
+        if hasattr(self.recovery_items, "_items"):
+            items_repo = getattr(self.recovery_items, "_items")
+            for item_id, item in list(items_repo.items()):
+                meta = getattr(item, "metadata", {}) or {}
+                src = str(meta.get("source", "") if isinstance(meta, dict) else "").strip().lower()
+                if src not in approved_sources:
+                    unapproved_ids.add(item_id)
+
+        # Postgres path
+        if hasattr(self.recovery_items, "_conn") and getattr(self.recovery_items, "_conn") is not None:
+            db_conn = getattr(self.recovery_items, "_conn")
+            try:
+                rows = db_conn.fetchall("SELECT id, metadata FROM recovery_items")
+                if rows:
+                    for r in rows:
+                        if isinstance(r, dict):
+                            i_id = r.get("id")
+                            m = r.get("metadata") or {}
+                            src = str(m.get("source", "") if isinstance(m, dict) else "").strip().lower()
+                            if src not in approved_sources:
+                                if i_id:
+                                    unapproved_ids.add(i_id)
+            except Exception as exc:
+                print(f"[purge_unapproved_items] Postgres scan warning: {exc}")
+
+        count = len(unapproved_ids)
+        if unapproved_ids:
+            ids_list = list(unapproved_ids)
+            if hasattr(self.recovery_items, "_conn") and getattr(self.recovery_items, "_conn") is not None:
+                db_conn = getattr(self.recovery_items, "_conn")
+                try:
+                    # Update status to stopped and mark source=unapproved_purged so trigger passes and filter excludes
+                    for u_id in ids_list:
+                        try:
+                            row = db_conn.fetchone("SELECT metadata FROM recovery_items WHERE id = %s", (u_id,))
+                            meta = row.get("metadata") if row and isinstance(row, dict) else {}
+                            if not isinstance(meta, dict):
+                                meta = {}
+                            meta["source"] = "unapproved_purged"
+                            meta["batch_scope"] = True
+                            meta["stopped_reason"] = "purged_unapproved_data"
+                            import json
+                            db_conn.execute(
+                                "UPDATE recovery_items SET status = 'stopped', metadata = %s WHERE id = %s",
+                                (json.dumps(meta), u_id)
+                            )
+                        except Exception as ex:
+                            print(f"[purge_unapproved_items] item update warning: {ex}")
+                except Exception as exc:
+                    print(f"[purge_unapproved_items] Postgres deletion warning: {exc}")
+
+            if hasattr(self.recovery_items, "_items"):
+                items_repo = getattr(self.recovery_items, "_items")
+                for i_id in unapproved_ids:
+                    items_repo.pop(i_id, None)
+
+        poisoned_cleared = self.purge_poisoned_customer_names()
+        return {
+            "unapproved_items_purged": count,
+            "poisoned_names_cleared": poisoned_cleared,
+        }
+
     def purge_batch_items(self) -> int:
         """Purge all batch-scoped synthetic items sitting in the primary recovery store."""
         count = 0
