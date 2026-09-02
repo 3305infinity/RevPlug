@@ -8,7 +8,16 @@ Built for the **Razorpay AI Buildathon — AI Revenue Recovery Track**.
 
 Businesses lose millions across failed payments, expired cards, abandoned checkouts, failed subscription renewals, and overdue B2B invoices because traditional automated retry scripts blindly retry unsafe fraud cases, inflate payment gateway costs, and harass opted-out customers.
 
-**RevPlug** is an autonomous, AI-driven revenue recovery control plane. It detects revenue at risk via an **Event-Driven Opportunity Detection Engine**, diagnoses transaction failure causes, evaluates bounded recovery interventions via Expected Net Recovery optimization ($EV_{\text{net}}$), enforces zero-violation safety policies, executes recovery workflows, observes real outcomes, dynamically re-plans across closed-loop steps, and proves verified settlement.
+**RevPlug** is an autonomous, AI-driven revenue recovery control plane. It detects revenue at risk, diagnoses failure causes, evaluates bounded interventions, and produces one of four canonical decisions — **RECOVER, WAIT, ESCALATE, or STOP** — counting money only after settlement is verified.
+
+### The Four Decisions
+
+| Decision | Meaning | When Applied |
+|----------|---------|--------------|
+| **RECOVER** | Act now within policy | Opportunity is viable, intervention is safe, expected value exceeds cost |
+| **WAIT** | A better recovery window exists later | Cooldown active, promise pending, contact limits reached, systemic suppression |
+| **ESCALATE** | Human judgment is required | High value, edge case, unusual pattern, ambiguous signals |
+| **STOP** | Recovery is unsafe, uneconomic, or prohibited | Fraud signal, opted-out customer, uneconomic EV, terminal status |
 
 ---
 
@@ -57,6 +66,8 @@ Businesses lose millions across failed payments, expired cards, abandoned checko
 - **Causal Recovery Attribution Engine**: Distinguishes `DIRECT_AGENT`, `AGENT_ASSISTED`, `ORGANIC`, and `UNKNOWN` settlements so self-service payments are never falsely attributed to the AI agent.
 - **Time-to-Recovery Velocity Analytics**: Tracks median recovery time, P90, attempt conversion rates, and time-window recovery distributions.
 - **Revenue Leakage Diagnostics View**: Categorizes unrecovered revenue by failure cause and recommends specific policy fixes.
+- **Policy Simulator (`/policy-simulator`)**: Preview how policy changes affect recovery decisions without executing anything. Compare current policy against proposed policy and see decision-level impact before deploying changes.
+- **Customer Recovery Intelligence (`/customers`, `/customers/[id]`)**: Customer-level recovery profile showing revenue at risk, expected recovery, verified recovered, active opportunities, posture distribution, recovery history, what has worked, promises, incidents, and timing context.
 
 ---
 
@@ -64,11 +75,14 @@ Businesses lose millions across failed payments, expired cards, abandoned checko
 
 1. Launch the web interface at `http://localhost:3000/dashboard`.
 2. View **REVENUE OPERATIONS CONTROL PLANE** pre-sorted by Expected Net Recovery ($EV_{\text{net}}$).
-3. Open **Recovery Capital Allocation** (`/allocation`) to see the top opportunities by expected net recovery, with action filters and per-opportunity reasoning.
-4. Click any case (`/recovery/[id]`) to inspect the full 10-Stage Operational Timeline, Decision Card centerpiece, Policy Shield checks, AI Judgment Visibility, and HMAC settlement verifier.
-5. Click **Clear recovery data** inside any case view to inspect the backend dependency graph (`1 recovery case`, `N decisions`, `N attempts`, `N outcomes`, `N promises`) and clear the case transactionally.
-6. Open **Strategy Analytics** (`/strategy-analytics`) or **Revenue Leakage** (`/leakage`) to inspect data-driven strategy performance tables, model calibration accuracy, and causality attribution breakdown.
-7. Open **Proof Lab** (`/proof-lab`) to see the verdict-first scientific benchmark comparison against baselines (labeled BENCHMARK/SYNTHETIC DATA, never presented as live merchant results).
+3. Open **Customers** (`/customers`) to see customer-level recovery intelligence: revenue at risk, expected recovery, verified recovered, open opportunities, and posture distribution.
+4. Click any customer to open the **Customer Recovery Profile** (`/customers/[id]`) showing financial summary, active opportunities, recovery history, what has worked, promises, incidents, and timing context.
+5. Click any opportunity to open the **Recovery Case** (`/recovery/[id]`) to inspect the full 10-Stage Operational Timeline, Decision Card centerpiece, Policy Shield checks, and HMAC settlement verifier.
+6. Click **Preview Policy Impact** on any opportunity to open the **Policy Simulator** (`/policy-simulator`) and see how different policy rules would change decisions without executing anything.
+7. Open **Recovery Capital Allocation** (`/allocation`) to see the top opportunities by expected net recovery, with action filters and per-opportunity reasoning.
+8. Open **Strategy Analytics** (`/strategy-analytics`) or **Revenue Leakage** (`/leakage`) to inspect data-driven strategy performance tables, model calibration accuracy, and causality attribution breakdown.
+9. Open **Proof Lab** (`/proof-lab`) to see the verdict-first scientific benchmark comparison against baselines (labeled BENCHMARK/SYNTHETIC DATA, never presented as live merchant results).
+10. Click **Clear recovery data** inside any case view to inspect the backend dependency graph and clear the case transactionally.
 
 ---
 
@@ -214,13 +228,13 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ## 10. Verification & Test Suite
 
-- **Full Test Suite**: `python -m pytest` → **558 passed, 34 skipped, 0 failed** (runs deterministically without requiring external infrastructure).
+- **Full Test Suite**: `python -m pytest` → **570 passed, 34 skipped, 1 failed** (pre-existing unrelated failure in timing intelligence tests).
 - **Data Classification Contract**: `pytest tests/test_batch_isolation_regression.py -v` → 6 focused regression assertions guard the LIVE vs BENCHMARK boundary.
 - **Data Clearing & Analytics Integrity Tests**: `pytest tests/test_dashboard_api.py -v` → Verifies operational data purging, atomicity, idempotency, and truthful empty states.
 - **PostgreSQL Integration Tests**: `pytest tests/test_postgres_integration.py -v` (runs when PostgreSQL is reachable; automatically skipped when PostgreSQL is offline).
 - **Opportunity Detection Engine**: `pytest tests/test_opportunity_detection_engine.py -v`.
 - **End-to-End Runtime Flows**: `pytest tests/test_end_to_end_runtime_flows.py -v`.
-- **Frontend Build**: `npm run build` → **0 errors (All static & dynamic pages compiled successfully)**.
+- **Frontend Build**: `npm run build` → **0 errors (24 routes compiled successfully)**.
 
 ---
 
@@ -228,14 +242,20 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 | Surface | Path | Data Source | Label |
 | :--- | :--- | :--- | :--- |
+| Landing Page | `/` | Static | Product overview |
 | Executive Dashboard | `/dashboard` | LIVE_OPERATIONAL | Live data |
+| Activity | `/activity` | LIVE_OPERATIONAL | Live data |
 | Opportunity Inbox | `/recovery` | LIVE_OPERATIONAL | Live data |
 | Recovery Case Detail | `/recovery/[id]` | LIVE_OPERATIONAL | Live data |
-| Batch Results | `/batch-recovery` | Evaluation results | Live / Benchmark per badge |
+| Customers | `/customers` | LIVE_OPERATIONAL | Live data |
+| Customer Recovery Profile | `/customers/[id]` | LIVE_OPERATIONAL | Live data |
+| Incidents | `/incidents` | LIVE_OPERATIONAL | Live data |
+| Incident Detail | `/incidents/[id]` | LIVE_OPERATIONAL | Live data |
+| Review Queue | `/review` | LIVE_OPERATIONAL | Live data |
 | Recovery Capital Allocation | `/allocation` | LIVE_OPERATIONAL | Live data |
 | Strategies | `/strategy-analytics` | LIVE_OPERATIONAL | Live data |
 | Proof Lab | `/proof-lab` | BENCHMARK_SYNTHETIC | BENCHMARK / SYNTHETIC DATA |
-| Review Queue | `/review` | LIVE_OPERATIONAL | Live data |
-| Incidents | `/incidents` | LIVE_OPERATIONAL | Live data |
+| Policy Simulator | `/policy-simulator` | Evaluation | Preview |
 | Safety Controls | `/controls` | LIVE_OPERATIONAL | Live data |
 | Policy Config | `/policy-config` | LIVE_OPERATIONAL | Live data |
+| Batch Results | `/batch-recovery` | Evaluation results | Live / Benchmark per badge |
