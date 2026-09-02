@@ -103,13 +103,19 @@ export default function OperationsDashboard() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [items, setItems]     = useState<RecoveryItem[]>([]);
   const [error, setError]     = useState<string | null>(null);
+  const [attribution, setAttribution] = useState<any>(null);
 
   const load = useCallback(async () => {
     try {
       setStatus("loading");
-      const [s, i] = await Promise.all([api.summary(), api.items()]);
+      const [s, i, a] = await Promise.all([
+        api.summary(),
+        api.items(),
+        (api as any).recoveryAttribution ? (api as any).recoveryAttribution() : Promise.resolve(null),
+      ]);
       setSummary(s);
       setItems(i);
+      setAttribution(a);
       setError(null);
       setStatus("ready");
     } catch (err) {
@@ -174,9 +180,10 @@ export default function OperationsDashboard() {
     );
   }
 
-  // Derived: baseline comparison (incremental over baseline that always stopped)
-  const netVsBaseline = summary.actually_recovered - (summary.actually_recovered > 0 ? Math.round(summary.actually_recovered * 0.64) : 0);
-  const hasBaseline = summary.actually_recovered > 0;
+  // Derived: baseline comparison — not computed from frontend.
+  // The API does not currently provide a baseline metric; we never fabricate one here.
+  // When a baseline endpoint is available, wire it to the "vs Baseline" card.
+  // Data integrity fix: removed hard-coded `actually_recovered * 0.64` baseline formula.
 
   return (
     <div style={{ maxWidth: 1140, margin: "0 auto", paddingBottom: "3rem" }}>
@@ -240,11 +247,11 @@ export default function OperationsDashboard() {
             vs Baseline
             <DataBadge type="projected" />
           </div>
-          <div className="font-mono" style={{ fontSize: "1.5rem", fontWeight: 700, color: hasBaseline ? "#6366f1" : "var(--text-muted)" }}>
-            {hasBaseline ? `+${fmt(netVsBaseline)}` : "—"}
+          <div className="font-mono" style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-muted)" }}>
+            —
           </div>
           <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
-            {hasBaseline ? "Incremental lift vs safe-retry baseline" : "Awaiting verified recoveries"}
+            Awaiting verified recoveries
           </div>
         </div>
 
@@ -268,6 +275,35 @@ export default function OperationsDashboard() {
       <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.25rem" }}>
         <PipelineBar summary={summary} />
       </div>
+
+      {/* ── ATTRIBUTION SUMMARY ── */}
+      {attribution && (
+        <div className="card" style={{ padding: "1.125rem", marginBottom: "1.25rem", borderLeft: "3px solid #6366f1" }}>
+          <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+            Recovery Attribution
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
+            <div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Total Verified Recovery</div>
+              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#10b981", fontFamily: "monospace" }}>{fmt(attribution.total_recovered_minor)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Agent-Attributed</div>
+              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#3b82f6", fontFamily: "monospace" }}>{fmt(attribution.agent_attributed_minor)}</div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>{attribution.direct_agent_pct}% of total</div>
+            </div>
+            <div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Agent-Assisted</div>
+              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#6366f1", fontFamily: "monospace" }}>{fmt(attribution.agent_assisted_minor)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Organic</div>
+              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--text-secondary)", fontFamily: "monospace" }}>{fmt(attribution.organic_recovered_minor)}</div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>{attribution.organic_pct}% of total</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── ATTENTION REQUIRED ── */}
       {attentionItems.length > 0 && (
@@ -455,6 +491,7 @@ export default function OperationsDashboard() {
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.6875rem", color: "var(--text-muted)" }}>
               <Link href="/strategy-analytics" style={{ color: "var(--accent)" }}>Strategy Analytics →</Link>
               <Link href="/batch-recovery" style={{ color: "var(--accent)" }}>Evaluation Report →</Link>
+              <Link href="/allocation" style={{ color: "var(--accent)", fontWeight: 700 }}>Recovery Capital Allocation →</Link>
             </div>
           </div>
         </div>

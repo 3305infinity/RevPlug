@@ -184,8 +184,14 @@ export default function ControlsPage() {
           </div>
         </div>
 
-        {/* REAL VS SIMULATED TELEMETRY TABLE */}
+        {/* CANONICAL EXAMPLES — SIMULATED FOR ILLUSTRATION */}
         <div style={{ overflowX: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              REAL VS SIMULATED TELEMETRY TABLE
+            </div>
+            <span style={{ fontSize: "0.5rem", fontWeight: 700, color: "#d97706", border: "1px solid rgba(217,119,6,0.3)", padding: "1px 4px", borderRadius: 3, textTransform: "uppercase" }}>SIMULATION EXAMPLES</span>
+          </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem", fontFamily: "monospace" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left", color: "var(--text-muted)" }}>
@@ -219,7 +225,7 @@ export default function ControlsPage() {
       {/* THREE CANONICAL DECISION TRACE EXAMPLES */}
       <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem" }}>
         <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "1rem" }}>
-          DECISION TRACES (REAL BACKEND AUDIT EVIDENCE)
+          CANONICAL DECISION TRACE EXAMPLES <span style={{ color: "#d97706", border: "1px solid rgba(217,119,6,0.3)", padding: "1px 4px", borderRadius: 3, fontSize: "0.5rem", marginLeft: 6 }}>SIMULATION</span>
         </div>
 
         <div style={{ display: "grid", gap: "1rem" }}>
@@ -227,7 +233,7 @@ export default function ControlsPage() {
           <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
               <div style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text-primary)" }}>
-                EXAMPLE 1: SAFE RECOVERY PATH (₹4,999 Provider Timeout)
+                EXAMPLE 1: SAFE RECOVERY PATH (₹4,999 Provider Timeout) <span style={{ fontSize: "0.5rem", fontWeight: 700, color: "#d97706", border: "1px solid rgba(217,119,6,0.3)", padding: "1px 4px", borderRadius: 3, marginLeft: 4 }}>SIMULATION</span>
               </div>
               <span className="status-badge status-success">SAFE RECOVERY</span>
             </div>
@@ -260,7 +266,7 @@ export default function ControlsPage() {
           <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
               <div style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text-primary)" }}>
-                EXAMPLE 2: SMART STOP PATH (₹18,200 Fraud Signal)
+                EXAMPLE 2: SMART STOP PATH (₹18,200 Fraud Signal) <span style={{ fontSize: "0.5rem", fontWeight: 700, color: "#d97706", border: "1px solid rgba(217,119,6,0.3)", padding: "1px 4px", borderRadius: 3, marginLeft: 4 }}>SIMULATION</span>
               </div>
               <span className="status-badge status-danger">SMART STOP</span>
             </div>

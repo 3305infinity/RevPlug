@@ -151,7 +151,11 @@ class OpportunityDetector:
                     status=RecoveryStatus.RECOVERED,
                     root_cause=root_cause,
                     actual_recovery_value=amount_minor,
-                    metadata={"customer_name": customer_name, "is_synthetic": False},
+                    metadata={
+                        "source": "webhook_live",
+                        "customer_name": customer_name,
+                        "is_synthetic": False,
+                    },
                 )
                 items_repo.save(item)
                 return item

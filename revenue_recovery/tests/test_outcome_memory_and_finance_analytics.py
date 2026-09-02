@@ -30,9 +30,54 @@ def test_outcome_memory_store_records_and_updates_priors():
 
 def test_strategy_analytics_report_contains_kpis_and_lost_reasons():
     """Verifies StrategyAnalyticsService calculates financial KPIs, calibration metrics, and revenue lost reasons."""
+    from app.datasets.synthetic import load_dataset
+    from app.domain.proposals import RecoveryProposal, RecoveryAction
+    from app.domain.models import RecoveryItem
     container = app.state.container
-    svc = StrategyAnalyticsService(container)
+    raw_items = load_dataset("mixed") + load_dataset("fraud_heavy")
+    items = []
+    for item in raw_items:
+        meta = dict(item.metadata)
+        meta["is_synthetic"] = False
+        meta["source"] = "manual_case"
+        items.append(RecoveryItem(
+            id=item.id,
+            source_type=item.source_type,
+            external_id=item.external_id,
+            customer_id=item.customer_id,
+            amount_minor=item.amount_minor,
+            currency=item.currency,
+            created_at=item.created_at,
+            due_at=item.due_at,
+            status=item.status,
+            root_cause=item.root_cause,
+            recovery_probability=item.recovery_probability,
+            expected_recovery_value=item.expected_recovery_value,
+            intervention_cost=item.intervention_cost,
+            failure_category=item.failure_category,
+            provider=item.provider,
+            provider_event_id=item.provider_event_id,
+            actual_recovery_value=item.actual_recovery_value,
+            recovery_status=item.recovery_status,
+            score_version=item.score_version,
+            scoring_reason=item.scoring_reason,
+            priority=item.priority,
+            stopped_reason=item.stopped_reason,
+            stopped_rule=item.stopped_rule,
+            metadata=meta,
+        ))
+    for item in items:
+        container.recovery_items.save(item)
+        if item.status == RecoveryStatus.RECOVERED:
+            container.decisions.save_decision(
+                RecoveryProposal(action=RecoveryAction.SEND_PAYMENT_LINK, reason="highest ev", confidence=0.8),
+                item_id=item.id,
+                agent_name="test",
+                policy_allowed=True,
+                final_action="send_payment_link",
+            )
 
+    svc = StrategyAnalyticsService(container)
     report = svc.generate_report()
     data = report.to_dict()
 
@@ -41,7 +86,7 @@ def test_strategy_analytics_report_contains_kpis_and_lost_reasons():
     assert "calibration_metrics" in data
     assert len(data["calibration_metrics"]["prediction_vs_reality_samples"]) > 0
     assert "revenue_lost_reasons" in data
-    assert any(r["reason_code"] == "fraud_risk_block" for r in data["revenue_lost_reasons"])
+    assert any(r["reason_code"] == "fraud" for r in data["revenue_lost_reasons"])
 
 
 def test_strategy_analytics_api_endpoint():

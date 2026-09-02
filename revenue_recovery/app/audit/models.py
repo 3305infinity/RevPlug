@@ -105,5 +105,10 @@ class InMemoryAuditLog:
     def events_for(self, recovery_item_id: str) -> list[AuditEvent]:
         return [e for e in self._events if e.recovery_item_id == recovery_item_id]
 
+    def append(self, event: AuditEvent) -> AuditEvent:
+        """Append a pre-constructed audit event (used for tombstone events during clear)."""
+        self._events.append(event)
+        return event
+
     def _next_id(self) -> str:
         return f"audit_{len(self._events) + 1}"

@@ -660,9 +660,40 @@ export default function CaseWorkspace() {
       {/* ── TRUST & SAFETY PANEL ─────────────────────────────────── */}
       <TrustPanel />
 
+      {/* ── AI JUDGMENT VISIBILITY ───────────────────────────────── */}
+      <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1rem", borderLeft: "4px solid #6366f1" }}>
+        <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
+          AI vs Deterministic Responsibility
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+          <div>
+            <div style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.5rem" }}>AI Handles</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "grid", gap: "0.375rem" }}>
+              {["Contextual diagnosis", "Candidate recommendation", "Adaptive strategy selection", "Evidence synthesis"].map(item => (
+                <div key={item} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ color: "var(--success)", fontSize: "0.875rem" }}>✓</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.5rem" }}>Deterministic System Handles</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "grid", gap: "0.375rem" }}>
+              {["Financial calculation", "Policy enforcement", "Safety constraints", "Retry limits", "Settlement verification", "Authorization gates"].map(item => (
+                <div key={item} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ color: "#3b82f6", fontSize: "0.875rem" }}>■</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ── DECISION TRACE + ACCORDION DETAILS ───────────────────── */}
       <div style={{ marginBottom: "1.5rem" }}>
-        <DecisionTraceView trace={liveTrace} detail={liveDetail} caseData={caseData} />
+        <DecisionTraceView trace={liveTrace} detail={liveDetail} itemId={id} caseData={caseData} />
       </div>
 
       {/* ── 10-STEP REPLAY TIMELINE ──────────────────────────────── */}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 interface FunnelProps {
   detected?: number;
   actionable?: number;
@@ -11,23 +13,69 @@ interface FunnelProps {
 }
 
 export default function RecoveryFunnel({
-  detected = 1000,
-  actionable = 742,
-  interventions = 531,
-  executed = 317,
-  recovered = 204,
-  amountAtRisk = 4820000,
-  amountRecovered = 1370000,
+  detected,
+  actionable,
+  interventions,
+  executed,
+  recovered,
+  amountAtRisk,
+  amountRecovered,
 }: FunnelProps) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/dashboard/summary`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
   const fmt = (n: number) =>
     "₹" + (n / 100).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
+  const d = data || {};
+  const det = detected ?? d.total_items ?? 0;
+  const act = actionable ?? d.active_recoveries ?? 0;
+  const inter = interventions ?? d.executed_count ?? 0;
+  const exec = executed ?? d.executed_count ?? 0;
+  const rec = recovered ?? d.recovered_cases ?? 0;
+  const risk = amountAtRisk ?? d.revenue_at_risk ?? 0;
+  const recov = amountRecovered ?? d.actually_recovered ?? 0;
+
+  const hasData = det > 0 || risk > 0 || recov > 0;
+
+  if (loading) {
+    return (
+      <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem" }}>
+        <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>Loading operational data...</div>
+      </div>
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem" }}>
+        <div style={{ marginBottom: "1rem" }}>
+          <h3 style={{ fontSize: "0.9375rem", fontWeight: 600 }}>Operational Recovery Funnel</h3>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+            Stage-by-stage progression from initial revenue risk detection to verified settlement
+          </p>
+        </div>
+        <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.8125rem" }}>
+          No operational recovery data yet. Cases will appear here once live payment failures are detected and processed.
+        </div>
+      </div>
+    );
+  }
+
   const steps = [
-    { label: "Detected", count: detected, isFinal: false },
-    { label: "Eligible", count: actionable, isFinal: false },
-    { label: "Approved", count: interventions, isFinal: false },
-    { label: "Executed", count: executed, isFinal: false },
-    { label: "Verified", count: recovered, isFinal: true },
+    { label: "Detected", count: det, isFinal: false },
+    { label: "Eligible", count: act, isFinal: false },
+    { label: "Approved", count: inter, isFinal: false },
+    { label: "Executed", count: exec, isFinal: false },
+    { label: "Verified", count: rec, isFinal: true },
   ];
 
   return (
@@ -40,7 +88,7 @@ export default function RecoveryFunnel({
           </p>
         </div>
         <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-          Conversion: <strong style={{ color: "var(--success)" }}>{((recovered / (detected || 1)) * 100).toFixed(1)}%</strong>
+          Conversion: <strong style={{ color: "var(--success)" }}>{((rec / (det || 1)) * 100).toFixed(1)}%</strong>
         </div>
       </div>
 
@@ -72,9 +120,10 @@ export default function RecoveryFunnel({
       </div>
 
       <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", fontSize: "0.75rem" }}>
-        <span style={{ color: "var(--text-muted)" }}>Total Risk Pool: <strong className="font-mono" style={{ color: "var(--danger)" }}>{fmt(amountAtRisk)}</strong></span>
-        <span style={{ color: "var(--text-muted)" }}>Verified Recovered Money: <strong className="font-mono" style={{ color: "var(--success)" }}>{fmt(amountRecovered)}</strong></span>
+        <span style={{ color: "var(--text-muted)" }}>Total Risk Pool: <strong className="font-mono" style={{ color: "var(--danger)" }}>{fmt(risk)}</strong></span>
+        <span style={{ color: "var(--text-muted)" }}>Verified Recovered Money: <strong className="font-mono" style={{ color: "var(--success)" }}>{fmt(recov)}</strong></span>
       </div>
     </div>
   );
 }
+

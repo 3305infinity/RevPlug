@@ -45,7 +45,9 @@ export default function JudgeHeroScreen({ onStartDemo }: Props) {
             RevenueRecovery-v1
           </div>
           <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>
-            {evalData?.total_items != null ? `${evalData.total_items.toLocaleString()} evaluation opportunities` : "1,000 evaluation opportunities"} · Deterministic benchmark · Evaluation workspace
+            {evalData?.total_items != null
+              ? `${evalData.total_items.toLocaleString()} evaluation opportunities`
+              : "Awaiting evaluation data"} · Deterministic benchmark · Evaluation workspace
           </div>
         </div>
         <button
@@ -112,10 +114,12 @@ export default function JudgeHeroScreen({ onStartDemo }: Props) {
             Safety Violations
           </div>
           <div style={{ fontSize: "1.125rem", fontWeight: 700, fontFamily: "monospace", color: "#10b981", marginTop: 4 }}>
-            0
+            {evalData && (evalData as any).safety_violations != null
+              ? String((evalData as any).safety_violations)
+              : "—"}
           </div>
           <div style={{ fontSize: "0.5625rem", color: "#6ee7b7", marginTop: 2, fontWeight: 600, textTransform: "uppercase" }}>
-            100% Policy Compliance
+            Evaluation Data
           </div>
         </div>
       </div>

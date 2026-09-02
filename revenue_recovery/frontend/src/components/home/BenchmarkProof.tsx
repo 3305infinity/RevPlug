@@ -22,6 +22,12 @@ export default function BenchmarkProof() {
   const revplugRecovered = data?.revplug?.actual_recovered || 0;
   const baselineRecovered = data?.baseline?.actual_recovered || 0;
   const incrementalGain = revplugRecovered - baselineRecovered;
+  const revplugActions = data?.revplug?.actions_executed;
+  const baselineActions = data?.baseline?.actions_executed;
+  const revplugViolations = data?.revplug?.policy_violations_count ?? data?.revplug?.safety_violations;
+  const baselineViolations = data?.baseline?.policy_violations_count ?? data?.baseline?.safety_violations;
+
+  const hasData = totalAtRisk > 0 || revplugRecovered > 0;
 
   return (
     <div style={{ padding: "4rem 0", borderTop: "1px solid #21262d" }}>
@@ -58,58 +64,72 @@ export default function BenchmarkProof() {
           overflow: "hidden",
         }}
       >
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid #21262d", background: "#161b22", color: "#6e7681", fontSize: "0.75rem" }}>
-              <th style={{ padding: "0.875rem 1.25rem", textAlign: "left" }}>METRIC</th>
-              <th style={{ padding: "0.875rem 1.25rem", textAlign: "right" }}>FIXED RETRY BASELINE</th>
-              <th style={{ padding: "0.875rem 1.25rem", textAlign: "right" }}>REVPLUG ENGINE</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr style={{ borderBottom: "1px solid #21262d" }}>
-              <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Amount at risk</td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#8b949e" }}>{fmt(totalAtRisk)}</td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#f0f6fc", fontWeight: 700 }}>{fmt(totalAtRisk)}</td>
-            </tr>
+        {!hasData ? (
+          <div style={{ padding: "3rem", textAlign: "center", color: "#8b949e", fontSize: "0.875rem" }}>
+            No benchmark evaluation has been executed yet. Run an evaluation to see comparative results here.
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #21262d", background: "#161b22", color: "#6e7681", fontSize: "0.75rem" }}>
+                <th style={{ padding: "0.875rem 1.25rem", textAlign: "left" }}>METRIC</th>
+                <th style={{ padding: "0.875rem 1.25rem", textAlign: "right" }}>FIXED RETRY BASELINE</th>
+                <th style={{ padding: "0.875rem 1.25rem", textAlign: "right" }}>REVPLUG ENGINE</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ borderBottom: "1px solid #21262d" }}>
+                <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Amount at risk</td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#8b949e" }}>{fmt(totalAtRisk)}</td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#f0f6fc", fontWeight: 700 }}>{fmt(totalAtRisk)}</td>
+              </tr>
 
-            <tr style={{ borderBottom: "1px solid #21262d" }}>
-              <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Verified recovery</td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#8b949e" }}>{fmt(baselineRecovered)}</td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#10b981", fontWeight: 700 }}>{fmt(revplugRecovered)}</td>
-            </tr>
+              <tr style={{ borderBottom: "1px solid #21262d" }}>
+                <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Verified recovery</td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#8b949e" }}>{fmt(baselineRecovered)}</td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#10b981", fontWeight: 700 }}>{fmt(revplugRecovered)}</td>
+              </tr>
 
-            <tr style={{ borderBottom: "1px solid #21262d" }}>
-              <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Recovery rate</td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#8b949e" }}>
-                {((baselineRecovered / totalAtRisk) * 100).toFixed(1)}%
-              </td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#10b981", fontWeight: 700 }}>
-                {((revplugRecovered / totalAtRisk) * 100).toFixed(1)}%
-              </td>
-            </tr>
+              <tr style={{ borderBottom: "1px solid #21262d" }}>
+                <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Recovery rate</td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#8b949e" }}>
+                  {totalAtRisk > 0 ? ((baselineRecovered / totalAtRisk) * 100).toFixed(1) + "%" : "—"}
+                </td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#10b981", fontWeight: 700 }}>
+                  {totalAtRisk > 0 ? ((revplugRecovered / totalAtRisk) * 100).toFixed(1) + "%" : "—"}
+                </td>
+              </tr>
 
-            <tr style={{ borderBottom: "1px solid #21262d" }}>
-              <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Incremental recovery</td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#6e7681" }}>—</td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#10b981", fontWeight: 700 }}>
-                +{fmt(incrementalGain)}
-              </td>
-            </tr>
+              <tr style={{ borderBottom: "1px solid #21262d" }}>
+                <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Incremental recovery</td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#6e7681" }}>—</td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#10b981", fontWeight: 700 }}>
+                  {incrementalGain > 0 ? "+" + fmt(incrementalGain) : "—"}
+                </td>
+              </tr>
 
-            <tr style={{ borderBottom: "1px solid #21262d" }}>
-              <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Interventions executed</td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#8b949e" }}>150 attempts</td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#f0f6fc", fontWeight: 600 }}>72 actions (52% fewer)</td>
-            </tr>
+              <tr style={{ borderBottom: "1px solid #21262d" }}>
+                <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Interventions executed</td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#8b949e" }}>
+                  {baselineActions != null ? baselineActions.toLocaleString() + " actions" : "—"}
+                </td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#f0f6fc", fontWeight: 600 }}>
+                  {revplugActions != null ? revplugActions.toLocaleString() + " actions" : "—"}
+                </td>
+              </tr>
 
-            <tr>
-              <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Unsafe actions executed</td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#ef4444", fontWeight: 700 }}>8 violations</td>
-              <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#10b981", fontWeight: 700 }}>0 violations (100% fail-closed)</td>
-            </tr>
-          </tbody>
-        </table>
+              <tr>
+                <td style={{ padding: "0.875rem 1.25rem", color: "#f0f6fc", fontWeight: 600 }}>Unsafe actions executed</td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#ef4444", fontWeight: 700 }}>
+                  {baselineViolations != null ? baselineViolations.toLocaleString() + " violations" : "—"}
+                </td>
+                <td className="font-mono" style={{ padding: "0.875rem 1.25rem", textAlign: "right", color: "#10b981", fontWeight: 700 }}>
+                  {revplugViolations != null ? revplugViolations.toLocaleString() + " violations" : "—"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

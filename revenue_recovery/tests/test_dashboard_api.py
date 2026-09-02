@@ -170,7 +170,12 @@ class TestHumanInTheLoop:
             status=RecoveryStatus.ESCALATED,
             root_cause=root_cause,
             expected_recovery_value=0,
-            metadata={"proposed_action": "escalate_human", "policy_allowed": False},
+            metadata={
+                "source": "manual_case",
+                "is_synthetic": False,
+                "proposed_action": "escalate_human",
+                "policy_allowed": False,
+            },
         )
         container.recovery_items.save(item)
         container.audit_log.log(
@@ -249,6 +254,7 @@ class TestHumanInTheLoop:
             created_at=datetime.now(timezone.utc),
             status=RecoveryStatus.QUEUED,
             root_cause="payment_timed_out",
+            metadata={"source": "manual_case", "is_synthetic": False},
         )
         container.recovery_items.save(item)
 
@@ -287,6 +293,7 @@ class TestHumanInTheLoop:
             status=RecoveryStatus.QUEUED,
             recovery_probability=0.85,
             expected_recovery_value=85000,
+            metadata={"source": "manual_case", "is_synthetic": False},
         )
         container.recovery_items.save(item)
 
@@ -312,12 +319,13 @@ class TestHumanInTheLoop:
             currency="INR",
             created_at=datetime.now(timezone.utc),
             status=RecoveryStatus.QUEUED,
+            metadata={"source": "manual_case", "is_synthetic": False},
         )
         container.recovery_items.save(item)
 
-        # Add a decision
-        if hasattr(container.decisions, "save"):
-            container.decisions.save({
+        # Add a decision directly to the internal list
+        if hasattr(container.decisions, "_decisions"):
+            container.decisions._decisions.append({
                 "recovery_item_id": item_id,
                 "agent_name": "mock",
                 "proposed_action": "send_payment_link",
@@ -348,7 +356,204 @@ class TestHumanInTheLoop:
         clear_again = client.delete(f"/api/recovery-items/{item_id}")
         assert clear_again.status_code == 404
 
-    def test_strategy_analytics_empty_state_without_fake_data(self, client):
+    def test_clear_recovery_item_preserves_audit_history(self, client):
+        """Clearing operational data must preserve audit trail with tombstone event."""
+        from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+        from datetime import datetime, timezone
+        container = client.app.state.container
+
+        item_id = "audit_preserve_case_100"
+        item = RecoveryItem(
+            id=item_id,
+            source_type=SourceType.PAYMENT_FAILURE,
+            external_id="ext_audit_100",
+            customer_id="cust_audit_100",
+            amount_minor=75000,
+            currency="INR",
+            created_at=datetime.now(timezone.utc),
+            status=RecoveryStatus.QUEUED,
+            metadata={"source": "manual_case", "is_synthetic": False},
+        )
+        container.recovery_items.save(item)
+
+        # Create an audit event for the case using the log method
+        if hasattr(container.audit_log, "log"):
+            container.audit_log.log(
+                recovery_item_id=item_id,
+                actor="test",
+                action="CASE_CREATED",
+                reason="Test case for audit retention",
+            )
+
+        # Clear the case
+        clear_resp = client.delete(f"/api/recovery-items/{item_id}")
+        assert clear_resp.status_code == 200
+
+        # Verify operational data is gone
+        get_resp = client.get(f"/api/recovery-items/{item_id}")
+        assert get_resp.status_code == 404
+
+        # Verify audit history is preserved and includes tombstone
+        if hasattr(container.audit_log, "events_for"):
+            events = container.audit_log.events_for(item_id)
+            assert len(events) >= 2, f"Expected at least 2 audit events (original + tombstone), got {len(events)}"
+            actions = [e.action for e in events]
+            assert "CASE_CREATED" in actions, "Original audit event must be preserved"
+            assert "case_cleared" in actions, "Tombstone event must be appended"
+
+    def test_clear_recovery_item_cleans_all_descendants(self, client):
+        """Clearing a case must remove decisions, attempts, outcomes, promises, jobs, provider_events."""
+        from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+        from datetime import datetime, timezone
+        from app.ledger.attempts import AttemptRecord
+        container = client.app.state.container
+
+        item_id = "descendant_case_200"
+        item = RecoveryItem(
+            id=item_id,
+            source_type=SourceType.PAYMENT_FAILURE,
+            external_id="ext_desc_200",
+            customer_id="cust_desc_200",
+            amount_minor=100000,
+            currency="INR",
+            created_at=datetime.now(timezone.utc),
+            status=RecoveryStatus.QUEUED,
+        )
+        container.recovery_items.save(item)
+
+        # Add decision directly to internal list
+        if hasattr(container.decisions, "_decisions"):
+            container.decisions._decisions.append({
+                "recovery_item_id": item_id,
+                "agent_name": "mock",
+                "proposed_action": "send_payment_link",
+                "reason": "testing descendants",
+                "confidence": 0.9,
+                "policy_allowed": True,
+            })
+
+        # Add attempt using AttemptRecord
+        if hasattr(container.attempts, "record"):
+            container.attempts.record(AttemptRecord(
+                recovery_item_id=item_id,
+                attempt_number=1,
+                action="send_payment_link",
+                outcome="success",
+            ))
+
+        # Add outcome directly to internal dict
+        if hasattr(container.outcomes, "_outcomes"):
+            from app.domain.models import RecoveryOutcome, OutcomeType
+            container.outcomes._outcomes[item_id] = RecoveryOutcome(
+                id=f"outcome_{item_id}",
+                recovery_item_id=item_id,
+                outcome_type=OutcomeType.RECOVERED,
+                expected_recovery_minor=100000,
+                actual_recovery_minor=95000,
+            )
+
+        # Add promise directly to internal dicts
+        if hasattr(container.promises, "_by_item"):
+            container.promises._by_item[item_id] = {
+                "id": "promise_200",
+                "recovery_item_id": item_id,
+                "customer_id": "cust_desc_200",
+                "promised_amount_minor": 100000,
+                "promised_date": "2026-12-31",
+                "status": "active",
+            }
+        if hasattr(container.promises, "_by_id"):
+            container.promises._by_id["promise_200"] = {
+                "id": "promise_200",
+                "recovery_item_id": item_id,
+                "customer_id": "cust_desc_200",
+                "promised_amount_minor": 100000,
+                "promised_date": "2026-12-31",
+                "status": "active",
+            }
+
+        # Get preview and verify counts are non-zero
+        prev_resp = client.get(f"/api/recovery-items/{item_id}/clear-preview")
+        assert prev_resp.status_code == 200
+        preview = prev_resp.json()
+        assert preview["decisions_count"] >= 1
+        assert preview["attempts_count"] >= 1
+        assert preview["outcomes_count"] >= 1
+        assert preview["promises_count"] >= 1
+
+        # Clear the case
+        clear_resp = client.delete(f"/api/recovery-items/{item_id}")
+        assert clear_resp.status_code == 200
+
+        # Verify preview now shows 0 counts (item is gone)
+        prev_resp2 = client.get(f"/api/recovery-items/{item_id}/clear-preview")
+        assert prev_resp2.status_code == 404
+
+    def test_clear_recovery_item_updates_dashboard_analytics(self, client):
+        """After clearing, dashboard and analytics must no longer count the case."""
+        from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+        from datetime import datetime, timezone
+        container = client.app.state.container
+
+        item_id = "analytics_case_300"
+        item = RecoveryItem(
+            id=item_id,
+            source_type=SourceType.PAYMENT_FAILURE,
+            external_id="ext_analytics_300",
+            customer_id="cust_analytics_300",
+            amount_minor=60000,
+            currency="INR",
+            created_at=datetime.now(timezone.utc),
+            status=RecoveryStatus.QUEUED,
+            metadata={"source": "manual_case", "is_synthetic": False},
+        )
+        container.recovery_items.save(item)
+
+        # Verify item counts toward dashboard
+        summary_before = client.get("/api/dashboard/summary").json()
+        total_before = summary_before["total_items"]
+
+        # Clear the case
+        clear_resp = client.delete(f"/api/recovery-items/{item_id}")
+        assert clear_resp.status_code == 200
+
+        # Verify item no longer counts toward dashboard
+        summary_after = client.get("/api/dashboard/summary").json()
+        assert summary_after["total_items"] == total_before - 1
+
+    def test_clear_recovery_item_with_batch_membership(self, client):
+        """Clearing a batch-scoped item should remove batch metadata before deletion."""
+        from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+        from datetime import datetime, timezone
+        container = client.app.state.container
+
+        item_id = "batch_case_400"
+        item = RecoveryItem(
+            id=item_id,
+            source_type=SourceType.PAYMENT_FAILURE,
+            external_id="ext_batch_400",
+            customer_id="cust_batch_400",
+            amount_minor=80000,
+            currency="INR",
+            created_at=datetime.now(timezone.utc),
+            status=RecoveryStatus.QUEUED,
+            metadata={"batch_id": "batch_test_123", "batch_scope": True},
+        )
+        container.recovery_items.save(item)
+
+        # Verify preview shows batch_id
+        prev_resp = client.get(f"/api/recovery-items/{item_id}/clear-preview")
+        assert prev_resp.status_code == 200
+        preview = prev_resp.json()
+        assert preview.get("batch_id") == "batch_test_123"
+
+        # Clear the case
+        clear_resp = client.delete(f"/api/recovery-items/{item_id}")
+        assert clear_resp.status_code == 200
+
+        # Verify item is gone
+        get_resp = client.get(f"/api/recovery-items/{item_id}")
+        assert get_resp.status_code == 404
         """Strategy analytics returns 0 cases and empty arrays when no data exists, without fake fallbacks."""
         container = client.app.state.container
         container.reset_demo_data()

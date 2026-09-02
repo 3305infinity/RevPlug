@@ -17,7 +17,40 @@ from app.main import app
 def test_customer_recovery_profile_aggregator_service():
     """Verifies profile service calculates lifetime economics, contact fatigue, and channel rates accurately."""
     container = create_persistence_container("memory")
-    items = load_dataset("healthy_soft")
+    from app.datasets.synthetic import load_dataset
+    from app.domain.models import RecoveryItem
+    raw_items = load_dataset("healthy_soft")
+    items = []
+    for item in raw_items:
+        meta = dict(item.metadata)
+        meta["is_synthetic"] = False
+        meta["source"] = "manual_case"
+        items.append(RecoveryItem(
+            id=item.id,
+            source_type=item.source_type,
+            external_id=item.external_id,
+            customer_id=item.customer_id,
+            amount_minor=item.amount_minor,
+            currency=item.currency,
+            created_at=item.created_at,
+            due_at=item.due_at,
+            status=item.status,
+            root_cause=item.root_cause,
+            recovery_probability=item.recovery_probability,
+            expected_recovery_value=item.expected_recovery_value,
+            intervention_cost=item.intervention_cost,
+            failure_category=item.failure_category,
+            provider=item.provider,
+            provider_event_id=item.provider_event_id,
+            actual_recovery_value=item.actual_recovery_value,
+            recovery_status=item.recovery_status,
+            score_version=item.score_version,
+            scoring_reason=item.scoring_reason,
+            priority=item.priority,
+            stopped_reason=item.stopped_reason,
+            stopped_rule=item.stopped_rule,
+            metadata=meta,
+        ))
     for item in items:
         container.recovery_items.save(item)
 
@@ -36,9 +69,42 @@ def test_customer_recovery_profile_api_endpoint():
     """Verifies GET /api/customers/{customer_id}/recovery-profile endpoint returns 200 with valid schema."""
     client = TestClient(app)
 
-    # Seed data into app container
+    # Seed data into app container — mark as live operational data
     container = app.state.container
-    items = load_dataset("healthy_soft")
+    from app.datasets.synthetic import load_dataset
+    from app.domain.models import RecoveryItem
+    raw_items = load_dataset("healthy_soft")
+    items = []
+    for item in raw_items:
+        meta = dict(item.metadata)
+        meta["is_synthetic"] = False
+        meta["source"] = "manual_case"
+        items.append(RecoveryItem(
+            id=item.id,
+            source_type=item.source_type,
+            external_id=item.external_id,
+            customer_id=item.customer_id,
+            amount_minor=item.amount_minor,
+            currency=item.currency,
+            created_at=item.created_at,
+            due_at=item.due_at,
+            status=item.status,
+            root_cause=item.root_cause,
+            recovery_probability=item.recovery_probability,
+            expected_recovery_value=item.expected_recovery_value,
+            intervention_cost=item.intervention_cost,
+            failure_category=item.failure_category,
+            provider=item.provider,
+            provider_event_id=item.provider_event_id,
+            actual_recovery_value=item.actual_recovery_value,
+            recovery_status=item.recovery_status,
+            score_version=item.score_version,
+            scoring_reason=item.scoring_reason,
+            priority=item.priority,
+            stopped_reason=item.stopped_reason,
+            stopped_rule=item.stopped_rule,
+            metadata=meta,
+        ))
     for item in items:
         container.recovery_items.save(item)
 

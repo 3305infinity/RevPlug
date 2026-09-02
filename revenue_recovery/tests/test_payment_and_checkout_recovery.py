@@ -56,7 +56,7 @@ def test_checkout_abandonment_detector_intent_classification():
         currency="INR",
         created_at=now,
         status=RecoveryStatus.DETECTED,
-        metadata={"is_checkout_abandonment": True, "contacts_today": 0},
+        metadata={"source": "manual_case", "is_synthetic": False, "is_checkout_abandonment": True, "contacts_today": 0},
     )
     # Item 2: Contact Fatigue
     item2 = RecoveryItem(
@@ -68,7 +68,7 @@ def test_checkout_abandonment_detector_intent_classification():
         currency="INR",
         created_at=now,
         status=RecoveryStatus.DETECTED,
-        metadata={"is_checkout_abandonment": True, "contacts_today": 3},
+        metadata={"source": "manual_case", "is_synthetic": False, "is_checkout_abandonment": True, "contacts_today": 3},
     )
     container.recovery_items.save(item1)
     container.recovery_items.save(item2)

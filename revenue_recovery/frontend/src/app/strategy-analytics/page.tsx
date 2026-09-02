@@ -32,9 +32,9 @@ interface CalibrationSample {
 }
 
 interface CalibrationMetrics {
-  mean_absolute_error_pct?: number;
-  calibration_ratio?: number;
-  brier_score?: number;
+  mean_absolute_error_pct?: number | null;
+  calibration_ratio?: number | null;
+  brier_score?: number | null;
   prediction_vs_reality_samples?: CalibrationSample[];
 }
 
@@ -59,6 +59,7 @@ interface AnalyticsReport {
 export default function StrategyAnalyticsPage() {
   const [report, setReport] = useState<AnalyticsReport | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   const apiHost = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -76,9 +77,10 @@ export default function StrategyAnalyticsPage() {
 
   if (status === "loading") {
     return (
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <div className="skeleton" style={{ height: 60, marginBottom: "1.5rem" }} />
-        <div className="skeleton" style={{ height: 350 }} />
+      <div style={{ maxWidth: 960, margin: "0 auto" }}>
+        <div className="skeleton" style={{ height: 56, marginBottom: "1.5rem" }} />
+        <div className="skeleton" style={{ height: 180, marginBottom: "1.5rem" }} />
+        <div className="skeleton" style={{ height: 280 }} />
       </div>
     );
   }
@@ -94,229 +96,280 @@ export default function StrategyAnalyticsPage() {
   const kpis = report.financial_kpis || {};
   const calib = report.calibration_metrics || {};
   const hasData = (report.total_historical_cases ?? 0) > 0;
+  const hasVerifiedOutcomes = (kpis.revenue_recovered_minor ?? 0) > 0;
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", paddingBottom: "3rem" }}>
-      {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "1.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "1rem" }}>
-        <div>
-          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-            FINANCE &amp; RECOVERY OPERATIONS ANALYTICS
-          </div>
-          <h1 style={{ marginTop: 2, fontSize: "1.5rem", fontWeight: 700 }}>
-            Revenue Recovery Analytics &amp; Lost Reasons
-          </h1>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>
-            Persisted historical outcomes ({report.total_historical_cases.toLocaleString()} cases). Closed-loop model calibration, strategy ROI, and revenue leakage diagnostics.
-          </div>
+    <div style={{ maxWidth: 960, margin: "0 auto", paddingBottom: "3rem" }}>
+
+      {/* ── HEADER ── */}
+      <div style={{ marginBottom: "2rem", borderBottom: "1px solid var(--border)", paddingBottom: "1rem" }}>
+        <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          Intelligence · Strategy Analytics
+        </div>
+        <h1 style={{ marginTop: 4, fontSize: "1.375rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
+          Recovery Strategy Performance
+        </h1>
+        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+          {report.total_historical_cases.toLocaleString()} cases · outcomes from verified recovery records
         </div>
       </div>
 
       {!hasData ? (
-        <div className="card" style={{ padding: "4rem 2rem", textAlign: "center", border: "1px solid var(--border)" }}>
-          <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>📊</div>
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.5rem", color: "var(--text-primary)" }}>
-            No strategy outcomes yet
+        <div className="card" style={{ padding: "3rem 2rem", textAlign: "center" }}>
+          <h2 style={{ fontSize: "1.125rem", fontWeight: 700, marginBottom: "0.5rem" }}>
+            No verified strategy outcomes yet
           </h2>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", maxWidth: 500, margin: "0 auto 1.5rem auto", lineHeight: 1.5 }}>
-            Run recovery cases to generate verified strategy performance data, model calibration metrics, and revenue leakage diagnostics.
+          <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", maxWidth: 480, margin: "0 auto", lineHeight: 1.6 }}>
+            Run recovery cases through the operational pipeline. Strategy performance,
+            calibration metrics, and revenue leakage diagnostics will appear here
+            as cases reach verified outcomes (recovered, stopped, or escalated).
           </p>
-          <Link href="/dashboard" className="btn-primary" style={{ fontSize: "0.8125rem" }}>
-            Go to Operations Control Plane →
-          </Link>
+          <div style={{ marginTop: "1.5rem" }}>
+            <Link href="/recovery" className="btn-primary" style={{ fontSize: "0.8125rem" }}>
+              Go to Recovery Queue
+            </Link>
+          </div>
         </div>
       ) : (
         <>
-          {/* 1. FINANCIAL KPIS GRID */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
-            <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>REVENUE AT RISK</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#ef4444", marginTop: 4, fontFamily: "monospace" }}>
-                {fmt(kpis.total_revenue_at_risk_minor ?? 0)}
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Gross revenue exposed</div>
-            </div>
 
-            <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>NET REVENUE RECOVERED</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#10b981", marginTop: 4, fontFamily: "monospace" }}>
-                {fmt(kpis.net_revenue_recovered_minor ?? 0)}
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "#10b981", marginTop: 2 }}>
-                After {fmt(kpis.intervention_cost_minor ?? 0)} intervention cost
-              </div>
-            </div>
-
-            <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>RECOVERY RATE</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#3b82f6", marginTop: 4, fontFamily: "monospace" }}>
-                {kpis.recovery_rate_pct ?? 0}%
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Average recovery rate</div>
-            </div>
-
-            <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>COST PER RECOVERED RUPEE</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#a78bfa", marginTop: 4, fontFamily: "monospace" }}>
-                ₹{kpis.cost_per_recovered_rupee ?? 0}
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Cost per ₹1 recovered</div>
-            </div>
+        {/* ── 1. OVERALL RECOVERY INTELLIGENCE ── */}
+        <div style={{ marginBottom: "2rem" }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
+            Overall Recovery Intelligence
           </div>
-
-      {/* 2. PREDICTION VS REALITY MODEL CALIBRATION BLOCK */}
-      <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem", borderLeft: "4px solid #3b82f6" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-          <div>
-            <div style={{ fontSize: "0.6875rem", color: "#3b82f6", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              CLOSED-LOOP MODEL CALIBRATION
-            </div>
-            <h2 style={{ fontSize: "1.125rem", fontWeight: 700, margin: "2px 0 0 0", color: "var(--text-primary)" }}>
-              Prediction vs Reality Accuracy
-            </h2>
-          </div>
-          <div style={{ display: "flex", gap: "1rem" }}>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>MAE ERROR RATE</div>
-              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#10b981", fontFamily: "monospace" }}>
-                {calib.mean_absolute_error_pct ?? 8.6}%
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0" }}>
+              <div style={{ paddingRight: "1.5rem", borderRight: "1px solid var(--border)" }}>
+                <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Revenue at Risk
+                </div>
+                <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 700, color: "#ef4444", marginTop: 4 }}>
+                  {fmt(kpis.total_revenue_at_risk_minor ?? 0)}
+                </div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                  Across {report.total_historical_cases} cases
+                </div>
               </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>CALIBRATION RATIO</div>
-              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#3b82f6", fontFamily: "monospace" }}>
-                {calib.calibration_ratio ?? 0.98}
+              <div style={{ padding: "0 1.5rem", borderRight: "1px solid var(--border)" }}>
+                <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Verified Recovered
+                </div>
+                <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 700, color: "#10b981", marginTop: 4 }}>
+                  {hasVerifiedOutcomes ? fmt(kpis.revenue_recovered_minor ?? 0) : "—"}
+                </div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                  {hasVerifiedOutcomes ? `${kpis.recovery_rate_pct ?? 0}% of at-risk revenue` : "No verified recoveries yet"}
+                </div>
+              </div>
+              <div style={{ paddingLeft: "1.5rem" }}>
+                <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Net Recovered
+                </div>
+                <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 700, color: hasVerifiedOutcomes ? "#10b981" : "var(--text-muted)", marginTop: 4 }}>
+                  {hasVerifiedOutcomes ? fmt(kpis.net_revenue_recovered_minor ?? 0) : "—"}
+                </div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                  {hasVerifiedOutcomes
+                    ? `After ${fmt(kpis.intervention_cost_minor ?? 0)} intervention cost`
+                    : "Awaiting outcomes"}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* SAMPLE PREDICTION VS REALITY TABLE */}
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem", marginTop: "0.5rem" }}>
-          <thead>
-            <tr style={{ background: "var(--bg-primary)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-              <th style={{ padding: "0.65rem", color: "var(--text-muted)" }}>CASE ID</th>
-              <th style={{ padding: "0.65rem", color: "var(--text-muted)" }}>ACTION</th>
-              <th style={{ padding: "0.65rem", color: "var(--text-muted)" }}>EXPECTED RECOVERY</th>
-              <th style={{ padding: "0.65rem", color: "var(--text-muted)" }}>ACTUAL RECOVERY</th>
-              <th style={{ padding: "0.65rem", color: "var(--text-muted)" }}>ERROR %</th>
-              <th style={{ padding: "0.65rem", color: "var(--text-muted)" }}>OUTCOME</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(calib.prediction_vs_reality_samples || []).map((sample, idx) => (
-              <tr key={idx} style={{ borderBottom: "1px solid var(--border)" }}>
-                <td style={{ padding: "0.65rem", fontFamily: "monospace", fontWeight: 600, color: "var(--accent)" }}>
-                  {sample.case_id}
-                </td>
-                <td style={{ padding: "0.65rem", fontFamily: "monospace" }}>{sample.action}</td>
-                <td style={{ padding: "0.65rem", fontFamily: "monospace" }}>{fmt(sample.expected_recovery_minor)}</td>
-                <td style={{ padding: "0.65rem", fontFamily: "monospace", fontWeight: 700, color: "#10b981" }}>
-                  {fmt(sample.actual_recovery_minor)}
-                </td>
-                <td style={{ padding: "0.65rem", fontFamily: "monospace", color: "#3b82f6" }}>
-                  {sample.prediction_error_pct}%
-                </td>
-                <td style={{ padding: "0.65rem" }}>
-                  <span className={`status-badge status-${sample.outcome}`}>
-                    {sample.outcome}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        {/* ── 2. STRATEGY COMPARISON ── */}
+        <div style={{ marginBottom: "2rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+            <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Strategy Comparison
+            </div>
+            {report.strategies.length > 0 && (
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
+                {report.strategies.length} strategy{report.strategies.length !== 1 ? "ies" : ""} with verified outcomes
+              </div>
+            )}
+          </div>
 
-      {/* 3. REVENUE LOST REASONS BREAKDOWN */}
-      <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem", borderLeft: "4px solid #ef4444" }}>
-        <div style={{ fontSize: "0.6875rem", color: "#ef4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
-          REVENUE LEAKAGE DIAGNOSTICS
-        </div>
-        <h2 style={{ fontSize: "1.125rem", fontWeight: 700, margin: "0 0 1rem 0", color: "var(--text-primary)" }}>
-          Revenue Lost Reasons &amp; Actionable Fixes
-        </h2>
-
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
-          <thead>
-            <tr style={{ background: "var(--bg-primary)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-              <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>REASON DRIVER</th>
-              <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>UNRECOVERED REVENUE</th>
-              <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>AFFECTED CASES</th>
-              <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>ACTIONABLE RECOMMENDATION</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(report.revenue_lost_reasons || []).map((reason) => (
-              <tr key={reason.reason_code} style={{ borderBottom: "1px solid var(--border)" }}>
-                <td style={{ padding: "0.75rem", fontWeight: 700, color: "var(--text-primary)" }}>
-                  {reason.reason_label}
-                </td>
-                <td style={{ padding: "0.75rem", fontFamily: "monospace", fontWeight: 700, color: "#ef4444" }}>
-                  {fmt(reason.lost_amount_minor)}
-                </td>
-                <td style={{ padding: "0.75rem", fontFamily: "monospace" }}>{reason.cases_count} cases</td>
-                <td style={{ padding: "0.75rem", color: "var(--text-secondary)" }}>
-                  {reason.actionable_recommendation}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* 4. OPPORTUNITY SIGNALS SECTION */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-          AUTOMATED RECOVERY OPPORTUNITY SIGNALS
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1rem" }}>
-          {(report?.opportunity_signals || []).map((signal, idx) => (
-            <div key={idx} style={{ padding: "1rem", background: "rgba(16, 185, 129, 0.08)", borderRadius: 8, border: "1px solid rgba(16, 185, 129, 0.3)" }}>
-              <div style={{ fontSize: "0.6875rem", color: "#10b981", fontWeight: 700, textTransform: "uppercase" }}>OPPORTUNITY SIGNAL #{idx + 1}</div>
-              <div style={{ fontSize: "0.8125rem", color: "var(--text-primary)", fontWeight: 600, marginTop: 4 }}>
-                "{signal}"
+          {report.strategies.length === 0 ? (
+            <div className="card" style={{ padding: "2rem", textAlign: "center" }}>
+              <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
+                No strategy outcomes recorded yet. Strategies will appear here once recovery actions are executed and outcomes verified.
               </div>
             </div>
-          ))}
+          ) : (
+            <div className="card" style={{ overflow: "hidden" }}>
+              <table className="ops-table">
+                <thead>
+                  <tr>
+                    <th>Strategy</th>
+                    <th style={{ textAlign: "right" }}>Attempts</th>
+                    <th style={{ textAlign: "right" }}>Verified Recovered</th>
+                    <th style={{ textAlign: "right" }}>Success Rate</th>
+                    <th style={{ textAlign: "right" }}>Avg Cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.strategies.map((row) => (
+                    <tr key={row.action}>
+                      <td style={{ fontWeight: 600 }}>{row.label}</td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace" }}>{row.attempts_count.toLocaleString()}</td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: row.recovered_amount_minor > 0 ? "#10b981" : "var(--text-muted)" }}>
+                        {row.recovered_amount_minor > 0 ? fmt(row.recovered_amount_minor) : "—"}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <span style={{
+                          fontFamily: "monospace",
+                          fontWeight: 700,
+                          color: row.success_rate_pct >= 50 ? "#10b981" : row.success_rate_pct >= 20 ? "#f59e0b" : "var(--text-muted)",
+                        }}>
+                          {row.success_rate_pct}%
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", color: "var(--text-muted)" }}>
+                        {fmt(row.average_cost_minor)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* 5. STRATEGY PERFORMANCE TABLE */}
-      <div className="card" style={{ padding: "1.25rem" }}>
-        <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "1rem" }}>
-          STRATEGY PERFORMANCE BREAKDOWN
-        </div>
+        {/* ── 3. EVIDENCE ── */}
+        {(calib.prediction_vs_reality_samples && calib.prediction_vs_reality_samples.length > 0) && (
+          <div style={{ marginBottom: "2rem" }}>
+            <button
+              onClick={() => setExpandedSection(expandedSection === "calibration" ? null : "calibration")}
+              style={{
+                background: "none", border: "none", padding: 0, cursor: "pointer",
+                display: "flex", alignItems: "center", gap: "0.5rem",
+                fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)",
+                textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem",
+              }}
+            >
+              <span style={{ fontSize: "0.5rem" }}>{expandedSection === "calibration" ? "▼" : "▶"}</span>
+              Prediction vs Reality Evidence
+              <span style={{ fontSize: "0.625rem", fontWeight: 400, color: "var(--text-muted)", marginLeft: "0.5rem" }}>
+                {calib.prediction_vs_reality_samples.length} samples
+              </span>
+            </button>
 
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
-          <thead>
-            <tr style={{ background: "var(--bg-primary)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-              <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>STRATEGY / INTERVENTION</th>
-              <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>ATTEMPTS</th>
-              <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>RECOVERED AMOUNT</th>
-              <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>SUCCESS RATE</th>
-              <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>AVG COST / CASE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(report?.strategies || []).map((row) => (
-              <tr key={row.action} style={{ borderBottom: "1px solid var(--border)" }}>
-                <td style={{ padding: "0.75rem", fontWeight: 700, color: "var(--text-primary)" }}>{row.label}</td>
-                <td style={{ padding: "0.75rem", fontFamily: "monospace" }}>{row.attempts_count.toLocaleString()}</td>
-                <td style={{ padding: "0.75rem", fontFamily: "monospace", fontWeight: 700, color: "#10b981" }}>{fmt(row.recovered_amount_minor)}</td>
-                <td style={{ padding: "0.75rem" }}>
-                  <span style={{ fontSize: "0.75rem", padding: "2px 6px", borderRadius: 4, background: row.success_rate_pct > 30 ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)", color: row.success_rate_pct > 30 ? "#10b981" : "#f59e0b", fontWeight: 700 }}>
-                    {row.success_rate_pct}%
-                  </span>
-                </td>
-                <td style={{ padding: "0.75rem", fontFamily: "monospace" }}>{fmt(row.average_cost_minor)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
-  )}
-</div>
+            {expandedSection === "calibration" && (
+              <div className="card" style={{ padding: "1.25rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1rem", marginBottom: "1rem" }}>
+                  <div>
+                    <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                      Mean Absolute Error
+                    </div>
+                    <div className="font-mono" style={{ fontSize: "1.25rem", fontWeight: 700, marginTop: 2, color: "var(--text-primary)" }}>
+                      {calib.mean_absolute_error_pct != null ? `${calib.mean_absolute_error_pct}%` : "Insufficient evidence"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                      Calibration Ratio
+                    </div>
+                    <div className="font-mono" style={{ fontSize: "1.25rem", fontWeight: 700, marginTop: 2, color: "var(--text-primary)" }}>
+                      {calib.calibration_ratio != null ? calib.calibration_ratio.toFixed(2) : "Insufficient evidence"}
+                    </div>
+                  </div>
+                </div>
+
+                <table className="ops-table">
+                  <thead>
+                    <tr>
+                      <th>Case ID</th>
+                      <th>Action</th>
+                      <th style={{ textAlign: "right" }}>Expected</th>
+                      <th style={{ textAlign: "right" }}>Actual</th>
+                      <th style={{ textAlign: "right" }}>Error</th>
+                      <th>Outcome</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {calib.prediction_vs_reality_samples!.map((sample, idx) => (
+                      <tr key={idx}>
+                        <td style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>{sample.case_id}</td>
+                        <td style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>{sample.action}</td>
+                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>{fmt(sample.expected_recovery_minor)}</td>
+                        <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: sample.actual_recovery_minor > 0 ? "#10b981" : "var(--text-muted)" }}>
+                          {sample.actual_recovery_minor > 0 ? fmt(sample.actual_recovery_minor) : "—"}
+                        </td>
+                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>{sample.prediction_error_pct}%</td>
+                        <td>
+                          <span style={{
+                            fontSize: "0.6875rem", fontWeight: 700, padding: "2px 6px", borderRadius: 4,
+                            background: sample.outcome === "recovered" ? "rgba(16,185,129,0.12)" : "rgba(107,114,128,0.12)",
+                            color: sample.outcome === "recovered" ? "#10b981" : "var(--text-muted)",
+                            textTransform: "uppercase", letterSpacing: "0.04em",
+                          }}>
+                            {sample.outcome}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── 4. REVENUE LEAKAGE ── */}
+        {(report.revenue_lost_reasons && report.revenue_lost_reasons.length > 0) && (
+          <div style={{ marginBottom: "2rem" }}>
+            <button
+              onClick={() => setExpandedSection(expandedSection === "leakage" ? null : "leakage")}
+              style={{
+                background: "none", border: "none", padding: 0, cursor: "pointer",
+                display: "flex", alignItems: "center", gap: "0.5rem",
+                fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)",
+                textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem",
+              }}
+            >
+              <span style={{ fontSize: "0.5rem" }}>{expandedSection === "leakage" ? "▼" : "▶"}</span>
+              Revenue Leakage Analysis
+              <span style={{ fontSize: "0.625rem", fontWeight: 400, color: "var(--text-muted)", marginLeft: "0.5rem" }}>
+                {report.revenue_lost_reasons.length} reason{report.revenue_lost_reasons.length !== 1 ? "s" : ""}
+              </span>
+            </button>
+
+            {expandedSection === "leakage" && (
+              <div className="card" style={{ overflow: "hidden" }}>
+                <table className="ops-table">
+                  <thead>
+                    <tr>
+                      <th>Reason</th>
+                      <th style={{ textAlign: "right" }}>Unrecovered</th>
+                      <th style={{ textAlign: "right" }}>Cases</th>
+                      <th>Recommendation</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.revenue_lost_reasons!.map((reason) => (
+                      <tr key={reason.reason_code}>
+                        <td style={{ fontWeight: 600 }}>{reason.reason_label}</td>
+                        <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: "#ef4444" }}>
+                          {fmt(reason.lost_amount_minor)}
+                        </td>
+                        <td style={{ textAlign: "right", fontFamily: "monospace" }}>{reason.cases_count}</td>
+                        <td style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
+                          {reason.actionable_recommendation}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        </>
+      )}
+    </div>
   );
 }

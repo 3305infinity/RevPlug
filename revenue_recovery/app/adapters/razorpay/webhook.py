@@ -815,6 +815,7 @@ class RazorpayWebhookService:
         import uuid
         from app.domain.customer_names import derive_customer_name
         extracted_cust = razorpay_failure.customer_id or self._default_customer_id
+        derived_name = derive_customer_name(extracted_cust, getattr(razorpay_failure, "customer_name", None))
         # Detect smoke/stress test sources
         is_smoke = (
             "smoke" in razorpay_failure.razorpay_event_id.lower()
@@ -824,7 +825,7 @@ class RazorpayWebhookService:
         source_tag = "smoke_test" if is_smoke else "webhook_live"
 
         return RecoveryItem(
-            id=str(uuid.uuid4()),
+            id=razorpay_failure.razorpay_payment_id,
             source_type=SourceType.PAYMENT_FAILURE,
             external_id=razorpay_failure.razorpay_event_id,
             customer_id=extracted_cust,
@@ -1003,32 +1004,6 @@ class RazorpayWebhookService:
         """Transition the item state, respecting terminal states."""
         tr = self._state_machine.transition(item, target)
         return tr.item
-
-    def _build_recovery_item(
-        self,
-        razorpay_failure: RazorpayPaymentFailure,
-        normalized: NormalizedFailure,
-    ) -> RecoveryItem:
-        return RecoveryItem(
-            id=razorpay_failure.razorpay_payment_id,
-            source_type=SourceType.PAYMENT_FAILURE,
-            external_id=razorpay_failure.razorpay_event_id,
-            customer_id=razorpay_failure.customer_id or self._default_customer_id,
-            amount_minor=razorpay_failure.amount_minor,
-            currency=razorpay_failure.currency,
-            created_at=razorpay_failure.occurred_at,
-            status=RecoveryStatus.DETECTED,
-            root_cause=normalized.category.value,
-            recovery_probability=None,
-            metadata={
-                "razorpay_payment_id": razorpay_failure.razorpay_payment_id,
-                "error_code": normalized.code,
-                "error_source": razorpay_failure.error_source,
-                "error_step": razorpay_failure.error_step,
-                "error_reason": razorpay_failure.error_reason,
-                "payment_method": razorpay_failure.payment_method,
-            },
-        )
 
     def _default_probability(self, root_cause: str | None) -> float:
         mapping = {

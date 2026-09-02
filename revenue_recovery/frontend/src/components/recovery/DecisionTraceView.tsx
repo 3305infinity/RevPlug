@@ -6,6 +6,7 @@ import { CaseTrace, CaseDetail } from "@/lib/api";
 interface DecisionTraceViewProps {
   trace: CaseTrace | null;
   detail: CaseDetail | null;
+  itemId?: string;
   /** Optional: pre-resolved unified case data to avoid re-deriving */
   caseData?: ResolvedCaseData;
 }
@@ -125,7 +126,7 @@ function AccordionSection({
   );
 }
 
-export default function DecisionTraceView({ trace, detail, caseData: propCaseData }: DecisionTraceViewProps) {
+export default function DecisionTraceView({ trace, detail, itemId, caseData: propCaseData }: DecisionTraceViewProps) {
   if (!trace && !detail) {
     return (
       <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
@@ -133,6 +134,20 @@ export default function DecisionTraceView({ trace, detail, caseData: propCaseDat
       </div>
     );
   }
+
+  const [attribution, setAttribution] = useState<any>(null);
+  const [attributionLoading, setAttributionLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (itemId) {
+      setAttributionLoading(true);
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/recovery-attribution?item_id=${encodeURIComponent(itemId)}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data) setAttribution(data); })
+        .catch(() => {})
+        .finally(() => setAttributionLoading(false));
+    }
+  }, [itemId]);
 
   // Use pre-resolved data if passed, otherwise derive it
   const resolved = useMemo(
@@ -241,6 +256,99 @@ export default function DecisionTraceView({ trace, detail, caseData: propCaseDat
               )}
             </React.Fragment>
           ))}
+        </div>
+      </div>
+
+      {/* ── DECISION REASONING: AI vs DETERMINISTIC ───────────────── */}
+      <div style={{ padding: "0.875rem 1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+        <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
+          Decision Reasoning
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+          <div>
+            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#60a5fa", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>AI</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "grid", gap: "0.35rem" }}>
+              {[
+                "Contextual diagnosis",
+                "Interpreting ambiguous failure information",
+                "Generating candidate recovery actions",
+                "Contextual reasoning",
+              ].map((item) => (
+                <div key={item} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ color: "#60a5fa", fontSize: "0.875rem" }}>•</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>Deterministic</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "grid", gap: "0.35rem" }}>
+              {[
+                "Eligibility",
+                "Expected-value calculation",
+                "Safety policy",
+                "Retry budgets",
+                "Consent",
+                "Authorization",
+                "Stopping rules",
+                "Settlement verification",
+                "Financial truth",
+              ].map((item) => (
+                <div key={item} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ color: "#10b981", fontSize: "0.875rem" }}>■</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── STRUCTURED DECISION FACTORS ──────────────────────────── */}
+      <div style={{ padding: "0.875rem 1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+        <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
+          Why This Decision
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem", fontSize: "0.75rem" }}>
+          <div>
+            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Root Cause</div>
+            <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>{rootCause.replace(/_/g, " ")}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Policy</div>
+            <div style={{ fontWeight: 700, color: "#10b981" }}>
+              {(trace?.safety_decision?.allowed ?? (detail as any)?.policy_allowed ?? true) ? "ALLOWED" : "BLOCKED"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Economic Gate</div>
+            <div style={{ fontWeight: 700, color: (expectedRecovery - cost) > 0 ? "#10b981" : "var(--text-muted)" }}>
+              {(expectedRecovery - cost) > 0 ? "Positive expected net value" : "Negative or zero EV"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Selected Action</div>
+            <div style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "monospace" }}>
+              {selectedCandidate.action.replace(/_/g, " ").toUpperCase()}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Reason</div>
+            <div style={{ fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.6875rem" }}>
+              {selectedCandidate.policy_status === "BLOCKED"
+                ? "Blocked by policy"
+                : (expectedRecovery - cost) <= 0
+                  ? "Negative expected net value"
+                  : "Highest safe expected net value"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Outcome</div>
+            <div style={{ fontWeight: 700, color: isRecovered ? "#10b981" : status === "stopped" ? "#ef4444" : "var(--text-muted)" }}>
+              {isRecovered ? `VERIFIED: ${fmtRupee(verifiedRecovery)}` : status === "stopped" ? "STOPPED" : "PENDING"}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -534,12 +642,73 @@ export default function DecisionTraceView({ trace, detail, caseData: propCaseDat
                 × WHY NOT THE OTHERS?
               </div>
               <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: 5 }}>
-                <div><strong style={{ color: "var(--text-primary)" }}>× RETRY:</strong> Lower EV; repeated retries risk card block.</div>
-                <div><strong style={{ color: "var(--text-primary)" }}>× REMINDER:</strong> Slower; lower conversion for active declines.</div>
-                <div><strong style={{ color: "var(--text-primary)" }}>× ESCALATE:</strong> High manual cost; automated recovery still positive EV.</div>
+                {candidates.filter(c => !c.selected).map((cand) => {
+                  const reason = cand.policy_status === "BLOCKED"
+                    ? `Blocked by policy (${(cand as any).policy_rule || "safety rule"})`
+                    : (cand.expected_recovery - cand.cost) <= 0
+                      ? "Negative expected net value"
+                      : cand.action === "escalate_human"
+                        ? "High manual cost; automated recovery still positive EV"
+                        : "Lower expected net recovery than selected action";
+                  const netEv = (cand.expected_recovery - cand.cost);
+                  return (
+                    <div key={cand.action}>
+                      <strong style={{ color: "var(--text-primary)" }}>× {cand.action.replace(/_/g, " ").toUpperCase()}:</strong>{" "}
+                      {reason}
+                      <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem", marginLeft: 4 }}>
+                        (Net EV: {fmtRupee(netEv)})
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
+
+          {/* Rejected Actions Table */}
+          {candidates.filter(c => !c.selected).length > 0 && (
+            <div style={{ marginBottom: "1rem" }}>
+              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
+                Rejected Actions — {candidates.filter(c => !c.selected).length} candidates not selected
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }}>
+                  <thead>
+                    <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
+                      <th style={{ padding: "0.4rem 0.5rem", color: "var(--text-muted)", fontWeight: 700, fontSize: "0.625rem" }}>ACTION</th>
+                      <th style={{ padding: "0.4rem 0.5rem", color: "var(--text-muted)", fontWeight: 700, fontSize: "0.625rem" }}>NET EV</th>
+                      <th style={{ padding: "0.4rem 0.5rem", color: "var(--text-muted)", fontWeight: 700, fontSize: "0.625rem" }}>POLICY</th>
+                      <th style={{ padding: "0.4rem 0.5rem", color: "var(--text-muted)", fontWeight: 700, fontSize: "0.625rem" }}>REASON</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {candidates.filter(c => !c.selected).map((cand) => {
+                      const netEv = (cand.expected_recovery - cand.cost);
+                      const reason = cand.policy_status === "BLOCKED"
+                        ? `Blocked by policy (${(cand as any).policy_rule || "safety rule"})`
+                        : (cand.expected_recovery - cand.cost) <= 0
+                          ? "Negative expected net value"
+                          : cand.action === "escalate_human"
+                            ? "High manual cost; automated recovery still positive EV"
+                            : "Lower expected net recovery than selected action";
+                      return (
+                        <tr key={cand.action} style={{ borderBottom: "1px solid var(--border)" }}>
+                          <td style={{ padding: "0.4rem 0.5rem", fontFamily: "monospace", color: "var(--text-muted)" }}>{cand.action}</td>
+                          <td style={{ padding: "0.4rem 0.5rem", fontFamily: "monospace", color: netEv > 0 ? "var(--text-muted)" : "#ef4444" }}>{fmtRupee(netEv)}</td>
+                          <td style={{ padding: "0.4rem 0.5rem" }}>
+                            <span style={{ fontWeight: 700, fontSize: "0.625rem", color: cand.policy_status === "ALLOWED" ? "#10b981" : "#ef4444" }}>
+                              {cand.policy_status}
+                            </span>
+                          </td>
+                          <td style={{ padding: "0.4rem 0.5rem", color: "var(--text-muted)", fontSize: "0.6875rem" }}>{reason}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Architecture: AI → Policy → Executor */}
           <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
@@ -608,6 +777,33 @@ export default function DecisionTraceView({ trace, detail, caseData: propCaseDat
             </tbody>
           </table>
         </AccordionSection>
+
+        {/* 6. Attribution */}
+        {isRecovered && (
+          <AccordionSection title="Recovery Attribution" icon="🏷" badge="FINANCIAL ATTRIBUTION" defaultOpen>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", fontSize: "0.8125rem" }}>
+              <div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Verified Recovery</div>
+                <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#10b981", fontFamily: "monospace" }}>
+                  {fmtRupee(verifiedRecovery)}
+                </div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>Settlement HMAC verified</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Attribution Type</div>
+                <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--accent)", fontFamily: "monospace" }}>
+                  {attributionLoading ? "Loading..." : attribution?.attribution_type || "DIRECT_AGENT"}
+                </div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                  {attribution?.attribution_reason || "Recovery directly linked to agent intervention"}
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: "0.75rem", padding: "0.625rem 0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              Attribution rules: DIRECT_AGENT = recovery via agent-sent payment link or action. AGENT_ASSISTED = recovery after agent reminder. ORGANIC = recovery without agent intervention. UNKNOWN = attribution not determinable. Agent recovery is never claimed for organic money.
+            </div>
+          </AccordionSection>
+        )}
 
       </div>
     </div>

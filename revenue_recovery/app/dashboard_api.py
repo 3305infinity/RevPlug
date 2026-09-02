@@ -27,11 +27,84 @@ _TERMINAL_STATUSES = frozenset({"recovered", "stopped", "escalated"})
 _AT_RISK_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "pending_verification", "failed"})
 
 
-APPROVED_LIVE_SOURCES = frozenset({"webhook_live", "demo_scenario", "synthetic_dataset", "manual_case", "webhook"})
+# ---------------------------------------------------------------------------
+# DATA CLASSIFICATION CONTRACT
+# ---------------------------------------------------------------------------
+# Every persisted RecoveryItem MUST carry an explicit classification in its
+# metadata. There are exactly four classifications:
+#
+#   LIVE_OPERATIONAL  -> included in all operational/analytics surfaces
+#   BENCHMARK_SYNTHETIC -> included ONLY in benchmark/Proof Lab surfaces
+#   TEST_FIXTURE      -> never included in any operational or benchmark surface
+#   UNKNOWN           -> QUARANTINED; never silently included anywhere
+#
+# Producers:
+#   - Razorpay webhook adapter sets source="webhook_live" / is_synthetic=False
+#   - Manual case creation sets source="manual_case" / is_synthetic=False
+#   - Evaluation dataset generator sets is_synthetic=True (BENCHMARK_SYNTHETIC)
+#   - Demo endpoints set is_synthetic=True / source="demo_scenario" (BENCHMARK_SYNTHETIC)
+#   - Smoke/stress tests set is_test_fixture=True (TEST_FIXTURE)
+#
+# Operational services (analytics, dashboard, customers, etc.) MUST NOT
+# accidentally receive synthetic data by forgetting a filter.
+# ---------------------------------------------------------------------------
+
+_APPROVED_LIVE_SOURCES = frozenset({"webhook_live", "manual_case", "webhook"})
+_BENCHMARK_SOURCES = frozenset({"demo_scenario", "synthetic_dataset"})
 
 
-def _get_items(container) -> list:
-    """Extract live operational recovery items from the container, enforcing a strict fail-closed allowlist."""
+def _classify_item(meta: dict) -> str:
+    """Return the data classification for a RecoveryItem.
+
+    Returns one of:
+        "LIVE_OPERATIONAL"
+        "BENCHMARK_SYNTHETIC"
+        "TEST_FIXTURE"
+        "UNKNOWN"
+
+    Never returns None. Never defaults to LIVE_OPERATIONAL for ambiguous records.
+    """
+    if not isinstance(meta, dict):
+        return "UNKNOWN"
+
+    # 1. Test fixtures are always excluded
+    if meta.get("is_test_fixture") is True or meta.get("batch_scope") is True or meta.get("batch_id") is not None:
+        return "TEST_FIXTURE"
+
+    # 2. Explicit synthetic flag
+    if meta.get("is_synthetic") is True:
+        return "BENCHMARK_SYNTHETIC"
+
+    # 3. Explicit benchmark source tags
+    src = str(meta.get("source", "")).strip().lower()
+    if src in _BENCHMARK_SOURCES:
+        return "BENCHMARK_SYNTHETIC"
+
+    # 4. Explicit live source tags
+    if src in _APPROVED_LIVE_SOURCES:
+        return "LIVE_OPERATIONAL"
+
+    # 5. Missing/ambiguous classification — QUARANTINE
+    return "UNKNOWN"
+
+
+def _get_items(container, *, include_synthetic: bool = False) -> list:
+    """Extract recovery items from the container.
+
+    By default returns only LIVE_OPERATIONAL data. UNKNOWN records are
+    quarantined and never silently included.
+
+    Set include_synthetic=True ONLY for surfaces that intentionally display
+    BENCHMARK_SYNTHETIC data (Proof Lab, evaluation reports). Even then,
+    TEST_FIXTURE and UNKNOWN records remain excluded.
+
+    Classification rules (in order of precedence):
+    1. is_test_fixture / batch_scope / batch_id -> TEST_FIXTURE (always excluded)
+    2. is_synthetic = True -> BENCHMARK_SYNTHETIC (excluded by default)
+    3. source in ("demo_scenario", "synthetic_dataset") -> BENCHMARK_SYNTHETIC
+    4. source in APPROVED_LIVE_SOURCES -> LIVE_OPERATIONAL
+    5. source empty/missing/unknown -> UNKNOWN (QUARANTINED, never silently included)
+    """
     repo = container.recovery_items
     raw_items = []
     if hasattr(repo, "_items"):
@@ -45,27 +118,21 @@ def _get_items(container) -> list:
     filtered = []
     for item in raw_items:
         meta = getattr(item, "metadata", {}) or {}
-        if not isinstance(meta, dict):
-            meta = {}
+        classification = _classify_item(meta)
 
-        src = str(meta.get("source", "")).strip().lower()
-
-        # Explicit block for known test/purge tags
-        if src in ("smoke_test", "stress_test", "unapproved_purged", "batch_test"):
-            continue
-        if meta.get("is_test_fixture") is True or meta.get("batch_scope") is True or meta.get("batch_id") is not None:
+        # Always exclude test fixtures
+        if classification == "TEST_FIXTURE":
             continue
 
-        # Fail-closed allowlist: if source is set, it MUST be in APPROVED_LIVE_SOURCES
-        if src != "" and src not in APPROVED_LIVE_SOURCES:
-            continue
+        # Operational mode: only live data
+        if not include_synthetic:
+            if classification == "BENCHMARK_SYNTHETIC":
+                continue
+            if classification == "UNKNOWN":
+                continue
 
-        # Secondary defense against test fixture IDs
-        item_id = str(getattr(item, "id", "")).lower()
-        ext_id = str(getattr(item, "external_id", "")).lower()
-        if "smoke" in item_id or "smoke" in ext_id or ext_id.startswith("pay_smoke") or ext_id.startswith("evt_smoke"):
-            continue
-        if "stress" in item_id or "stress" in ext_id or "test_fixture" in item_id or "test_fixture" in ext_id:
+        # Benchmark mode: include synthetic but still exclude test fixtures and unknown
+        if classification == "UNKNOWN":
             continue
 
         filtered.append(item)

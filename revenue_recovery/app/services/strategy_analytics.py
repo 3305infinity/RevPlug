@@ -131,11 +131,14 @@ class StrategyAnalyticsService:
                 })
 
         calibration_metrics = {
-            "mean_absolute_error_pct": round(sum(s["prediction_error_pct"] for s in samples) / max(1, len(samples)), 1) if samples else 0.0,
-            "calibration_ratio": 1.0 if samples else 0.0,
-            "brier_score": 0.0,
+            "mean_absolute_error_pct": round(sum(s["prediction_error_pct"] for s in samples) / max(1, len(samples)), 1) if samples else None,
+            "calibration_ratio": round(sum(s["actual_recovery_minor"] for s in samples) / max(1, sum(s["expected_recovery_minor"] for s in samples)), 2) if samples and sum(s["expected_recovery_minor"] for s in samples) > 0 else None,
+            "brier_score": None,
             "prediction_vs_reality_samples": samples[:10],
         }
+        # Brier score requires probability predictions paired with binary outcomes.
+        # Not computed here because the current EV model outputs expected values, not probabilities.
+        # Return null rather than invent a value.
 
         # Revenue Lost Reasons Breakdown from non-recovered items
         unrecovered_items = [i for i in items if (i.status.value if hasattr(i.status, "value") else str(i.status)) in ("stopped", "failed", "escalated")]

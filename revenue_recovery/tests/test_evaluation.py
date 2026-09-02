@@ -260,11 +260,13 @@ def test_canonical_financials_service_isolation():
     now = datetime.now(timezone.utc)
     item1 = RecoveryItem(
         id="item_rec_1", source_type=SourceType.PAYMENT_FAILURE, external_id="e1", customer_id="c1",
-        amount_minor=100000, currency="INR", created_at=now, status=RecoveryStatus.RECOVERED, root_cause="soft"
+        amount_minor=100000, currency="INR", created_at=now, status=RecoveryStatus.RECOVERED, root_cause="soft",
+        metadata={"source": "manual_case", "is_synthetic": False}
     )
     item2 = RecoveryItem(
         id="item_pending_1", source_type=SourceType.PAYMENT_FAILURE, external_id="e2", customer_id="c2",
-        amount_minor=500000, currency="INR", created_at=now, status=RecoveryStatus.PENDING_VERIFICATION, root_cause="soft"
+        amount_minor=500000, currency="INR", created_at=now, status=RecoveryStatus.PENDING_VERIFICATION, root_cause="soft",
+        metadata={"source": "manual_case", "is_synthetic": False}
     )
     container.recovery_items.save(item1)
     container.recovery_items.save(item2)

@@ -299,6 +299,10 @@ export interface EvaluationRunResult {
     cost_per_recovery: number;
     unnecessary_interventions: number;
     net_revenue_recovered?: number;
+    net_recovered?: number;
+    no_action_cases?: number;
+    negative_ev_no_action_cases?: number;
+    policy_stop_cases?: number;
     rules_classified_count?: number;
     llm_classified_count?: number;
     llm_fallback_count?: number;
@@ -319,6 +323,9 @@ export interface EvaluationRunResult {
     intervention_cost: number;
     cost_per_recovery: number;
     unnecessary_interventions: number;
+    no_action_cases?: number;
+    negative_ev_no_action_cases?: number;
+    policy_stop_cases?: number;
   };
   baseline: {
     cases_evaluated: number;
@@ -378,6 +385,44 @@ export interface EvaluationRunResult {
   error: string | null;
 }
 
+export interface OpportunityItem {
+  rank: number;
+  item_id: string;
+  customer_id: string;
+  customer_name: string;
+  amount_at_risk_minor: number;
+  expected_net_recovery_minor: number;
+  action: string;
+  action_label: string;
+  reason: string;
+  urgency: string;
+}
+
+export interface PortfolioSummary {
+  total_revenue_at_risk_minor: number;
+  actually_recovered: number;
+  expected_recovery: number;
+  recovery_rate: number;
+  total_items: number;
+  active_recoveries: number;
+  recovered_cases: number;
+  stopped_cases: number;
+  escalated_cases: number;
+}
+
+export interface CapitalProtected {
+  total_capital_protected_minor: number;
+  case_count: number;
+  breakdown_by_reason: Record<string, number>;
+  itemized_cases: Array<{
+    item_id: string;
+    customer_id: string;
+    amount_minor: number;
+    reason: string;
+    status: string;
+  }>;
+}
+
 export const api = {
   evaluationBatch: (data: { count: number; seed: number }) =>
     fetchAPI<EvaluationRunResult>("/api/evaluations/batch", { method: "POST", body: JSON.stringify(data) }),
@@ -394,7 +439,7 @@ export const api = {
   
   // Promises
   promises: () => fetchAPI<PromiseToPay[]>("/api/promises"),
-  createPromise: (data: { item_id: string; customer_id: string; amount_minor: number; promised_date: string }) => 
+  createPromise: (data: { item_id: string; customer_id: string; promised_amount_minor: number; promised_date: string }) => 
     fetchAPI<PromiseToPay>("/api/promises", { method: "POST", body: JSON.stringify(data) }),
   fulfillPromise: (id: string) => fetchAPI<PromiseToPay>(`/api/promises/${id}/fulfill`, { method: "POST" }),
   breakPromise: (id: string, reason?: string) => fetchAPI<PromiseToPay>(`/api/promises/${id}/break`, { 
@@ -419,6 +464,8 @@ export const api = {
   naiveBaseline: (id: string) => fetchAPI<NaiveBaselineResult>(`/api/recovery-items/${id}/naive-baseline`),
   batchSummary: (id: string) => fetchAPI<any>(`/api/batches/${id}/summary`),
   latestBenchmark: () => fetchAPI<ScientificBenchmarkReport>("/api/benchmark/latest"),
+  portfolioNextBestActions: () => fetchAPI<OpportunityItem[]>("/api/portfolio/next-best-actions"),
+  capitalProtected: () => fetchAPI<CapitalProtected>("/api/portfolio/capital-protected"),
 
   // Lifecycle & Audit
   lifecycle: (id: string) => fetchAPI<Lifecycle>(`/api/recovery-items/${id}/lifecycle`),

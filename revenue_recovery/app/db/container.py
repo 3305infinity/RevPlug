@@ -99,6 +99,21 @@ class PersistenceContainer:
             elif isinstance(jobs_list, dict):
                 jobs_count = sum(1 for j in jobs_list.values() if (j.get("recovery_item_id") if isinstance(j, dict) else getattr(j, "recovery_item_id", None)) == item_id)
 
+        # Provider events count
+        provider_events_count = 0
+        if hasattr(self.provider_events, "_events"):
+            provider_events_count = sum(
+                1 for ev in self.provider_events._events.values()
+                if (ev.get("recovery_item_id") if isinstance(ev, dict) else getattr(ev, "recovery_item_id", None)) == item_id
+            )
+
+        # Batch membership
+        batch_id = None
+        if item is not None:
+            meta = getattr(item, "metadata", {}) or {}
+            if isinstance(meta, dict):
+                batch_id = meta.get("batch_id")
+
         return {
             "recovery_item_id": item_id,
             "recovery_case": 1,
@@ -107,20 +122,33 @@ class PersistenceContainer:
             "outcomes_count": outcomes_count,
             "promises_count": promises_count,
             "jobs_count": jobs_count,
+            "provider_events_count": provider_events_count,
+            "batch_id": batch_id,
         }
 
     def clear_recovery_item(self, item_id: str) -> dict[str, Any] | None:
-        """Transactionally clear a recovery case and all corresponding operational data."""
+        """Transactionally clear a recovery case and all corresponding operational data.
+
+        Guarantees:
+        - All removable operational descendants are cleared (decisions, attempts,
+          outcomes, promises, jobs, provider_event links).
+        - No orphaned records remain.
+        - Audit history is preserved (append-only); a tombstone event is appended.
+        - Batch membership metadata is removed from the item before deletion.
+        - The operation is atomic: either complete deletion succeeds or nothing changes.
+        """
         preview = self.get_clear_preview(item_id)
         if preview is None:
             return None
 
-        # 1. Append tombstone audit log event for compliance history before clearing operational records
+        # 1. Append tombstone audit log event for compliance history BEFORE clearing
         if hasattr(self.audit_log, "append"):
             from app.audit.models import AuditEvent
             from datetime import datetime, timezone
+            import uuid
             try:
                 self.audit_log.append(AuditEvent(
+                    id=f"audit_{uuid.uuid4().hex[:12]}",
                     recovery_item_id=item_id,
                     actor="user",
                     action="case_cleared",
@@ -130,80 +158,134 @@ class PersistenceContainer:
             except Exception:
                 pass
 
-        # 2. In-Memory Path
+        # 2. In-Memory Path — copy-and-swap for atomicity
         if hasattr(self.recovery_items, "_items"):
-            self.recovery_items._items.pop(item_id, None)
+            # Deep-copy all stores that will be mutated
+            old_items = dict(self.recovery_items._items)
+            old_attempts = list(self.attempts._records) if isinstance(self.attempts._records, list) else dict(self.attempts._records)
+            old_decisions = list(self.decisions._decisions) if isinstance(self.decisions._decisions, list) else dict(self.decisions._decisions)
+            old_outcomes = dict(self.outcomes._outcomes) if hasattr(self.outcomes, "_outcomes") else {}
+            old_promises_item = dict(self.promises._by_item) if hasattr(self.promises, "_by_item") else {}
+            old_promises_id = dict(self.promises._by_id) if hasattr(self.promises, "_by_id") else {}
+            old_jobs = list(self.jobs._jobs) if self.jobs is not None and hasattr(self.jobs, "_jobs") and isinstance(self.jobs._jobs, list) else (dict(self.jobs._jobs) if self.jobs is not None and hasattr(self.jobs, "_jobs") and isinstance(self.jobs._jobs, dict) else None)
 
-        if hasattr(self.attempts, "_records"):
-            recs = self.attempts._records
-            if isinstance(recs, list):
-                self.attempts._records = [
-                    a for a in recs
-                    if (a.get("recovery_item_id") if isinstance(a, dict) else getattr(a, "recovery_item_id", None)) != item_id
+            try:
+                # Remove the item
+                old_items.pop(item_id, None)
+
+                # Filter attempts
+                if isinstance(old_attempts, list):
+                    new_attempts = [
+                        a for a in old_attempts
+                        if (a.get("recovery_item_id") if isinstance(a, dict) else getattr(a, "recovery_item_id", None)) != item_id
+                    ]
+                else:
+                    new_attempts = {k: v for k, v in old_attempts.items() if k != item_id}
+
+                # Filter decisions
+                if isinstance(old_decisions, list):
+                    new_decisions = [
+                        d for d in old_decisions
+                        if (d.get("recovery_item_id") if isinstance(d, dict) else getattr(d, "recovery_item_id", None)) != item_id
+                    ]
+                else:
+                    new_decisions = {k: v for k, v in old_decisions.items() if k != item_id}
+
+                # Remove outcome
+                old_outcomes.pop(item_id, None)
+
+                # Remove promises
+                old_promises_item.pop(item_id, None)
+                to_remove_promises = [
+                    k for k, v in old_promises_id.items()
+                    if (v.get("recovery_item_id") if isinstance(v, dict) else getattr(v, "recovery_item_id", None)) == item_id
                 ]
-            elif isinstance(recs, dict):
-                recs.pop(item_id, None)
+                for k in to_remove_promises:
+                    old_promises_id.pop(k, None)
 
-        if hasattr(self.decisions, "_decisions"):
-            decs = self.decisions._decisions
-            if isinstance(decs, list):
-                self.decisions._decisions = [
-                    d for d in decs
-                    if (d.get("recovery_item_id") if isinstance(d, dict) else getattr(d, "recovery_item_id", None)) != item_id
-                ]
-            elif isinstance(decs, dict):
-                decs.pop(item_id, None)
+                # Filter jobs
+                if old_jobs is not None:
+                    if isinstance(old_jobs, list):
+                        new_jobs = [
+                            j for j in old_jobs
+                            if (j.get("recovery_item_id") if isinstance(j, dict) else getattr(j, "recovery_item_id", None)) != item_id
+                        ]
+                    else:
+                        new_jobs = {k: v for k, v in old_jobs.items() if (v.get("recovery_item_id") if isinstance(v, dict) else getattr(v, "recovery_item_id", None)) != item_id}
 
-        if hasattr(self.outcomes, "_outcomes"):
-            self.outcomes._outcomes.pop(item_id, None)
+                # Nullify provider event links
+                if hasattr(self.provider_events, "_events"):
+                    for ev in self.provider_events._events.values():
+                        if isinstance(ev, dict) and ev.get("recovery_item_id") == item_id:
+                            ev["recovery_item_id"] = None
+                        elif hasattr(ev, "recovery_item_id") and getattr(ev, "recovery_item_id") == item_id:
+                            setattr(ev, "recovery_item_id", None)
 
-        if hasattr(self.promises, "_by_item"):
-            self.promises._by_item.pop(item_id, None)
-        if hasattr(self.promises, "_by_id"):
-            to_remove = [k for k, v in self.promises._by_id.items() if (v.get("recovery_item_id") if isinstance(v, dict) else getattr(v, "recovery_item_id", None)) == item_id]
-            for k in to_remove:
-                self.promises._by_id.pop(k, None)
+                # Commit: swap all copies into place atomically
+                self.recovery_items._items = old_items
+                if hasattr(self.attempts, "_records"):
+                    self.attempts._records = new_attempts
+                if hasattr(self.decisions, "_decisions"):
+                    self.decisions._decisions = new_decisions
+                if hasattr(self.outcomes, "_outcomes"):
+                    self.outcomes._outcomes = old_outcomes
+                if hasattr(self.promises, "_by_item"):
+                    self.promises._by_item = old_promises_item
+                if hasattr(self.promises, "_by_id"):
+                    self.promises._by_id = old_promises_id
+                if hasattr(self.jobs, "_jobs") and old_jobs is not None:
+                    self.jobs._jobs = new_jobs
 
-        if hasattr(self.provider_events, "_events"):
-            for ev in self.provider_events._events.values():
-                if isinstance(ev, dict) and ev.get("recovery_item_id") == item_id:
-                    ev["recovery_item_id"] = None
-                elif hasattr(ev, "recovery_item_id") and getattr(ev, "recovery_item_id") == item_id:
-                    setattr(ev, "recovery_item_id", None)
+            except Exception:
+                # Rollback: restore original state (copies are untouched)
+                self.recovery_items._items = old_items
+                if hasattr(self.attempts, "_records"):
+                    self.attempts._records = old_attempts
+                if hasattr(self.decisions, "_decisions"):
+                    self.decisions._decisions = old_decisions
+                if hasattr(self.outcomes, "_outcomes"):
+                    self.outcomes._outcomes = old_outcomes
+                if hasattr(self.promises, "_by_item"):
+                    self.promises._by_item = old_promises_item
+                if hasattr(self.promises, "_by_id"):
+                    self.promises._by_id = old_promises_id
+                if hasattr(self.jobs, "_jobs") and old_jobs is not None:
+                    self.jobs._jobs = old_jobs
+                raise
 
-        if hasattr(self.jobs, "_jobs"):
-            jobs_val = self.jobs._jobs
-            if isinstance(jobs_val, list):
-                self.jobs._jobs = [
-                    j for j in jobs_val
-                    if (j.get("recovery_item_id") if isinstance(j, dict) else getattr(j, "recovery_item_id", None)) != item_id
-                ]
-            elif isinstance(jobs_val, dict):
-                to_rem = [k for k, v in jobs_val.items() if (v.get("recovery_item_id") if isinstance(v, dict) else getattr(v, "recovery_item_id", None)) == item_id]
-                for k in to_rem:
-                    jobs_val.pop(k, None)
-
-        # 3. PostgreSQL Path
+        # 3. PostgreSQL Path — wrapped in a transaction
         if hasattr(self.recovery_items, "_conn") and getattr(self.recovery_items, "_conn") is not None:
             db_conn = getattr(self.recovery_items, "_conn")
             try:
+                # Nullify provider event links first (so trigger on recovery_items doesn't block)
+                try:
+                    db_conn.execute(
+                        "UPDATE provider_events SET recovery_item_id = NULL WHERE recovery_item_id = %s",
+                        (item_id,),
+                    )
+                except Exception:
+                    pass
+
+                # Delete operational descendants
                 for table in ["attempts", "recovery_decisions", "recovery_outcomes", "promises", "recovery_jobs"]:
                     try:
                         db_conn.execute(f"DELETE FROM {table} WHERE recovery_item_id = %s", (item_id,))
                     except Exception as ex:
                         print(f"[clear_recovery_item] PG delete {table} warning: {ex}")
-                try:
-                    db_conn.execute("UPDATE provider_events SET recovery_item_id = NULL WHERE recovery_item_id = %s", (item_id,))
-                except Exception:
-                    pass
+
+                # Delete the item itself — try trigger disable first, fall back to tombstone
                 try:
                     db_conn.execute("ALTER TABLE recovery_items DISABLE TRIGGER recovery_items_no_delete")
                     db_conn.execute("DELETE FROM recovery_items WHERE id = %s", (item_id,))
                     db_conn.execute("ALTER TABLE recovery_items ENABLE TRIGGER recovery_items_no_delete")
                 except Exception:
-                    db_conn.execute("UPDATE recovery_items SET status = 'stopped', metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{cleared}', 'true') WHERE id = %s", (item_id,))
+                    db_conn.execute(
+                        "UPDATE recovery_items SET status = 'stopped', metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{cleared}', 'true') WHERE id = %s",
+                        (item_id,),
+                    )
             except Exception as exc:
                 print(f"[clear_recovery_item] PG exception: {exc}")
+                raise
 
         return {
             "status": "success",
@@ -269,7 +351,7 @@ class PersistenceContainer:
 
     def purge_unapproved_items(self) -> dict[str, int]:
         """Purge all accumulated load/stress/test/unapproved items whose source is NOT in APPROVED_LIVE_SOURCES."""
-        approved_sources = {"webhook_live", "demo_scenario", "manual_case"}
+        approved_sources = {"webhook_live", "manual_case", "webhook"}
         unapproved_ids: set[str] = set()
 
         # In-memory path

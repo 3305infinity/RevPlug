@@ -209,6 +209,7 @@ def test_human_review_action_resumes_playbook():
         created_at=datetime.now(timezone.utc),
         status=RecoveryStatus.ESCALATED,
         root_cause="dispute",
+        metadata={"source": "manual_case", "is_synthetic": False},
     )
     container.recovery_items.save(item)
 
