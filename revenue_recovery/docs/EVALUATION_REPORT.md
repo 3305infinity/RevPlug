@@ -1,6 +1,6 @@
 # RevPlug Benchmark & Counterfactual ROI Report
 
-**Generated At:** 2026-09-02 18:05:18 UTC
+**Generated At:** 2026-09-02 19:20:05 UTC
 **Canonical Benchmark Scale:** 50 cases | 10 seeds (`42` to `51`) | Version `2.0-canonical`
 **Evaluation Mode:** AI_ASSISTED (AI Contextual Routing + Deterministic Safety Shield)
 
@@ -56,8 +56,8 @@ RevPlug enforces strict financial truth: money is recognized as recovered ONLY w
 
 - **Total Seeds Evaluated:** 10 (Seeds 42–51)
 - **RevPlug Win Rate vs Safe Baseline:** 7/10 seeds (70%)
-- **95% Confidence Interval (Net Lift):** [-1446345.78%, +999275.78%]
-- **Mean Net Recovery per Seed:** ₹30,736.30
+- **95% Confidence Interval (Net Lift):** [-1446474.83%, +999004.83%]
+- **Mean Net Recovery per Seed:** ₹30,734.30
 
 ---
 

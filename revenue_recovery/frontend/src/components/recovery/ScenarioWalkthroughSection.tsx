@@ -122,7 +122,7 @@ const PRESET_SCENARIOS: ScenarioDef[] = [
   },
 ];
 
-export default function DemoScenariosSection() {
+export default function ScenarioWalkthroughSection() {
   const [runningId, setRunningId] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, SimulationResult>>({});
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +145,7 @@ export default function DemoScenariosSection() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
         <div>
           <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)" }}>
-            DETERMINISTIC JUDGING DEMO SCENARIOS
+            DETERMINISTIC JUDGING SCENARIOS
           </h3>
           <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
             Execute end-to-end backend recovery flows to verify AI judgment, policy compliance, and closed-loop behavior

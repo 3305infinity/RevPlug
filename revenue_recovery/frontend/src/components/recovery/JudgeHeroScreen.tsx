@@ -64,7 +64,7 @@ export default function JudgeHeroScreen({ onStartDemo }: Props) {
             flexShrink: 0,
           }}
         >
-          ▶ Start Demo Walkthrough
+          ▶ Start Scenario Walkthrough
         </button>
       </div>
 

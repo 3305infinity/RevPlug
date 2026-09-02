@@ -29,17 +29,17 @@ export default function ControlsPage() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const handleReset = async () => {
-    if (!confirm("Are you sure you want to reset demo data? This will clear all generated synthetic cases.")) {
+    if (!confirm("Are you sure you want to reset test data? This will clear all generated synthetic cases.")) {
       return;
     }
     setResetStatus("resetting");
     setToast(null);
     try {
       await api.resetDemoData();
-      setToast({ type: "success", message: "Demo data reset successfully." });
+      setToast({ type: "success", message: "Test data reset successfully." });
       setTimeout(() => window.location.reload(), 1000);
     } catch {
-      setToast({ type: "error", message: "Failed to reset demo data." });
+      setToast({ type: "error", message: "Failed to reset test data." });
       setResetStatus("idle");
     }
   };
@@ -112,7 +112,7 @@ export default function ControlsPage() {
           className="btn-secondary"
           style={{ fontSize: "0.75rem", color: "var(--danger)" }}
         >
-          {resetStatus === "resetting" ? "Resetting..." : "Reset Demo Data"}
+          {resetStatus === "resetting" ? "Resetting..." : "Reset Test Data"}
         </button>
       </div>
 

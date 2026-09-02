@@ -89,7 +89,7 @@ export default function MeasuredMoney({ summary }: { summary: DashboardSummary |
                 </span>
               ) : (
                 <span style={{ fontSize: "0.5625rem", color: "var(--text-muted)", fontWeight: 500 }}>
-                  DEMO/METRIC
+                  LIVE/BENCHMARK
                 </span>
               )}
             </div>

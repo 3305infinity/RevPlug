@@ -180,6 +180,28 @@ class RecoveryOrchestrator:
                     context={**current_item.metadata, "customer_opted_out": current_context.customer_opt_out},
                 )
 
+                # Emit CANDIDATES_GENERATED audit event with EV and policy status for each candidate
+                candidates_with_policy = []
+                for cand in candidate_evals:
+                    act = cand["action"]
+                    if self._guard is not None:
+                        g_dec = self._guard.evaluate(current_item, act, promises=self._promises)
+                        policy_status = g_dec.decision_type if g_dec else "UNKNOWN"
+                    else:
+                        policy_status = "ALLOWED"
+                    candidates_with_policy.append({
+                        **cand,
+                        "policy_status": policy_status,
+                    })
+
+                events.append(self._audit_log.log(
+                    recovery_item_id=recovery_item_id,
+                    actor="scorer",
+                    action="CANDIDATES_GENERATED",
+                    reason=f"Generated {len(candidates_with_policy)} candidate actions for {current_context.failure_category.value if hasattr(current_context.failure_category, 'value') else current_context.failure_category}",
+                    metadata={"candidate_actions": candidates_with_policy},
+                ))
+
             # Prevent infinite proposal loop (same action proposed repeatedly after failure without progress)
             proposed_act = getattr(proposal.action, "value", str(proposal.action))
             prev_actions = current_context.previous_actions

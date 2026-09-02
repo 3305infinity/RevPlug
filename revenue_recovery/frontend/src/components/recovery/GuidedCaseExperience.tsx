@@ -3,10 +3,10 @@
 import React, { useState } from "react";
 import { api, SimulationResult } from "@/lib/api";
 
-const DEMO_STEPS = [
-  { step: 1, title: "1. Revenue at Risk Detected", desc: "Telemetry detects payment failure of ₹4,999.00 on customer cust_razor_101", actionLabel: "View Case Context" },
+const GUIDED_CASE_STEPS = [
+  { step: 1, title: "1. Revenue at Risk Detected", desc: "Telemetry detects payment failure of \u20b94,999.00 on customer cust_razor_101", actionLabel: "View Case Context" },
   { step: 2, title: "2. Open Failed Payment Case", desc: "Gateway error code: BAD_REQUEST_ERROR (temporary authorization timeout)", actionLabel: "Diagnose Case" },
-  { step: 3, title: "3. AI Candidate Evaluation", desc: "AI ranks candidate actions by Expected Net Recovery (retry: ₹4,499 EV vs link: ₹4,974 EV)", actionLabel: "Run Candidate Ranking" },
+  { step: 3, title: "3. AI Candidate Evaluation", desc: "AI ranks candidate actions by Expected Net Recovery (retry: \u20b94,499 EV vs link: \u20b94,974 EV)", actionLabel: "Run Candidate Ranking" },
   { step: 4, title: "4. Independent Policy Gate", desc: "InterventionPolicy evaluates retry proposal. Result: ALLOWED (attempt 1/3)", actionLabel: "Evaluate Policy" },
   { step: 5, title: "5. Execute Step 1", desc: "Payment retry presented to Razorpay gateway. Gateway returns timeout again.", actionLabel: "Execute Intervention" },
   { step: 6, title: "6. Inject Execution Failure", desc: "Observe real outcome: Retry 1 failed. State machine updates case context.", actionLabel: "Record Observation" },
@@ -14,21 +14,20 @@ const DEMO_STEPS = [
   { step: 8, title: "8. Recover Money", desc: "Customer clicks Payment Link and completes checkout. Payment HMAC verified!", actionLabel: "Verify Settlement" },
   { step: 9, title: "9. Inspect Complete Audit Trail", desc: "Every state transition, model recommendation, and policy evaluation logged.", actionLabel: "Inspect Audit Trail" },
   { step: 10, title: "10. View Scientific Benchmark", desc: "Head-to-head 1,000-case evaluation: +35.61% Net Recovery Lift vs Safe Baseline.", actionLabel: "View Benchmark" },
-  { step: 11, title: "11. Verify Fraud Policy Block Case", desc: "Fraud flag case: AI proposal BLOCKED by Policy Engine. 0 retries executed.", actionLabel: "Finish Judge Demo" },
+  { step: 11, title: "11. Verify Fraud Policy Block Case", desc: "Fraud flag case: AI proposal BLOCKED by Policy Engine. 0 retries executed.", actionLabel: "Complete Walkthrough" },
 ];
 
-export default function JudgeDemoExperience() {
+export default function GuidedCaseExperience() {
   const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
 
-  const currentStep = DEMO_STEPS[activeStepIndex];
+  const currentStep = GUIDED_CASE_STEPS[activeStepIndex];
 
   const handleNextStep = async () => {
     try {
       setIsRunning(true);
       if (activeStepIndex === 0) {
-        // Step 1 -> Step 2
         const res = await api.triggerDemo({
           amount_minor: 499900,
           currency: "INR",
@@ -39,9 +38,9 @@ export default function JudgeDemoExperience() {
         });
         setSimResult(res);
       }
-      setActiveStepIndex((prev) => Math.min(prev + 1, DEMO_STEPS.length - 1));
+      setActiveStepIndex((prev) => Math.min(prev + 1, GUIDED_CASE_STEPS.length - 1));
     } catch (err) {
-      console.error("Demo step error:", err);
+      console.error("Walkthrough step error:", err);
     } finally {
       setIsRunning(false);
     }
@@ -69,11 +68,11 @@ export default function JudgeDemoExperience() {
             onClick={handleReset}
             style={{ padding: "0.4rem 0.85rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer" }}
           >
-            Restart Demo
+            Restart Walkthrough
           </button>
           <button
             onClick={handleNextStep}
-            disabled={isRunning || activeStepIndex === DEMO_STEPS.length - 1}
+            disabled={isRunning || activeStepIndex === GUIDED_CASE_STEPS.length - 1}
             style={{ padding: "0.45rem 1rem", borderRadius: 6, background: "#2563eb", border: "none", color: "#fff", fontSize: "0.8125rem", fontWeight: 700, cursor: "pointer" }}
           >
             {isRunning ? "Executing..." : `${currentStep.actionLabel} →`}
@@ -82,8 +81,8 @@ export default function JudgeDemoExperience() {
       </div>
 
       {/* STEP PROGRESS BAR */}
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${DEMO_STEPS.length}, 1fr)`, gap: "4px", marginBottom: "1.25rem" }}>
-        {DEMO_STEPS.map((s, idx) => (
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${GUIDED_CASE_STEPS.length}, 1fr)`, gap: "4px", marginBottom: "1.25rem" }}>
+        {GUIDED_CASE_STEPS.map((s, idx) => (
           <div
             key={s.step}
             onClick={() => setActiveStepIndex(idx)}
@@ -105,7 +104,7 @@ export default function JudgeDemoExperience() {
             {currentStep.title}
           </h3>
           <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "var(--text-muted)" }}>
-            Step {activeStepIndex + 1} of {DEMO_STEPS.length}
+            Step {activeStepIndex + 1} of {GUIDED_CASE_STEPS.length}
           </span>
         </div>
 

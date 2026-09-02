@@ -1,10 +1,10 @@
 {
-  "evaluation_id": "9669a874-0e3c-4617-b0a8-4f3ee1048781",
+  "evaluation_id": "2a605ab7-c30b-448f-b269-34698d115d90",
   "seed": 42,
   "count": 50,
   "status": "completed",
-  "started_at": "2026-09-02T18:05:16.645094+00:00",
-  "completed_at": "2026-09-02T18:05:16.705696+00:00",
+  "started_at": "2026-09-02T19:20:04.081560+00:00",
+  "completed_at": "2026-09-02T19:20:04.139873+00:00",
   "benchmark_configuration": {
     "ai_enabled": true,
     "ai_routing": "contextual",
@@ -478,7 +478,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 13,
+        "audit_event_count": 15,
         "processing_error": null
       },
       "baseline": {
@@ -599,7 +599,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -719,7 +719,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -840,7 +840,7 @@
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -960,7 +960,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 13,
+        "audit_event_count": 15,
         "processing_error": null
       },
       "baseline": {
@@ -1080,7 +1080,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 13,
+        "audit_event_count": 15,
         "processing_error": null
       },
       "baseline": {
@@ -1201,7 +1201,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -1321,7 +1321,7 @@
         "diagnosis_path": "fallback",
         "decision_method": "AI_FALLBACK",
         "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -1441,7 +1441,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -1561,7 +1561,7 @@
         "diagnosis_path": "fallback",
         "decision_method": "AI_FALLBACK",
         "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -1682,7 +1682,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_policy_blocked",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -1803,7 +1803,7 @@
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -1923,7 +1923,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 13,
+        "audit_event_count": 15,
         "processing_error": null
       },
       "baseline": {
@@ -2043,7 +2043,7 @@
         "diagnosis_path": "fallback",
         "decision_method": "AI_FALLBACK",
         "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -2165,7 +2165,7 @@
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 10,
+        "audit_event_count": 11,
         "processing_error": null
       },
       "baseline": {
@@ -2286,7 +2286,7 @@
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -2407,7 +2407,7 @@
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -2527,7 +2527,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -2648,7 +2648,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_policy_blocked",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -2768,7 +2768,7 @@
         "diagnosis_path": "fallback",
         "decision_method": "AI_FALLBACK",
         "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -2890,7 +2890,7 @@
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 7,
+        "audit_event_count": 8,
         "processing_error": null
       },
       "baseline": {
@@ -3011,7 +3011,7 @@
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -3131,7 +3131,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -3251,7 +3251,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 13,
+        "audit_event_count": 15,
         "processing_error": null
       },
       "baseline": {
@@ -3371,7 +3371,7 @@
         "diagnosis_path": "fallback",
         "decision_method": "AI_FALLBACK",
         "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -3493,7 +3493,7 @@
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 7,
+        "audit_event_count": 8,
         "processing_error": null
       },
       "baseline": {
@@ -3614,7 +3614,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -3735,7 +3735,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_policy_blocked",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -3856,7 +3856,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_policy_blocked",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -3976,7 +3976,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 13,
+        "audit_event_count": 15,
         "processing_error": null
       },
       "baseline": {
@@ -4096,7 +4096,7 @@
         "diagnosis_path": "fallback",
         "decision_method": "AI_FALLBACK",
         "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -4216,7 +4216,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 13,
+        "audit_event_count": 15,
         "processing_error": null
       },
       "baseline": {
@@ -4337,7 +4337,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -4459,7 +4459,7 @@
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 7,
+        "audit_event_count": 8,
         "processing_error": null
       },
       "baseline": {
@@ -4580,7 +4580,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_policy_blocked",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -4700,7 +4700,7 @@
         "diagnosis_path": "fallback",
         "decision_method": "AI_FALLBACK",
         "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -4820,7 +4820,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -4940,7 +4940,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -5060,7 +5060,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -5181,7 +5181,7 @@
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -5302,7 +5302,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -5422,7 +5422,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -5542,7 +5542,7 @@
         "diagnosis_path": "fallback",
         "decision_method": "AI_FALLBACK",
         "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 9,
+        "audit_event_count": 10,
         "processing_error": null
       },
       "baseline": {
@@ -5662,7 +5662,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -5782,7 +5782,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_promise_expired",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -5902,7 +5902,7 @@
         "diagnosis_path": "fallback",
         "decision_method": "AI_FALLBACK",
         "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 13,
+        "audit_event_count": 15,
         "processing_error": null
       },
       "baseline": {
@@ -6024,7 +6024,7 @@
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 10,
+        "audit_event_count": 11,
         "processing_error": null
       },
       "baseline": {
@@ -6144,7 +6144,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
-        "audit_event_count": 6,
+        "audit_event_count": 7,
         "processing_error": null
       },
       "baseline": {
@@ -6264,7 +6264,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 13,
+        "audit_event_count": 15,
         "processing_error": null
       },
       "baseline": {
@@ -6384,7 +6384,7 @@
         "diagnosis_path": "llm",
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 13,
+        "audit_event_count": 15,
         "processing_error": null
       },
       "baseline": {
@@ -6411,7 +6411,7 @@
   ],
   "error": null,
   "benchmark_metadata": {
-    "generated_at": "2026-09-02 18:05:18 UTC",
+    "generated_at": "2026-09-02 19:20:05 UTC",
     "evaluation_id": "REC-CANONICAL-2026-S42-C50",
     "dataset_version": "v2-counterfactual",
     "canonical_scale": "50-case seed 42 detailed trace + 1000-case multi-seed suite"
@@ -6446,18 +6446,18 @@
     "safe_std_net": 2193435.576523986,
     "safe_mean_violations": 27.6,
     "revplug_mean_gross": 3093200.0,
-    "revplug_mean_net": 3073630.0,
-    "revplug_median_net": 3097950.0,
-    "revplug_std_net": 1313770.4924292439,
-    "revplug_mean_cost": 19570.0,
+    "revplug_mean_net": 3073430.0,
+    "revplug_median_net": 3097450.0,
+    "revplug_std_net": 1313913.0057875894,
+    "revplug_mean_cost": 19770.0,
     "revplug_mean_violations": 0.0,
     "revplug_mean_decision_quality": 42.8,
     "gross_lift_pct": -8.482905635200884,
-    "net_lift_pct": -6.779612181980581,
-    "net_lift_vs_naive_pct": -6.478952949355938,
-    "net_diff_mean": -223535.0,
-    "confidence_interval_95_lower": -1446345.778919726,
-    "confidence_interval_95_upper": 999275.7789197259,
+    "net_lift_pct": -6.785677999129555,
+    "net_lift_vs_naive_pct": -6.485038330293179,
+    "net_diff_mean": -223735.0,
+    "confidence_interval_95_lower": -1446474.8329388485,
+    "confidence_interval_95_upper": 999004.8329388485,
     "best_seed": 47,
     "worst_seed": 48,
     "per_seed_summaries": [
@@ -6491,8 +6491,8 @@
         "baseline_safe_net": 1954250,
         "baseline_safe_violations": 28,
         "revplug_gross": 3315000,
-        "revplug_net": 3297900,
-        "revplug_cost": 17100,
+        "revplug_net": 3297400,
+        "revplug_cost": 17600,
         "revplug_violations": 0,
         "revplug_win_vs_safe": true,
         "revplug_win_vs_naive": true,
@@ -6510,8 +6510,8 @@
         "baseline_safe_net": 1234900,
         "baseline_safe_violations": 30,
         "revplug_gross": 1385000,
-        "revplug_net": 1364700,
-        "revplug_cost": 20300,
+        "revplug_net": 1363700,
+        "revplug_cost": 21300,
         "revplug_violations": 0,
         "revplug_win_vs_safe": true,
         "revplug_win_vs_naive": true,
@@ -6643,8 +6643,8 @@
         "baseline_safe_net": 2342450,
         "baseline_safe_violations": 26,
         "revplug_gross": 2915500,
-        "revplug_net": 2898000,
-        "revplug_cost": 17500,
+        "revplug_net": 2897500,
+        "revplug_cost": 18000,
         "revplug_violations": 0,
         "revplug_win_vs_safe": true,
         "revplug_win_vs_naive": true,

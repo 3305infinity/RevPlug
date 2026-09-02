@@ -139,17 +139,19 @@ Businesses lose millions across failed payments, expired cards, abandoned checko
 
 ## 7. Benchmark Evaluation Results
 
-Statistical evaluation across **1,000 cases (10 reproducible seeds: 42..51, 100 cases per seed)**:
+Statistical evaluation across **50 cases (seed 42) + 1,000 cases (10 reproducible seeds: 42..51, 100 cases per seed)**:
 
-| Metric | Baseline A (Naive Retry) | Baseline B (Safe Fixed Retry) | Baseline C (Best Fixed) | RevPlug Autonomous Agent | RevPlug Lift / Advantage |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Mean Amount at Risk** | ₹3,69,00,000.00 | ₹3,69,00,000.00 | ₹3,69,00,000.00 | **₹3,69,00,000.00** | Identical 1,000-case risk pool |
-| **Mean Gross Recovery** | ₹1,57,00,000.00 | ₹1,63,00,000.00 | ₹1,72,00,000.00 | **₹2,05,00,000.00** | **+30.57% Gross Lift** |
-| **Mean Net Recovery** | ₹1,54,50,000.00 | ₹1,61,50,000.00 | ₹1,69,50,000.00 | **₹2,03,60,000.00** | **+26.07% Net Lift vs Safe Baseline** |
-| **Recovery Rate (%)** | 42.55% | 44.17% | 46.61% | **55.56%** | **+11.39% pts vs Safe Baseline** |
-| **Safety Violations** | 18.0 Violations / seed | **0 Violations** | **0 Violations** | **0 Violations** | **100% Fail-Closed Compliance** |
-| **Decision Quality Score** | 32.0% | 45.0% | 55.0% | **93.3%** | **+48.3% pts vs Baseline** |
-| **Seed Win Rate** | N/A | 0 / 10 Seeds | 0 / 10 Seeds | **10 / 10 Seeds (100%)** | **100% Multi-Seed Win Rate** |
+| Metric | Baseline A (Naive Retry) | Baseline B (Safe Fixed Retry) | RevPlug Bounded AI Agent | RevPlug Lift / Advantage |
+| :--- | :--- | :--- | :--- | :--- |
+| **Total Revenue at Risk** | ₹42,674.00 | ₹42,674.00 | **₹42,674.00** | Identical risk pool |
+| **Verified Recovery Rate** | 31.9% | 31.9% | **44.1%** | **+12.2% pts vs Baseline** |
+| **Verified Recovered Revenue** | ₹13,608.50 | ₹13,608.50 | **₹18,800.00** | **+₹5,191.50** |
+| **Net Recovered Revenue** | ₹13,153.50 | ₹13,213.50 | **₹18,688.00** | **+₹5,474.50 (+41.4%)** |
+| **AI Proposals Blocked by Policy** | 0 | 0 | **22** | **100% Policy Shield** |
+| **Safety Policy Violations** | **17** | **0** | **0** | **-100% Policy Violations** |
+| **Seed Win Rate (10 seeds)** | N/A | 0 / 10 Seeds | **7 / 10 Seeds (70%)** | **Multi-Seed Robustness** |
+
+For the complete 50-case detailed trace and attribution breakdown, see [docs/EVALUATION_REPORT.md](docs/EVALUATION_REPORT.md).
 
 ---
 

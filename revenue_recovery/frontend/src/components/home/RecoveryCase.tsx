@@ -128,7 +128,7 @@ export default function RecoveryCase() {
                 <div style={{ padding: "1rem", background: "#161b22", borderRadius: 6, border: "1px solid #21262d" }}>
                   <div style={{ fontSize: "0.65rem", color: "#6e7681", textTransform: "uppercase" }}>RAZORPAY ACTION</div>
                   <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#6366f1", marginTop: 4 }}>Link Created</div>
-                  <div style={{ fontSize: "0.7rem", color: "#8b949e", marginTop: 4 }}>https://rzp.io/i/rec_demo_4999</div>
+                  <div style={{ fontSize: "0.7rem", color: "#8b949e", marginTop: 4 }}>https://rzp.io/i/rec_sample_4999</div>
                 </div>
 
                 <div style={{ padding: "1rem", background: "#161b22", borderRadius: 6, border: "1px solid #21262d" }}>
