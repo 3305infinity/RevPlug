@@ -31,8 +31,8 @@ export default function HomeHero() {
             color: "#f0f6fc",
           }}
         >
-          Recover revenue<br />
-          before it disappears.
+          Autonomous Revenue Recovery<br />
+          within policy bounds.
         </h1>
 
         <p
@@ -44,43 +44,43 @@ export default function HomeHero() {
             maxWidth: 720,
           }}
         >
-          RevPlug turns payment failures into bounded recovery workflows — diagnosing what happened, choosing the right intervention, and counting money only after settlement is verified.
+          RevPlug is a revenue-recovery control plane that detects payment failures, decides the right action — RECOVER, WAIT, ESCALATE, or STOP — and counts money only after settlement is verified.
         </p>
 
-        {/* HERO ACTIONS */}
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <Link
-            href="/run-recovery"
-            style={{
-              padding: "0.875rem 1.75rem",
-              fontSize: "0.875rem",
-              fontWeight: 600,
-              background: "#2563eb",
-              color: "#ffffff",
-              borderRadius: 6,
-              textDecoration: "none",
-              transition: "background 0.15s ease",
-            }}
-          >
-            Run a recovery →
-          </Link>
-          <a
-            href="#visual-flow"
-            onClick={scrollToFlow}
-            style={{
-              padding: "0.875rem 1.5rem",
-              fontSize: "0.875rem",
-              fontWeight: 500,
-              color: "#8b949e",
-              textDecoration: "none",
-              border: "1px solid #30363d",
-              borderRadius: 6,
-              background: "transparent",
-            }}
-          >
-            See how it works ↓
-          </a>
-        </div>
+      {/* HERO ACTIONS */}
+      <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+        <Link
+          href="/dashboard"
+          style={{
+            padding: "0.875rem 1.75rem",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            background: "#2563eb",
+            color: "#ffffff",
+            borderRadius: 6,
+            textDecoration: "none",
+            transition: "background 0.15s ease",
+          }}
+        >
+          Open Dashboard →
+        </Link>
+        <a
+          href="#visual-flow"
+          onClick={scrollToFlow}
+          style={{
+            padding: "0.875rem 1.5rem",
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            color: "#8b949e",
+            textDecoration: "none",
+            border: "1px solid #30363d",
+            borderRadius: 6,
+            background: "transparent",
+          }}
+        >
+          See how it works ↓
+        </a>
+      </div>
       </div>
     </section>
   );

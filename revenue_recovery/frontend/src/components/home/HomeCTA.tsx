@@ -6,18 +6,18 @@ export default function HomeCTA() {
   return (
     <div style={{ padding: "4rem 0 5rem", textAlign: "center", borderTop: "1px solid #21262d" }}>
       <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#6e7681", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
-        REVPLUG PRODUCT LAUNCH
+        REVPLUG CONTROL PLANE
       </div>
       <h2 style={{ fontSize: "2rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.02em", marginBottom: "0.75rem" }}>
-        See the recovery engine make a decision.
+        Explore the full recovery engine.
       </h2>
       <p style={{ fontSize: "0.9375rem", color: "#8b949e", marginBottom: "2rem", maxWidth: 540, margin: "0 auto 2rem" }}>
-        Run a single payment failure recovery case or evaluate performance across a 100-case synthetic benchmark batch.
+        From live customer intelligence to policy simulation, see every layer of the revenue-recovery control plane.
       </p>
 
-      <div style={{ display: "flex", gap: "1rem", justifyContent: "center", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
         <Link
-          href="/run-recovery"
+          href="/dashboard"
           style={{
             padding: "0.875rem 1.75rem",
             fontSize: "0.875rem",
@@ -28,22 +28,55 @@ export default function HomeCTA() {
             textDecoration: "none",
           }}
         >
-          Run a recovery →
+          Dashboard →
         </Link>
 
         <Link
-          href="/batch-recovery"
+          href="/customers"
           style={{
             padding: "0.875rem 1.5rem",
             fontSize: "0.875rem",
             fontWeight: 500,
-            color: "#8b949e",
+            color: "#f0f6fc",
             textDecoration: "none",
             border: "1px solid #30363d",
             borderRadius: 6,
+            background: "transparent",
           }}
         >
-          View the benchmark
+          Customer Profiles
+        </Link>
+
+        <Link
+          href="/strategy-analytics"
+          style={{
+            padding: "0.875rem 1.5rem",
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            color: "#f0f6fc",
+            textDecoration: "none",
+            border: "1px solid #30363d",
+            borderRadius: 6,
+            background: "transparent",
+          }}
+        >
+          Strategy Analytics
+        </Link>
+
+        <Link
+          href="/policy-simulator"
+          style={{
+            padding: "0.875rem 1.5rem",
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            color: "#f0f6fc",
+            textDecoration: "none",
+            border: "1px solid #30363d",
+            borderRadius: 6,
+            background: "transparent",
+          }}
+        >
+          Policy Simulator
         </Link>
       </div>
     </div>

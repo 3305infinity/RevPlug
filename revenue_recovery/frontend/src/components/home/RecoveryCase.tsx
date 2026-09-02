@@ -197,8 +197,8 @@ export default function RecoveryCase() {
 
         {/* WORKSPACE FOOTER LINK */}
         <div style={{ padding: "0.75rem 1.5rem", background: "#161b22", borderTop: "1px solid #21262d", textAlign: "right" }}>
-          <Link href="/recovery/demo_case_4999" style={{ fontSize: "0.75rem", color: "#6366f1", textDecoration: "none", fontWeight: 600 }}>
-            Open Case Workspace in App →
+          <Link href="/recovery" style={{ fontSize: "0.75rem", color: "#6366f1", textDecoration: "none", fontWeight: 600 }}>
+            Open Recovery Workspace in App →
           </Link>
         </div>
       </div>

@@ -6,6 +6,7 @@ import HomeHero from "@/components/home/HomeHero";
 import RecoveryFlow from "@/components/home/RecoveryFlow";
 import RecoveryCase from "@/components/home/RecoveryCase";
 import ProductExplanation from "@/components/home/ProductExplanation";
+import FourDecisionsSection from "@/components/home/FourDecisionsSection";
 import DecisionPipeline from "@/components/home/DecisionPipeline";
 import SmartStopSection from "@/components/home/SmartStopSection";
 import VerifiedSettlementSection from "@/components/home/VerifiedSettlementSection";
@@ -56,11 +57,17 @@ export default function ProductHomePage() {
               <a href="#visual-flow" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
                 How it works
               </a>
-              <Link href="/run-recovery" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Recovery
+              <Link href="/dashboard" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
+                Dashboard
               </Link>
-              <Link href="/batch-recovery" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Benchmark
+              <Link href="/customers" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
+                Customers
+              </Link>
+              <Link href="/strategy-analytics" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
+                Strategies
+              </Link>
+              <Link href="/policy-simulator" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
+                Policy Simulator
               </Link>
             </nav>
           </div>
@@ -84,7 +91,7 @@ export default function ProductHomePage() {
             <NavbarAuth />
 
             <Link
-              href="/run-recovery"
+              href="/dashboard"
               style={{
                 fontSize: "0.75rem",
                 fontWeight: 600,
@@ -95,7 +102,7 @@ export default function ProductHomePage() {
                 textDecoration: "none",
               }}
             >
-              Run a recovery
+              Open Dashboard
             </Link>
           </div>
         </div>
@@ -109,7 +116,10 @@ export default function ProductHomePage() {
         {/* 3 & 4. VISUAL RECOVERY FLOW & INTERACTIVE FLOW */}
         <RecoveryFlow />
 
-        {/* 5. PRODUCT PREVIEW (SHOW THE ACTUAL APP) */}
+        {/* 5 & 6. FOUR DECISIONS + PRODUCT PREVIEW */}
+        <FourDecisionsSection />
+
+        {/* 7. ACTUAL PRODUCT PREVIEW */}
         <RecoveryCase />
 
         {/* 6. PRODUCT EXPLANATION (3 COLUMNS) */}
@@ -136,7 +146,7 @@ export default function ProductHomePage() {
 
       {/* FOOTER */}
       <footer style={{ borderTop: "1px solid #21262d", background: "#0d1117", padding: "1.5rem", textAlign: "center", fontSize: "0.75rem", color: "#6e7681", fontFamily: "monospace" }}>
-        RevPlug Product Launch · Bounded Revenue Recovery Engine · Powered by Groq Primary AI &amp; Razorpay Test Mode Integration
+        RevPlug · Revenue Recovery Control Plane · Powered by Groq AI &amp; Razorpay
       </footer>
     </div>
   );

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 export default function ProductExplanation() {
   return (
     <div style={{ padding: "4rem 0", borderTop: "1px solid #21262d", borderBottom: "1px solid #21262d" }}>
@@ -15,6 +17,11 @@ export default function ProductExplanation() {
           <p style={{ fontSize: "0.875rem", color: "#8b949e", lineHeight: 1.6, margin: 0 }}>
             Payment failures, degraded gateway authorization signals, and overdue receivables automatically become structured recovery cases.
           </p>
+          <div style={{ marginTop: "1rem" }}>
+            <Link href="/incidents" style={{ fontSize: "0.75rem", color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>
+              View Incidents →
+            </Link>
+          </div>
         </div>
 
         {/* COLUMN 2 */}
@@ -28,6 +35,11 @@ export default function ProductExplanation() {
           <p style={{ fontSize: "0.875rem", color: "#8b949e", lineHeight: 1.6, margin: 0 }}>
             RevPlug combines Groq LLM failure diagnosis with deterministic server-side policy constraints and expected-value net recovery scoring.
           </p>
+          <div style={{ marginTop: "1rem" }}>
+            <Link href="/policy-simulator" style={{ fontSize: "0.75rem", color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>
+              Preview Policy Impact →
+            </Link>
+          </div>
         </div>
 
         {/* COLUMN 3 */}
@@ -41,6 +53,11 @@ export default function ProductExplanation() {
           <p style={{ fontSize: "0.875rem", color: "#8b949e", lineHeight: 1.6, margin: 0 }}>
             A dispatched action is not revenue recovered. Money is counted strictly when authoritative webhook settlement evidence matches expected amounts.
           </p>
+          <div style={{ marginTop: "1rem" }}>
+            <Link href="/proof-lab" style={{ fontSize: "0.75rem", color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>
+              View Performance Proof →
+            </Link>
+          </div>
         </div>
       </div>
     </div>

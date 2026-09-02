@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 export default function SmartStopSection() {
   const [whyOpen, setWhyOpen] = useState(false);
@@ -101,6 +102,22 @@ export default function SmartStopSection() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* PRODUCT LINK STRIP */}
+      <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap", marginTop: "1.5rem" }}>
+        <Link
+          href="/customers"
+          style={{ fontSize: "0.8125rem", color: "#2563eb", textDecoration: "none", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.35rem" }}
+        >
+          Explore customer intelligence →
+        </Link>
+        <Link
+          href="/dashboard"
+          style={{ fontSize: "0.8125rem", color: "#8b949e", textDecoration: "none", fontWeight: 500, display: "flex", alignItems: "center", gap: "0.35rem" }}
+        >
+          Live decision dashboard →
+        </Link>
       </div>
     </div>
   );

@@ -50,8 +50,8 @@ export default function BenchmarkProof() {
           </p>
         </div>
 
-        <Link href="/batch-recovery" style={{ fontSize: "0.8125rem", color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>
-          Inspect batch analytics →
+        <Link href="/proof-lab" style={{ fontSize: "0.8125rem", color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>
+          Open Proof Lab →
         </Link>
       </div>
 
