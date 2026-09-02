@@ -225,6 +225,86 @@ class TestStoppingRulesPromiseExpiry:
         decision = rules.evaluate(item, proposed_action="retry_payment", container=container, now=utcnow())
         assert decision.should_stop is False
 
+    def test_active_promise_causes_wait_not_stop(self):
+        container = MagicMock()
+        container.promises = _InMemoryPromiseRepository()
+        from datetime import date, timedelta
+        future_promise = Promise(
+            id="p_wait_1",
+            recovery_item_id="ri_wait_1",
+            customer_id="C_1",
+            promised_amount_minor=50000,
+            promised_date=(datetime.now(timezone.utc).date() + timedelta(days=5)),
+            status=PromiseStatus.PROMISED.value,
+        )
+        container.promises.save(future_promise)
+        rules = StoppingRules(max_attempts=3)
+        item = build_item(id="ri_wait_1")
+        decision = rules.evaluate(item, proposed_action="retry_payment", promises=container.promises, now=utcnow())
+        assert decision.should_wait is True
+        assert decision.should_stop is False
+        assert decision.reason_code == "active_promise_wait"
+        assert decision.wait_until is not None
+        assert decision.next_state == item.status
+
+    def test_wait_until_is_promised_date_end_of_day(self):
+        container = MagicMock()
+        container.promises = _InMemoryPromiseRepository()
+        from datetime import date, timedelta
+        target_date = (datetime.now(timezone.utc).date() + timedelta(days=7))
+        future_promise = Promise(
+            id="p_wait_2",
+            recovery_item_id="ri_wait_2",
+            customer_id="C_1",
+            promised_amount_minor=75000,
+            promised_date=target_date,
+            status=PromiseStatus.PROMISED.value,
+        )
+        container.promises.save(future_promise)
+        rules = StoppingRules(max_attempts=3)
+        item = build_item(id="ri_wait_2")
+        decision = rules.evaluate(item, proposed_action="retry_payment", promises=container.promises, now=utcnow())
+        assert decision.should_wait is True
+        assert decision.wait_until is not None
+        assert decision.wait_until.date() == target_date
+
+    def test_fulfilled_promise_allows_proceed(self):
+        container = MagicMock()
+        container.promises = _InMemoryPromiseRepository()
+        fulfilled_promise = Promise(
+            id="p_fulfill_1",
+            recovery_item_id="ri_fulfill_1",
+            customer_id="C_1",
+            promised_amount_minor=10000,
+            promised_date=datetime(2020, 1, 1).date(),
+            status=PromiseStatus.FULFILLED.value,
+        )
+        container.promises.save(fulfilled_promise)
+        rules = StoppingRules(max_attempts=3)
+        item = build_item(id="ri_fulfill_1")
+        decision = rules.evaluate(item, proposed_action="retry_payment", promises=container.promises, now=utcnow())
+        assert decision.should_stop is False
+        assert decision.should_wait is False
+
+    def test_broken_promise_allows_proceed(self):
+        container = MagicMock()
+        container.promises = _InMemoryPromiseRepository()
+        from datetime import timedelta
+        broken_promise = Promise(
+            id="p_broken_1",
+            recovery_item_id="ri_broken_1",
+            customer_id="C_1",
+            promised_amount_minor=10000,
+            promised_date=(datetime.now(timezone.utc).date() + timedelta(days=5)),
+            status=PromiseStatus.BROKEN.value,
+        )
+        container.promises.save(broken_promise)
+        rules = StoppingRules(max_attempts=3)
+        item = build_item(id="ri_broken_1")
+        decision = rules.evaluate(item, proposed_action="retry_payment", promises=container.promises, now=utcnow())
+        assert decision.should_stop is False
+        assert decision.should_wait is False
+
 
 class TestStoppingRulesIdempotent:
     def test_repeated_calls_produce_same_result(self):
@@ -285,6 +365,29 @@ class TestDefaultRecoveryGuard:
         assert decision.allowed is False
         assert decision.decision_type == "STOP"
         assert decision.reason_code == "customer_opted_out"
+
+    def test_guard_waits_for_active_promise(self):
+        rules = StoppingRules(max_attempts=3)
+        policy = InterventionPolicy(max_retry_attempts=3)
+        guard = DefaultRecoveryGuard(stopping_rules=rules, policy_engine=policy)
+        container = MagicMock()
+        container.promises = _InMemoryPromiseRepository()
+        from datetime import timedelta
+        future_promise = Promise(
+            id="p_guard_wait",
+            recovery_item_id="ri_guard_wait",
+            customer_id="C_GUARD",
+            promised_amount_minor=50000,
+            promised_date=(datetime.now(timezone.utc).date() + timedelta(days=5)),
+            status=PromiseStatus.PROMISED.value,
+        )
+        container.promises.save(future_promise)
+        item = build_item(id="ri_guard_wait")
+        decision = guard.evaluate(item, "retry_payment", container=container, promises=container.promises)
+        assert decision.allowed is True
+        assert decision.decision_type == "WAIT"
+        assert decision.reason_code == "active_promise_wait"
+        assert decision.scheduled_for is not None
 
 
 # ===========================================================================

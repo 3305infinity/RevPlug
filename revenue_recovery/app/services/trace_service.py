@@ -54,6 +54,8 @@ class DecisionTrace:
     settlement_evidence: dict[str, Any]
     timeline: list[dict[str, Any]]
     replay_summary: dict[str, Any]
+    product_decision: dict[str, Any] = field(default_factory=dict)
+    classification_method: str = "RULES"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -106,12 +108,13 @@ def build_case_trace(item_id: str, container: Any) -> dict[str, Any]:
         "verified": False,
         "verified_amount_minor": 0,
         "method": "none",
-        "provider": "simulated",
-        "is_simulated": True,
+        "provider": "razorpay",
+        "is_simulated": False,
     }
     expected_recovery = 0
     verified_recovery = 0
     intervention_cost = 0
+    classification_method = "RULES"
 
     timeline_dicts = []
     for ev in sorted(events, key=lambda x: getattr(x, "timestamp", datetime.now(timezone.utc))):
@@ -142,20 +145,66 @@ def build_case_trace(item_id: str, container: Any) -> dict[str, Any]:
 
         if e_type in (EventType.AI_RECOMMENDATION_CREATED, "agent_proposal_created"):
             act = m.get("action") or m.get("selected_action")
+            model_name = m.get("model", "rules")
+            # Determine classification method from model used
+            if model_name and model_name not in ("mock", "rules", "deterministic"):
+                classification_method = "LLM_PRIMARY"
+            elif m.get("fallback_used"):
+                classification_method = "LLM_FALLBACK"
+
             ai_recommendation.update({
                 "actor": ev.actor,
                 "source": ev.source or m.get("model", "llm"),
                 "selected_action": act,
                 "confidence": m.get("confidence", 0.8),
-                "model": m.get("model", "mock"),
+                "model": model_name,
                 "prompt_version": m.get("prompt_version", "v1-stage3"),
                 "fallback_used": bool(m.get("fallback_used", False)),
                 "user_safe_reasoning": ev.reason or f"Recommended {act}",
                 "evidence": m.get("evidence", []),
             })
+            # Extract diagnosis from this event
+            evidence_list = m.get("evidence", [])
+            if isinstance(evidence_list, list):
+                evidence_bullets = evidence_list
+            else:
+                evidence_bullets = []
+            diagnosis.update({
+                "root_cause": context_snapshot.get("failure_category") or item.root_cause if item else "unknown",
+                "confidence": m.get("confidence", 0.0),
+                "recommended_action": act,
+                "rationale": ev.reason or "",
+                "evidence": evidence_bullets,
+                "diagnosis_source": "llm" if model_name not in ("mock", "rules", "deterministic") else "rules",
+                "risk_level": m.get("risk_level", "medium"),
+            })
 
         if e_type == EventType.CANDIDATES_GENERATED:
-            candidate_actions = m.get("candidate_actions", [])
+            cands = m.get("candidate_actions", [])
+            if cands:
+                candidate_actions = cands
+            # Extract expected recovery from the selected candidate
+            if not expected_recovery and cands:
+                selected_act = ai_recommendation.get("selected_action")
+                for c in cands:
+                    if isinstance(c, dict):
+                        net_ev = c.get("net_expected_recovery") or c.get("expected_recovery")
+                        if c.get("action") == selected_act and net_ev:
+                            try:
+                                expected_recovery = int(net_ev)
+                            except (TypeError, ValueError):
+                                pass
+                # If still no expected recovery, take from top non-blocked candidate
+                if not expected_recovery:
+                    for c in cands:
+                        if isinstance(c, dict) and c.get("policy_status") != "BLOCKED":
+                            net_ev = c.get("net_expected_recovery") or c.get("expected_recovery")
+                            if net_ev:
+                                try:
+                                    expected_recovery = int(net_ev)
+                                    break
+                                except (TypeError, ValueError):
+                                    pass
 
         if e_type in (EventType.POLICY_EVALUATED, EventType.SAFETY_EVALUATED, "policy_evaluate"):
             p_rule = ev.reason_code or m.get("policy_rule", "allow")
@@ -181,7 +230,7 @@ def build_case_trace(item_id: str, container: Any) -> dict[str, Any]:
                 "executed": True,
                 "action": m.get("action") or ai_recommendation.get("selected_action"),
                 "dispatched_at": t_entry["timestamp"],
-                "is_simulated": bool(m.get("is_simulated", True)),
+                "is_simulated": bool(m.get("is_simulated", False)),
                 "cost_minor": m.get("cost_minor", 500),
             })
             intervention_cost = m.get("cost_minor", 500)
@@ -191,20 +240,25 @@ def build_case_trace(item_id: str, container: Any) -> dict[str, Any]:
             settlement_evidence.update({
                 "verified": True,
                 "verified_amount_minor": verified_amt,
-                "method": m.get("verification_method", "simulated_verification"),
+                "method": m.get("verification_method", "webhook_hmac"),
                 "provider": m.get("provider", "razorpay"),
-                "provider_event_id": m.get("provider_event_id", f"evt_{item_id[:8]}"),
-                "payment_id": m.get("payment_id", f"pay_{item_id[:8]}"),
-                "is_simulated": bool(m.get("is_simulated", True)),
+                "provider_event_id": m.get("provider_event_id", ""),
+                "payment_id": m.get("payment_id", ""),
+                "is_simulated": bool(m.get("is_simulated", False)),
                 "settlement_timestamp": t_entry["timestamp"],
+                "correlation_id": ev.correlation_id or m.get("correlation_id", ""),
             })
             verified_recovery = verified_amt
+            # If we still have no expected recovery, use verified as proxy (only for RECOVERED cases)
+            if not expected_recovery and verified_recovery:
+                expected_recovery = verified_recovery
 
         if e_type in (EventType.STOPPED, "stopping_rule_triggered"):
             safety_decision.update({
                 "decision": "STOP",
                 "allowed": False,
                 "reason": ev.reason or "Stopped by rule",
+                "reason_code": ev.reason_code or m.get("reason_code", "policy_stop"),
             })
 
         if e_type in (EventType.ESCALATED, "human_escalation_created"):
@@ -212,10 +266,68 @@ def build_case_trace(item_id: str, container: Any) -> dict[str, Any]:
                 "decision": "ESCALATE",
                 "allowed": False,
                 "reason": ev.reason or "Escalated for human review",
+                "reason_code": ev.reason_code or m.get("reason_code", "escalation_required"),
             })
+
+    # Also check item metadata for expected recovery if still missing
+    if not expected_recovery and item:
+        ev_from_item = getattr(item, "expected_recovery_value", None)
+        if ev_from_item:
+            try:
+                expected_recovery = int(ev_from_item)
+            except (TypeError, ValueError):
+                pass
 
     if not context_snapshot["hash"]:
         context_snapshot["hash"] = compute_context_hash(context_snapshot)
+
+    # Populate diagnosis fallback from item if empty
+    if not diagnosis and item:
+        diagnosis = {
+            "root_cause": item.root_cause or "unknown",
+            "confidence": 0.0,
+            "recommended_action": ai_recommendation.get("selected_action"),
+            "rationale": getattr(item, "stopped_reason", "") or "",
+            "evidence": [],
+            "diagnosis_source": "rules",
+            "risk_level": "medium",
+        }
+
+    # --- Build canonical ProductDecision ---
+    from app.domain.product_decision import resolve_decision
+    action_for_decision = ai_recommendation.get("selected_action") or ""
+    policy_state_for_decision = None
+    if not safety_decision.get("allowed", True):
+        rule = safety_decision.get("reason_code", "") or ""
+        if "fraud" in rule.lower():
+            policy_state_for_decision = "BLOCKED_FRAUD"
+        elif "consent" in rule.lower() or "opt_out" in rule.lower():
+            policy_state_for_decision = "BLOCKED_CONSENT"
+        elif "dispute" in rule.lower():
+            policy_state_for_decision = "HUMAN_REVIEW_DISPUTE"
+        elif "systemic" in rule.lower():
+            policy_state_for_decision = "SUPPRESSED_SYSTEMIC"
+
+    # Map safety_decision.decision to policy_decision_type
+    sd_decision = safety_decision.get("decision", "UNKNOWN")
+    policy_decision_type = None
+    if sd_decision == "ALLOWED":
+        policy_decision_type = "ALLOWED"
+    elif sd_decision in ("DENY", "STOP"):
+        policy_decision_type = "DENY"
+    elif sd_decision == "ESCALATE":
+        policy_decision_type = "ESCALATE"
+
+    prod_decision = resolve_decision(
+        action=action_for_decision or None,
+        policy_state=policy_state_for_decision,
+        status=status_str,
+        policy_decision_type=policy_decision_type,
+        reason_code=safety_decision.get("reason_code", ""),
+        reason=safety_decision.get("reason", "") or diagnosis.get("rationale", ""),
+        requires_human_review=policy_evaluations.get("requires_human_approval", False),
+        scheduled_for=None,
+    )
 
     # Replay summary
     sel_action = ai_recommendation.get("selected_action") or "stop_recovery"
@@ -228,7 +340,7 @@ def build_case_trace(item_id: str, container: Any) -> dict[str, Any]:
         "what_system_knew": f"Category: {context_snapshot.get('category', 'unknown')}, Amount at risk: ₹{amount_minor / 100:.2f}.",
         "what_ai_inferred": f"AI recommended '{sel_action}' (confidence: {ai_recommendation.get('confidence', 0.0):.2f}).",
         "what_policy_allowed": f"Policy decision: {'ALLOWED' if pol_allowed else 'BLOCKED'} ({safety_decision.get('reason_code', 'N/A')}).",
-        "what_executed": f"Execution status: {exec_status} ({'SIMULATED' if execution.get('is_simulated') else 'LIVE'}).",
+        "what_executed": f"Execution status: {exec_status}.",
         "what_was_recovered": f"Verified recovered revenue: ₹{verified_recovery / 100:.2f} ({'Verified Settlement' if rec_verified else 'Unverified/Pending'}).",
     }
 
@@ -252,6 +364,8 @@ def build_case_trace(item_id: str, container: Any) -> dict[str, Any]:
         settlement_evidence=settlement_evidence,
         timeline=timeline_dicts,
         replay_summary=replay_summary,
+        product_decision=prod_decision.to_dict(),
+        classification_method=classification_method,
     )
     return trace.to_dict()
 

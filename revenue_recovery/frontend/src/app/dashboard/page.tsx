@@ -2,120 +2,99 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { api, DashboardSummary, RecoveryItem } from "@/lib/api";
+import { api, DashboardSummary, RecoveryItem, DecisionStreamEvent, DecisionDistribution, IncidentSummary, PromiseSummary } from "@/lib/api";
 import { getCustomerDisplayName } from "@/lib/customerDisplay";
+import DecisionBadge from "@/components/shared/DecisionBadge";
 
 type Status = "loading" | "error" | "ready";
-
-const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
-  detected:              { label: "Detected",      color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-  diagnosed:             { label: "Diagnosed",     color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
-  queued:                { label: "Queued",         color: "#6366f1", bg: "rgba(99,102,241,0.12)" },
-  intervention_pending:  { label: "In Flight",     color: "#0ea5e9", bg: "rgba(14,165,233,0.12)" },
-  intervention_executed: { label: "Executed",      color: "#10b981", bg: "rgba(16,185,129,0.12)" },
-  pending_verification:  { label: "Verifying",     color: "#10b981", bg: "rgba(16,185,129,0.1)"  },
-  recovered:             { label: "Verified",       color: "#10b981", bg: "rgba(16,185,129,0.15)" },
-  stopped:               { label: "Stopped",       color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
-  escalated:             { label: "Needs Review",  color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
-  failed:                { label: "Failed",         color: "#ef4444", bg: "rgba(239,68,68,0.12)" },
-};
 
 function fmt(n: number) {
   return "₹" + (n / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const s = STATUS_LABEL[status] || { label: status, color: "var(--text-muted)", bg: "transparent" };
-  return (
-    <span style={{
-      fontSize: "0.6875rem", fontWeight: 700,
-      color: s.color, background: s.bg,
-      padding: "2px 7px", borderRadius: 4,
-      textTransform: "uppercase", letterSpacing: "0.04em",
-    }}>{s.label}</span>
-  );
+function fmtDate(iso: string) {
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return "just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+  } catch {
+    return iso;
+  }
 }
 
-function DataBadge({ type }: { type: "evaluation" | "verified" | "projected" }) {
-  const cfg = {
-    evaluation: { label: "Evaluation Data",  color: "#d97706", border: "rgba(217,119,6,0.25)" },
-    verified:   { label: "Provider Verified", color: "#10b981", border: "rgba(16,185,129,0.25)" },
-    projected:  { label: "Projected",         color: "#6366f1", border: "rgba(99,102,241,0.25)" },
-  }[type];
-  return (
-    <span style={{
-      fontSize: "0.5rem", fontWeight: 700, color: cfg.color,
-      border: `1px solid ${cfg.border}`, padding: "1px 5px",
-      borderRadius: 3, letterSpacing: "0.05em", textTransform: "uppercase",
-      verticalAlign: "middle", marginLeft: 6,
-    }}>{cfg.label}</span>
-  );
+function fmtTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return "just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+  } catch {
+    return iso;
+  }
 }
 
-function PipelineBar({ summary }: { summary: DashboardSummary }) {
-  const total = summary.total_items || 1;
-  const atRisk = summary.active_recoveries || 0;
-  const inFlight = (summary.executed_count || 0);
-  const verified = summary.recovered_cases || 0;
-  const stopped  = summary.stopped_cases || 0;
+const ACTIVITY_ACTION_LABELS: Record<string, string> = {
+  failure_classified: "Failure classified",
+  recovery_item_created: "Opportunity created",
+  recovery_scored: "Recovery scored",
+  guard_evaluate: "Policy gate evaluated",
+  execution_requested: "Action executed",
+  recovery_stopped: "Recovery stopped",
+  escalation_created: "Escalation created",
+  settlement_verified: "Settlement verified",
+  case_cleared: "Case cleared",
+  agent_proposal_created: "Agent proposal created",
+  immediate_success_termination: "Payment succeeded",
+};
 
-  const pct = (n: number) => Math.max(2, Math.round((n / total) * 100));
-
-  const stages = [
-    { label: "At Risk",   count: atRisk,   pct: pct(atRisk),   color: "#ef4444" },
-    { label: "In Flight", count: inFlight, pct: pct(inFlight), color: "#3b82f6" },
-    { label: "Verified",  count: verified, pct: pct(verified), color: "#10b981" },
-    { label: "Stopped",   count: stopped,  pct: pct(stopped),  color: "#6b7280" },
-  ];
-
-  return (
-    <div style={{ marginBottom: "1.5rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-        <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-          Recovery Pipeline
-        </div>
-        <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
-          {total} total cases
-        </div>
-      </div>
-      {/* bar */}
-      <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", gap: 1 }}>
-        {stages.map(s => (
-          <div key={s.label} style={{ flex: s.pct, background: s.color, minWidth: 4 }} title={`${s.label}: ${s.count}`} />
-        ))}
-      </div>
-      {/* labels */}
-      <div style={{ display: "flex", marginTop: "0.5rem", gap: "1.25rem" }}>
-        {stages.map(s => (
-          <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.6875rem", color: "var(--text-secondary)" }}>
-            <div style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-            <span>{s.label}</span>
-            <span style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--text-primary)" }}>{s.count}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+function ActivityActionLabel(action: string): string {
+  return ACTIVITY_ACTION_LABELS[action] || action.replace(/_/g, " ");
 }
 
 export default function OperationsDashboard() {
-  const [status, setStatus]   = useState<Status>("loading");
+  const [status, setStatus] = useState<Status>("loading");
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [items, setItems]     = useState<RecoveryItem[]>([]);
-  const [error, setError]     = useState<string | null>(null);
+  const [items, setItems] = useState<RecoveryItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [attribution, setAttribution] = useState<any>(null);
+  const [activity, setActivity] = useState<DecisionStreamEvent[]>([]);
+  const [decisions, setDecisions] = useState<Record<string, DecisionDistribution> | null>(null);
+  const [incidents, setIncidents] = useState<IncidentSummary | null>(null);
+  const [promiseSummary, setPromiseSummary] = useState<PromiseSummary | null>(null);
+  const [strategyReport, setStrategyReport] = useState<{ strategies: Array<{ label: string; verified_recovered_minor: number; verified_recovery_rate_pct: number; evidence_level: string; explanation: string }>; what_works: Array<{ label: string; explanation: string }> } | null>(null);
 
   const load = useCallback(async () => {
     try {
       setStatus("loading");
-      const [s, i, a] = await Promise.all([
+      const [s, i, a, act, dec, inc, ps, strat] = await Promise.all([
         api.summary(),
         api.items(),
         (api as any).recoveryAttribution ? (api as any).recoveryAttribution() : Promise.resolve(null),
+        api.decisionStream().catch(() => ({ events: [] as DecisionStreamEvent[], summary: null })),
+        api.dashboardDecisions().catch(() => null as Record<string, DecisionDistribution> | null),
+        api.incidents().catch(() => null as IncidentSummary | null),
+        api.promiseSummary().catch(() => null as PromiseSummary | null),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/strategy-analytics`).then(r => r.json()).catch(() => null),
       ]);
       setSummary(s);
       setItems(i);
       setAttribution(a);
+      setActivity(act?.events?.slice(0, 8) || []);
+      setDecisions(dec);
+      setIncidents(inc);
+      setPromiseSummary(ps);
+      setStrategyReport(strat);
       setError(null);
       setStatus("ready");
     } catch (err) {
@@ -126,7 +105,7 @@ export default function OperationsDashboard() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Attention-required: escalated + intervention_pending, sorted by amount descending
+  // Escalated items for Needs Attention
   const attentionItems = useMemo(() =>
     items
       .filter(i => i.status === "escalated" || i.status === "intervention_pending")
@@ -135,23 +114,15 @@ export default function OperationsDashboard() {
     [items]
   );
 
-  // Recent verified recoveries
-  const recentVerified = useMemo(() =>
-    items
-      .filter(i => i.status === "recovered")
-      .sort((a, b) => b.amount_minor - a.amount_minor)
-      .slice(0, 5),
-    [items]
-  );
-
-  // Top active recovery opportunities
-  const topOpportunities = useMemo(() =>
-    items
-      .filter(i => !["recovered", "stopped"].includes(i.status))
-      .sort((a, b) => (b.expected_recovery_value || 0) - (a.expected_recovery_value || 0))
-      .slice(0, 8),
-    [items]
-  );
+  // Next best recovery: highest expected net from actionable items
+  const nextBestRecovery = useMemo(() => {
+    const actionable = items.filter(i =>
+      !["recovered", "stopped"].includes(i.status) &&
+      i.expected_recovery_value && i.expected_recovery_value > 0
+    );
+    if (actionable.length === 0) return null;
+    return actionable.sort((a, b) => (b.expected_recovery_value || 0) - (a.expected_recovery_value || 0))[0];
+  }, [items]);
 
   if (status === "error") {
     return (
@@ -180,286 +151,348 @@ export default function OperationsDashboard() {
     );
   }
 
-  // Derived: baseline comparison — not computed from frontend.
-  // The API does not currently provide a baseline metric; we never fabricate one here.
-  // When a baseline endpoint is available, wire it to the "vs Baseline" card.
-  // Data integrity fix: removed hard-coded `actually_recovered * 0.64` baseline formula.
+  const totalAtRisk = summary.revenue_at_risk || 0;
+  const expectedRecovery = summary.expected_recovery || 0;
+  const verifiedRecovered = summary.actually_recovered || 0;
+  const needsAttentionCount = attentionItems.length;
+  const waitingCount = decisions?.WAIT?.count || 0;
+  const waitingValue = decisions?.WAIT?.total_at_risk || 0;
+  const stoppedCount = decisions?.STOP?.count || 0;
+  const stoppedValue = decisions?.STOP?.total_at_risk || 0;
 
   return (
-    <div style={{ maxWidth: 1140, margin: "0 auto", paddingBottom: "3rem" }}>
+    <div style={{ maxWidth: 1280, margin: "0 auto", paddingBottom: "3rem" }}>
 
       {/* ── HEADER ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "1.25rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.875rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "1.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.875rem" }}>
         <div>
-          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            RevPlug · Revenue Recovery Control Plane
-          </div>
-          <h1 style={{ marginTop: 2, fontSize: "1.375rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
-            Overview
+          <h1 style={{ fontSize: "1.375rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
+            Revenue Recovery Command Center
           </h1>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+            Autonomous decisions · Bounded execution · Verified settlement
+          </div>
         </div>
         <div style={{ display: "flex", gap: "0.625rem", alignItems: "center" }}>
-          <Link href="/policy-config" className="btn-secondary" style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}>
-            Policy
+          <Link href="/allocation" className="btn-secondary" style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}>
+            Capital Allocation
           </Link>
           <Link href="/review" className="btn-primary" style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}>
-            Review Queue {attentionItems.length > 0 ? `(${attentionItems.length})` : ""}
+            Review Queue {needsAttentionCount > 0 ? `(${needsAttentionCount})` : ""}
           </Link>
         </div>
       </div>
 
-      {/* ── CORE METRICS ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.25rem" }}>
+      {/* ── INCIDENT SUMMARY ── */}
+      {incidents && incidents.active_incidents_count > 0 && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap",
+          padding: "0.875rem 1.25rem", background: "var(--bg-secondary)", borderRadius: 8,
+          border: "1px solid rgba(245,158,11,0.3)", marginBottom: "1.5rem",
+        }}>
+          <span style={{
+            fontSize: "0.625rem", fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+            background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.4)",
+          }}>
+            {incidents.active_incidents_count} ACTIVE INCIDENT{incidents.active_incidents_count > 1 ? "S" : ""}
+          </span>
+          <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", flex: 1 }}>
+            <strong style={{ color: "#f59e0b" }}>{fmt(incidents.total_revenue_at_risk_minor)}</strong> at risk across {incidents.total_affected_customers} customers &middot; {fmt(incidents.revenue_protected_by_waiting_minor)} protected by waiting
+          </span>
+          <Link href="/incidents" style={{
+            fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b",
+            textDecoration: "none", padding: "0.3rem 0.65rem", borderRadius: 4,
+            border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.08)",
+          }}>
+            View Incidents →
+          </Link>
+        </div>
+      )}
 
-        {/* Revenue at Risk */}
-        <div className="card" style={{ padding: "1.125rem", borderLeft: "3px solid #ef4444" }}>
-          <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+      {/* ── PROMISE SUMMARY ── */}
+      {promiseSummary && promiseSummary.active_count > 0 && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap",
+          padding: "0.875rem 1.25rem", background: "rgba(59,130,246,0.04)", borderRadius: 8,
+          border: "1px solid rgba(59,130,246,0.15)", marginBottom: "1.5rem",
+        }}>
+          <span style={{
+            fontSize: "0.625rem", fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+            background: "rgba(59,130,246,0.12)", color: "#3b82f6", border: "1px solid rgba(59,130,246,0.3)",
+          }}>
+            {promiseSummary.active_count} ACTIVE COMMITMENT{promiseSummary.active_count > 1 ? "S" : ""}
+          </span>
+          <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+            <strong style={{ color: "#3b82f6" }}>{fmt(promiseSummary.committed_amount_minor)}</strong> committed
+          </span>
+          {promiseSummary.due_soon_count > 0 && (
+            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              &middot; <strong style={{ color: "#f59e0b" }}>{promiseSummary.due_soon_count}</strong> due soon
+            </span>
+          )}
+          {promiseSummary.fulfilled_count > 0 && (
+            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              &middot; <strong style={{ color: "#10b981" }}>{promiseSummary.fulfilled_count}</strong> fulfilled ({fmt(promiseSummary.fulfilled_amount_minor)} settled)
+            </span>
+          )}
+          <Link href="/recovery" style={{
+            fontSize: "0.6875rem", fontWeight: 700, color: "#3b82f6",
+            textDecoration: "none", padding: "0.3rem 0.65rem", borderRadius: 4,
+            border: "1px solid rgba(59,130,246,0.3)", background: "rgba(59,130,246,0.06)",
+          }}>
+            View Cases →
+          </Link>
+        </div>
+      )}
+
+      {/* ── PRIMARY FINANCIAL SUMMARY ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
+        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #ef4444" }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
             Revenue at Risk
-            <DataBadge type="evaluation" />
           </div>
-          <div className="font-mono" style={{ fontSize: "1.5rem", fontWeight: 700, color: "#ef4444" }}>
-            {fmt(summary.revenue_at_risk)}
+          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#ef4444", letterSpacing: "-0.02em" }}>
+            {fmt(totalAtRisk)}
           </div>
           <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
             {summary.active_recoveries} active cases
           </div>
         </div>
 
-        {/* Verified Recovered */}
-        <div className="card" style={{ padding: "1.125rem", borderLeft: "3px solid #10b981" }}>
-          <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
-            Verified Recovered
-            <DataBadge type="verified" />
+        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #6366f1" }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            Expected Recovery
           </div>
-          <div className="font-mono" style={{ fontSize: "1.5rem", fontWeight: 700, color: "#10b981" }}>
-            {summary.actually_recovered > 0 ? fmt(summary.actually_recovered) : "—"}
+          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#6366f1", letterSpacing: "-0.02em" }}>
+            {expectedRecovery > 0 ? fmt(expectedRecovery) : "—"}
+          </div>
+          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
+            Projected from actionable opportunities
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #10b981" }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            Verified Recovered
+          </div>
+          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#10b981", letterSpacing: "-0.02em" }}>
+            {verifiedRecovered > 0 ? fmt(verifiedRecovered) : "—"}
           </div>
           <div style={{ fontSize: "0.6875rem", color: "#10b981", marginTop: 4 }}>
-            {summary.actually_recovered > 0
+            {verifiedRecovered > 0
               ? `${(summary.recovery_rate * 100).toFixed(1)}% recovery rate`
-              : "No verified recoveries yet"}
+              : "Settlement-verified funds only"}
           </div>
         </div>
 
-        {/* Vs Baseline */}
-        <div className="card" style={{ padding: "1.125rem", borderLeft: "3px solid #6366f1" }}>
-          <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
-            vs Baseline
-            <DataBadge type="projected" />
-          </div>
-          <div className="font-mono" style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-muted)" }}>
-            —
-          </div>
-          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
-            Awaiting verified recoveries
-          </div>
-        </div>
-
-        {/* Needs Attention */}
-        <div className="card" style={{ padding: "1.125rem", borderLeft: `3px solid ${attentionItems.length > 0 ? "#f59e0b" : "var(--border)"}` }}>
-          <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+        <div className="card" style={{ padding: "1.25rem", borderLeft: `3px solid ${needsAttentionCount > 0 ? "#f59e0b" : "var(--border)"}` }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
             Needs Attention
           </div>
-          <div className="font-mono" style={{ fontSize: "1.5rem", fontWeight: 700, color: attentionItems.length > 0 ? "#f59e0b" : "var(--text-muted)" }}>
-            {attentionItems.length > 0 ? attentionItems.length : "0"}
+          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: needsAttentionCount > 0 ? "#f59e0b" : "var(--text-muted)" }}>
+            {needsAttentionCount}
           </div>
           <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
-            {attentionItems.length > 0
-              ? `${attentionItems.length} case${attentionItems.length !== 1 ? "s" : ""} escalated / in-flight`
-              : "No cases requiring attention"}
+            {needsAttentionCount > 0 ? "Requires human review" : "No escalated cases"}
           </div>
         </div>
       </div>
 
-      {/* ── RECOVERY PIPELINE ── */}
-      <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.25rem" }}>
-        <PipelineBar summary={summary} />
-      </div>
-
-      {/* ── ATTRIBUTION SUMMARY ── */}
-      {attribution && (
-        <div className="card" style={{ padding: "1.125rem", marginBottom: "1.25rem", borderLeft: "3px solid #6366f1" }}>
-          <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
-            Recovery Attribution
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
-            <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Total Verified Recovery</div>
-              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#10b981", fontFamily: "monospace" }}>{fmt(attribution.total_recovered_minor)}</div>
+      {/* ── STRATEGY INSIGHT ── */}
+      {strategyReport && strategyReport.strategies.length > 0 && (
+        <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem", borderLeft: "3px solid #6366f1" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+            <div style={{ flex: 1, minWidth: 280 }}>
+              <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+                Strategy Insight
+              </div>
+              {strategyReport.what_works.length > 0 ? (
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                  {strategyReport.what_works[0].label} has produced the strongest verified recovery history.
+                  {strategyReport.what_works[0].explanation}
+                </div>
+              ) : (
+                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+                  No strategy has sufficient evidence to establish a preferred intervention.
+                </div>
+              )}
             </div>
-            <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Agent-Attributed</div>
-              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#3b82f6", fontFamily: "monospace" }}>{fmt(attribution.agent_attributed_minor)}</div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>{attribution.direct_agent_pct}% of total</div>
-            </div>
-            <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Agent-Assisted</div>
-              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#6366f1", fontFamily: "monospace" }}>{fmt(attribution.agent_assisted_minor)}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Organic</div>
-              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--text-secondary)", fontFamily: "monospace" }}>{fmt(attribution.organic_recovered_minor)}</div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>{attribution.organic_pct}% of total</div>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <Link href="/strategy-analytics" style={{
+                fontSize: "0.6875rem", fontWeight: 700, color: "#6366f1",
+                textDecoration: "none", padding: "0.3rem 0.65rem", borderRadius: 4,
+                border: "1px solid rgba(99,102,241,0.3)", background: "rgba(99,102,241,0.06)", whiteSpace: "nowrap",
+              }}>
+                View Strategy Analytics →
+              </Link>
+              <Link href="/proof-lab" style={{
+                fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b",
+                textDecoration: "none", padding: "0.3rem 0.65rem", borderRadius: 4,
+                border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", whiteSpace: "nowrap",
+              }}>
+                Performance Proof →
+              </Link>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── ATTENTION REQUIRED ── */}
-      {attentionItems.length > 0 && (
-        <div className="card" style={{ padding: "1.125rem", marginBottom: "1.25rem", borderLeft: "3px solid #f59e0b" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.875rem" }}>
-            <div>
-              <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                Attention Required
+      {/* ── PERFORMANCE PROOF ── */}
+      {!strategyReport && (
+        <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.5rem", borderLeft: "3px solid #f59e0b", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+            <strong style={{ color: "var(--text-primary)" }}>Performance proof available.</strong> Compare RevPlug against fixed recovery strategies in a controlled evaluation environment.
+          </div>
+          <Link href="/proof-lab" style={{
+            fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b",
+            textDecoration: "none", padding: "0.3rem 0.65rem", borderRadius: 4,
+            border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", whiteSpace: "nowrap",
+          }}>
+            View Proof Lab →
+          </Link>
+        </div>
+      )}
+
+      {/* ── NEXT BEST RECOVERY HERO ── */}
+      {nextBestRecovery && (
+        <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem", borderLeft: "4px solid #6366f1", background: "linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(99,102,241,0.01) 100%)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+            <div style={{ flex: 1, minWidth: 280 }}>
+              <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
+                Next Best Recovery
               </div>
-              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>
-                {attentionItems.length} case{attentionItems.length !== 1 ? "s" : ""} escalated or awaiting action
+              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
+                {getCustomerDisplayName(nextBestRecovery.customer_id, (nextBestRecovery as any).customer_name)}
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: 12 }}>
+                {nextBestRecovery.root_cause?.replace(/_/g, " ") || "Revenue at risk"}
+              </div>
+              <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>At Risk</div>
+                  <div className="font-mono" style={{ fontSize: "1rem", fontWeight: 700, color: "#ef4444" }}>{fmt(nextBestRecovery.amount_minor)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>Expected Net</div>
+                  <div className="font-mono" style={{ fontSize: "1rem", fontWeight: 700, color: "#10b981" }}>{fmt(nextBestRecovery.expected_recovery_value || 0)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>Decision</div>
+                  <div style={{ marginTop: 2 }}>
+                    <DecisionBadge decision="RECOVER" compact />
+                  </div>
+                </div>
               </div>
             </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <Link href={`/recovery/${nextBestRecovery.id}`} className="btn-primary" style={{ fontSize: "0.8125rem", padding: "0.5rem 1rem" }}>
+                Open Case →
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── RECOVERY DECISIONS + MONEY FLOW ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
+
+        {/* Recovery Decisions Distribution */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "1rem" }}>
+            Recovery Decisions
+          </div>
+          {decisions ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {(["RECOVER", "WAIT", "ESCALATE", "STOP"] as const).map((d) => {
+                const data = decisions[d];
+                if (!data || data.count === 0) return null;
+                return (
+                  <div key={d} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <div style={{ width: 90 }}>
+                      <DecisionBadge decision={d} compact />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                        {data.count} {data.count === 1 ? "case" : "cases"}
+                      </div>
+                      <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)" }}>
+                        {fmt(data.total_at_risk)} at risk
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                        {fmt(data.total_expected)}
+                      </div>
+                      <div style={{ fontSize: "0.625rem", color: "var(--text-muted)" }}>expected</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>No decision data available</div>
+          )}
+        </div>
+
+        {/* Money Flow Funnel */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "1rem" }}>
+            Money Flow
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <FunnelStage label="At Risk" value={totalAtRisk} color="#ef4444" />
+            <FunnelArrow />
+            <FunnelStage label="Expected Recovery" value={expectedRecovery} color="#6366f1" sublabel="Projected" />
+            <FunnelArrow />
+            <FunnelStage label="Verified Recovered" value={verifiedRecovered} color="#10b981" sublabel="Settlement confirmed" />
+          </div>
+          <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Waiting</div>
+              <div className="font-mono" style={{ fontSize: "0.875rem", fontWeight: 700, color: "#64748b" }}>{waitingCount} ({fmt(waitingValue)})</div>
+            </div>
+            <div>
+              <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Stopped</div>
+              <div className="font-mono" style={{ fontSize: "0.875rem", fontWeight: 700, color: "#ef4444" }}>{stoppedCount} ({fmt(stoppedValue)})</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── NEEDS ATTENTION + ACTIVITY ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
+
+        {/* Needs Attention */}
+        <div className="card" style={{ padding: "1.25rem", borderLeft: `3px solid ${needsAttentionCount > 0 ? "#f59e0b" : "var(--border)"}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.875rem" }}>
+            <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Needs Attention
+            </div>
             <Link href="/review" style={{ fontSize: "0.75rem", color: "var(--accent)", fontWeight: 600 }}>
-              Open Review Queue →
+              Review Queue →
             </Link>
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "0.5rem 0.625rem", color: "var(--text-muted)", fontWeight: 600, fontSize: "0.625rem", textTransform: "uppercase", textAlign: "left" }}>Customer</th>
-                <th style={{ padding: "0.5rem 0.625rem", color: "var(--text-muted)", fontWeight: 600, fontSize: "0.625rem", textTransform: "uppercase", textAlign: "right" }}>At Risk</th>
-                <th style={{ padding: "0.5rem 0.625rem", color: "var(--text-muted)", fontWeight: 600, fontSize: "0.625rem", textTransform: "uppercase", textAlign: "right" }}>Expected Net</th>
-                <th style={{ padding: "0.5rem 0.625rem", color: "var(--text-muted)", fontWeight: 600, fontSize: "0.625rem", textTransform: "uppercase", textAlign: "left" }}>Status</th>
-                <th style={{ padding: "0.5rem 0.625rem" }}></th>
-              </tr>
-            </thead>
-            <tbody>
+          {attentionItems.length === 0 ? (
+            <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "1rem 0" }}>
+              No cases require human review
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               {attentionItems.map(item => (
-                <tr key={item.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "0.625rem 0.625rem" }}>
-                    <div style={{ fontWeight: 600 }}>{getCustomerDisplayName(item.customer_id, (item as any).customer_name)}</div>
-                    <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", fontFamily: "monospace" }}>{item.customer_id}</div>
-                  </td>
-                  <td style={{ padding: "0.625rem 0.625rem", fontFamily: "monospace", fontWeight: 700, textAlign: "right" }}>{fmt(item.amount_minor)}</td>
-                  <td style={{ padding: "0.625rem 0.625rem", fontFamily: "monospace", textAlign: "right", color: item.expected_recovery_value ? "#10b981" : "var(--text-muted)" }}>
-                    {item.expected_recovery_value ? fmt(item.expected_recovery_value) : "—"}
-                  </td>
-                  <td style={{ padding: "0.625rem 0.625rem" }}>
-                    <StatusBadge status={item.status} />
-                    {item.root_cause && (
-                      <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", marginTop: 2 }}>{item.root_cause}</div>
-                    )}
-                  </td>
-                  <td style={{ padding: "0.625rem 0.625rem" }}>
+                <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.625rem", background: "var(--bg-primary)", borderRadius: 6, border: "1px solid var(--border)" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {getCustomerDisplayName(item.customer_id, (item as any).customer_name)}
+                    </div>
+                    <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                      {item.root_cause?.replace(/_/g, " ") || "Requires review"}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginLeft: "0.75rem" }}>
+                    <div className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#ef4444" }}>{fmt(item.amount_minor)}</div>
                     <Link href={`/recovery/${item.id}`} className="btn-secondary" style={{ fontSize: "0.6875rem", padding: "0.3rem 0.6rem" }}>
                       Review →
                     </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ── RECOVERY QUEUE: TOP OPPORTUNITIES ── */}
-      <div className="card" style={{ padding: "1.125rem", marginBottom: "1.25rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.875rem" }}>
-          <div>
-            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Primary Operating Surface
-            </div>
-            <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>
-              Recovery Queue — Top Opportunities
-            </div>
-          </div>
-          <Link href="/recovery" style={{ fontSize: "0.75rem", color: "var(--accent)", fontWeight: 600 }}>
-            View All Cases →
-          </Link>
-        </div>
-
-        {topOpportunities.length === 0 ? (
-          <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.8125rem" }}>
-            No active recovery opportunities
-          </div>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
-            <thead>
-              <tr style={{ background: "var(--bg-primary)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                <th style={{ padding: "0.625rem 0.625rem", color: "var(--text-muted)", fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 600 }}>#</th>
-                <th style={{ padding: "0.625rem 0.625rem", color: "var(--text-muted)", fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 600 }}>Customer</th>
-                <th style={{ padding: "0.625rem 0.625rem", color: "var(--text-muted)", fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 600, textAlign: "right" }}>At Risk</th>
-                <th style={{ padding: "0.625rem 0.625rem", color: "var(--text-muted)", fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 600, textAlign: "right" }}>Expected Net</th>
-                <th style={{ padding: "0.625rem 0.625rem", color: "var(--text-muted)", fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 600 }}>Evidence</th>
-                <th style={{ padding: "0.625rem 0.625rem", color: "var(--text-muted)", fontSize: "0.625rem", textTransform: "uppercase", fontWeight: 600 }}>Status</th>
-                <th style={{ padding: "0.625rem 0.625rem" }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {topOpportunities.map((item, idx) => {
-                const causeRaw = item.root_cause || "";
-                let evidence = "Awaiting diagnosis";
-                if (causeRaw.includes("hard") || causeRaw.includes("decline")) evidence = "Hard decline · Stop";
-                else if (causeRaw.includes("fraud")) evidence = "Fraud flag · Blocked";
-                else if (causeRaw.includes("auth") || causeRaw.includes("transient") || causeRaw.includes("timeout")) evidence = "Transient failure · Retry allowed";
-                else if (causeRaw.includes("dispute")) evidence = "Dispute · Policy restricted";
-                else if (causeRaw.includes("opt")) evidence = "Opt-out · Blocked";
-                else if (causeRaw) evidence = causeRaw.replace(/_/g, " ");
-
-                return (
-                  <tr key={item.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "0.625rem 0.625rem", fontWeight: 700, color: "var(--text-muted)", fontFamily: "monospace", fontSize: "0.75rem" }}>
-                      {idx + 1}
-                    </td>
-                    <td style={{ padding: "0.625rem 0.625rem" }}>
-                      <div style={{ fontWeight: 600 }}>{getCustomerDisplayName(item.customer_id, (item as any).customer_name)}</div>
-                      <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", fontFamily: "monospace" }}>{item.customer_id}</div>
-                    </td>
-                    <td style={{ padding: "0.625rem 0.625rem", fontFamily: "monospace", fontWeight: 700, textAlign: "right" }}>
-                      {fmt(item.amount_minor)}
-                    </td>
-                    <td style={{ padding: "0.625rem 0.625rem", fontFamily: "monospace", textAlign: "right", color: item.expected_recovery_value ? "#10b981" : "var(--text-muted)", fontWeight: 700 }}>
-                      {item.expected_recovery_value ? fmt(item.expected_recovery_value) : "—"}
-                    </td>
-                    <td style={{ padding: "0.625rem 0.625rem", color: "var(--text-secondary)", fontSize: "0.75rem", maxWidth: 200 }}>
-                      {evidence}
-                    </td>
-                    <td style={{ padding: "0.625rem 0.625rem" }}>
-                      <StatusBadge status={item.status} />
-                    </td>
-                    <td style={{ padding: "0.625rem 0.625rem" }}>
-                      <Link href={`/recovery/${item.id}`} className="btn-secondary" style={{ fontSize: "0.6875rem", padding: "0.3rem 0.6rem" }}>
-                        Case →
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* ── BOTTOM ROW: RECENT VERIFIED + SYSTEM METRICS ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-
-        {/* Recent Verified Recoveries */}
-        <div className="card" style={{ padding: "1.125rem" }}>
-          <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-            Recent Verified Recoveries <DataBadge type="verified" />
-          </div>
-          {recentVerified.length === 0 ? (
-            <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "1rem 0" }}>
-              No verified recoveries yet
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-              {recentVerified.map(item => (
-                <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid var(--border)" }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: "0.8125rem" }}>{getCustomerDisplayName(item.customer_id, (item as any).customer_name)}</div>
-                    <div style={{ fontSize: "0.625rem", color: "var(--text-muted)" }}>{item.root_cause?.replace(/_/g, " ") || "—"}</div>
-                  </div>
-                  <div style={{ fontFamily: "monospace", fontWeight: 700, color: "#10b981", fontSize: "0.875rem" }}>
-                    {fmt(item.amount_minor)}
                   </div>
                 </div>
               ))}
@@ -467,34 +500,129 @@ export default function OperationsDashboard() {
           )}
         </div>
 
-        {/* Agent Activity & Policy Summary */}
-        <div className="card" style={{ padding: "1.125rem" }}>
-          <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-            Agent Activity Summary
+        {/* Live Recovery Activity */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.875rem" }}>
+            <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Live Recovery Activity
+            </div>
+            <Link href="/activity" style={{ fontSize: "0.75rem", color: "var(--accent)", fontWeight: 600 }}>
+              View all activity →
+            </Link>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-            {[
-              { label: "Analyzed",    value: summary.total_items,     color: "var(--text-primary)" },
-              { label: "Recovered",   value: summary.recovered_cases,  color: "#10b981" },
-              { label: "Escalated",   value: summary.escalated_cases,  color: "#f59e0b" },
-              { label: "Stopped",     value: summary.stopped_cases,    color: "var(--text-muted)" },
-              { label: "Policy Allowed", value: summary.policy_allowed ?? "—", color: "#10b981" },
-              { label: "Policy Denied",  value: summary.policy_denied  ?? "—", color: "#ef4444" },
-            ].map(m => (
-              <div key={m.label} style={{ background: "var(--bg-primary)", borderRadius: 6, border: "1px solid var(--border)", padding: "0.625rem" }}>
-                <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>{m.label}</div>
-                <div style={{ fontSize: "1.125rem", fontWeight: 700, fontFamily: "monospace", color: m.color, marginTop: 2 }}>{m.value ?? "—"}</div>
-              </div>
-            ))}
+          {activity.length === 0 ? (
+            <div style={{ color: "var(--text-muted)", fontSize: "0.8125rem", padding: "1rem 0" }}>
+              No recent activity
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem", maxHeight: 320, overflowY: "auto" }}>
+              {activity.map(evt => (
+                <Link key={evt.event_id} href={`/recovery/${evt.opportunity_id}`} style={{ textDecoration: "none" }}>
+                  <div style={{ display: "flex", gap: "0.625rem", padding: "0.5rem 0", borderBottom: "1px solid var(--border)" }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: getActivityColor(evt.event_action), flexShrink: 0, marginTop: 5 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-primary)", fontWeight: 500 }}>
+                        {evt.event_label}
+                      </div>
+                      <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", marginTop: 1 }}>
+                        {evt.opportunity_id.slice(0, 12)} · {fmt(evt.amount_at_risk_minor)}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <DecisionBadge decision={evt.decision as any} compact />
+                      <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", flexShrink: 0 }}>
+                        {fmtDate(evt.timestamp)}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── TRUST STRIP ── */}
+      <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.5rem", display: "flex", gap: "1.5rem", flexWrap: "wrap", alignItems: "center", justifyContent: "space-around" }}>
+        <TrustItem icon="✓" label="Settlement verified" sublabel="Money counted only after evidence" color="#10b981" />
+        <TrustItem icon="🛡" label="Policy constrained" sublabel="AI cannot bypass safety rules" color="#6366f1" />
+        <TrustItem icon="⟳" label="Duplicate-safe" sublabel="Idempotency prevents double action" color="#3b82f6" />
+        <TrustItem icon="◉" label="Auditable" sublabel="Decisions produce traceable records" color="#f59e0b" />
+      </div>
+
+      {/* ── ATTRIBUTION SUMMARY ── */}
+      {attribution && attribution.total_recovered_minor > 0 && (
+        <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem", borderLeft: "3px solid #6366f1" }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
+            Recovery Attribution
           </div>
-          <div style={{ marginTop: "0.875rem", paddingTop: "0.875rem", borderTop: "1px solid var(--border)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.6875rem", color: "var(--text-muted)" }}>
-              <Link href="/strategy-analytics" style={{ color: "var(--accent)" }}>Strategy Analytics →</Link>
-              <Link href="/batch-recovery" style={{ color: "var(--accent)" }}>Evaluation Report →</Link>
-              <Link href="/allocation" style={{ color: "var(--accent)", fontWeight: 700 }}>Recovery Capital Allocation →</Link>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
+            <div>
+              <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase" }}>Total Verified</div>
+              <div className="font-mono" style={{ fontSize: "1rem", fontWeight: 700, color: "#10b981" }}>{fmt(attribution.total_recovered_minor)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase" }}>Agent-Attributed</div>
+              <div className="font-mono" style={{ fontSize: "1rem", fontWeight: 700, color: "#3b82f6" }}>{fmt(attribution.agent_attributed_minor)}</div>
+              <div style={{ fontSize: "0.625rem", color: "var(--text-muted)" }}>{attribution.direct_agent_pct}%</div>
+            </div>
+            <div>
+              <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase" }}>Agent-Assisted</div>
+              <div className="font-mono" style={{ fontSize: "1rem", fontWeight: 700, color: "#6366f1" }}>{fmt(attribution.agent_assisted_minor)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase" }}>Organic</div>
+              <div className="font-mono" style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-secondary)" }}>{fmt(attribution.organic_recovered_minor)}</div>
+              <div style={{ fontSize: "0.625rem", color: "var(--text-muted)" }}>{attribution.organic_pct}%</div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── QUICK LINKS ── */}
+      <div style={{ display: "flex", justifyContent: "center", gap: "1.5rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+        <Link href="/strategy-analytics" style={{ color: "var(--accent)" }}>Strategy Analytics →</Link>
+        <Link href="/batch-recovery" style={{ color: "var(--accent)" }}>Batch Results →</Link>
+        <Link href="/allocation" style={{ color: "var(--accent)" }}>Capital Allocation →</Link>
+        <Link href="/proof-lab" style={{ color: "var(--accent)" }}>Proof Lab →</Link>
+      </div>
+    </div>
+  );
+}
+
+function FunnelStage({ label, value, color, sublabel }: { label: string; value: number; color: string; sublabel?: string }) {
+  return (
+    <div style={{ padding: "0.75rem 1rem", borderRadius: 6, background: `${color}08`, border: `1px solid ${color}25` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-primary)" }}>{label}</span>
+        <span className="font-mono" style={{ fontSize: "1rem", fontWeight: 700, color }}>{fmt(value)}</span>
+      </div>
+      {sublabel && <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", marginTop: 2 }}>{sublabel}</div>}
+    </div>
+  );
+}
+
+function FunnelArrow() {
+  return (
+    <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "0.75rem", lineHeight: 1 }}>↓</div>
+  );
+}
+
+function getActivityColor(action: string): string {
+  if (action.includes("verified") || action.includes("success") || action.includes("recovered")) return "#10b981";
+  if (action.includes("stopped") || action.includes("block") || action.includes("denied")) return "#ef4444";
+  if (action.includes("escalat")) return "#f59e0b";
+  if (action.includes("execut") || action.includes("requested")) return "#3b82f6";
+  return "#64748b";
+}
+
+function TrustItem({ icon, label, sublabel, color }: { icon: string; label: string; sublabel: string; color: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 140 }}>
+      <span style={{ color, fontSize: "1rem" }}>{icon}</span>
+      <div>
+        <div style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-primary)" }}>{label}</div>
+        <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)" }}>{sublabel}</div>
       </div>
     </div>
   );

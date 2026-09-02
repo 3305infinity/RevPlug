@@ -229,6 +229,7 @@ class OpportunityDetector:
                     "reason": reason,
                     "last_event_at": now.isoformat(),
                     "attempt_count": attempt_count + 1,
+                    "systemic_suppress": policy_state == "SUPPRESSED_SYSTEMIC",
                 },
             )
             items_repo.save(updated_item)
@@ -261,6 +262,7 @@ class OpportunityDetector:
                 "last_event_at": now.isoformat(),
                 "attempt_count": 1,
                 "is_synthetic": False,
+                "systemic_suppress": policy_state == "SUPPRESSED_SYSTEMIC",
             },
         )
         items_repo.save(item)

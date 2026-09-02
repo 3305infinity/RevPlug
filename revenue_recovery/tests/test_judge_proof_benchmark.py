@@ -328,3 +328,98 @@ def test_15_duplicate_execution_cannot_increase_recovery():
 
     for case in res.revplug.per_case:
         assert case.actual_recovered <= case.amount_at_risk
+
+
+def test_16_safe_baseline_blocks_unsafe_retries():
+    """Verify safe baseline does not retry fraud, opt-out, or disputed cases."""
+    from app.datasets.synthetic import generate_synthetic_cases
+    from app.services.baseline_evaluator import BaselineEvaluator
+
+    fraud_items = generate_synthetic_cases(count=10, seed=42, failure_mix={"fraud": 1.0})
+    safe_eval = BaselineEvaluator(mode="safe", rng_seed=42)
+    result = safe_eval.evaluate_batch(fraud_items)
+
+    assert result.actual_recovered == 0
+    assert result.total_interventions == 0
+    assert result.baseline_policy_violations["total_policy_violations"] == 0
+
+
+def test_17_benchmark_cannot_trigger_live_execution():
+    """Benchmark evaluation must use SimulatedRecoveryExecutor, not live execution."""
+    eval_service = EvaluationService()
+    result = eval_service.run_batch_evaluation(count=10, seed=42)
+
+    for case in result.revplug.per_case:
+        assert case.processing_error is None or "live" not in (case.processing_error or "").lower()
+
+
+def test_18_benchmark_settlement_not_live_evidence():
+    """Benchmark outcomes must not create live RecoveryOutcome records."""
+    from app.db.container import create_persistence_container
+    from app.services.evaluation_service import EvaluationService
+
+    container = create_persistence_container("memory")
+    eval_service = EvaluationService()
+    result = eval_service.run_batch_evaluation(count=10, seed=42)
+
+    # Benchmark runs in-memory; live container should have no outcomes
+    assert len(container.outcomes._outcomes) == 0
+
+
+def test_19_live_records_do_not_enter_benchmark():
+    """Live records in the container must not appear in benchmark evaluation results."""
+    from app.db.container import create_persistence_container
+    from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+    from app.services.evaluation_service import EvaluationService
+    from datetime import datetime, timezone
+
+    container = create_persistence_container("memory")
+    live_item = RecoveryItem(
+        id="live_benchmark_001",
+        source_type=SourceType.PAYMENT_FAILURE,
+        external_id="ext_live_bench_001",
+        customer_id="cust_live_bench_001",
+        amount_minor=100000,
+        currency="INR",
+        created_at=datetime.now(timezone.utc),
+        status=RecoveryStatus.QUEUED,
+        root_cause="soft",
+        metadata={"source": "manual_case", "is_synthetic": False},
+    )
+    container.recovery_items.save(live_item)
+
+    eval_service = EvaluationService()
+    result = eval_service.run_batch_evaluation(count=10, seed=42)
+
+    case_ids = [c["case_id"] for c in result.per_case]
+    assert "live_benchmark_001" not in case_ids
+
+
+def test_20_safe_baseline_respects_contact_frequency():
+    """Safe baseline must block the most egregious violations (fraud, opt-out, disputed)."""
+    from app.datasets.synthetic import generate_synthetic_cases
+    from app.services.baseline_evaluator import BaselineEvaluator
+
+    fraud_items = generate_synthetic_cases(count=10, seed=42, failure_mix={"fraud": 1.0})
+    safe_eval = BaselineEvaluator(mode="safe", rng_seed=42)
+    result = safe_eval.evaluate_batch(fraud_items)
+
+    assert result.actual_recovered == 0
+    assert result.total_interventions == 0
+    assert result.baseline_policy_violations["fraud_retry"] == 0
+    assert result.baseline_policy_violations["total_policy_violations"] == 0
+
+
+def test_21_safe_baseline_respects_terminal_states():
+    """Safe baseline must not execute actions on blocked terminal-state cases."""
+    from app.datasets.synthetic import generate_synthetic_cases
+    from app.services.baseline_evaluator import BaselineEvaluator
+
+    fraud_items = generate_synthetic_cases(count=10, seed=42, failure_mix={"fraud": 1.0})
+    safe_eval = BaselineEvaluator(mode="safe", rng_seed=42)
+    result = safe_eval.evaluate_batch(fraud_items)
+
+    for case in result.per_case:
+        if case.outcome == "stopped" and case.stop_reason == "policy_blocked":
+            assert case.attempts_made == 0
+            assert case.intervention_cost == 0

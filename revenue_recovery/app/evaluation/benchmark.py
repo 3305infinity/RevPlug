@@ -40,6 +40,8 @@ class SeedEvaluationSummary:
     revplug_cost: int
     revplug_violations: int
     revplug_win_vs_safe: bool
+    revplug_win_vs_naive: bool
+    tie_vs_safe: bool
     decision_quality_score: float
 
 
@@ -49,6 +51,9 @@ class MultiSeedAggregateReport:
     seeds: list[int]
     total_seeds: int
     revplug_wins_vs_safe: int
+    safe_wins_vs_revplug: int
+    naive_wins_vs_revplug: int
+    ties_vs_safe: int
     revplug_win_rate_pct: float
     mean_amount_at_risk: float
     # Baseline A (Naive)
@@ -72,9 +77,12 @@ class MultiSeedAggregateReport:
     # Lift & Confidence Interval
     gross_lift_pct: float
     net_lift_pct: float
+    net_lift_vs_naive_pct: float
     net_diff_mean: float
     confidence_interval_95_lower: float
     confidence_interval_95_upper: float
+    best_seed: int | None
+    worst_seed: int | None
     per_seed_summaries: list[SeedEvaluationSummary] = field(default_factory=list)
 
 
@@ -139,7 +147,10 @@ def run_benchmark_suite(
 
         safe_net = safe_bl_res.actual_recovered - safe_bl_res.intervention_cost
         revplug_net = res.revplug.net_recovered
+        naive_net = res.baseline.actual_recovered - res.baseline.intervention_cost
         win_vs_safe = revplug_net > safe_net
+        win_vs_naive = revplug_net > naive_net
+        tie_vs_safe = revplug_net == safe_net
         paired_net_diffs.append(float(revplug_net - safe_net))
 
         # Calculate Counterfactual Decision Quality Metric
@@ -169,7 +180,7 @@ def run_benchmark_suite(
             cases=len(items),
             amount_at_risk=res.revplug.total_amount_at_risk,
             baseline_naive_gross=res.baseline.actual_recovered,
-            baseline_naive_net=res.baseline.actual_recovered - res.baseline.intervention_cost,
+            baseline_naive_net=naive_net,
             baseline_naive_violations=res.baseline.baseline_policy_violations.get("total_policy_violations", 0),
             baseline_safe_gross=safe_bl_res.actual_recovered,
             baseline_safe_net=safe_net,
@@ -179,6 +190,8 @@ def run_benchmark_suite(
             revplug_cost=res.revplug.intervention_cost,
             revplug_violations=res.revplug.safety_violations.get("total_safety_violations", 0),
             revplug_win_vs_safe=win_vs_safe,
+            revplug_win_vs_naive=win_vs_naive,
+            tie_vs_safe=tie_vs_safe,
             decision_quality_score=dq_score,
         )
         summaries.append(summary)
@@ -186,6 +199,9 @@ def run_benchmark_suite(
     # Aggregations
     total_seeds = len(summaries)
     wins = sum(1 for s in summaries if s.revplug_win_vs_safe)
+    safe_wins = sum(1 for s in summaries if s.baseline_safe_net > s.revplug_net)
+    naive_wins = sum(1 for s in summaries if s.baseline_naive_net > s.revplug_net)
+    ties = sum(1 for s in summaries if s.tie_vs_safe)
     win_rate = (wins / total_seeds) * 100.0
 
     mean_aar = calculate_mean([s.amount_at_risk for s in summaries])
@@ -212,14 +228,21 @@ def run_benchmark_suite(
 
     gross_lift = ((rev_gross_mean - safe_gross_mean) / max(1, safe_gross_mean)) * 100.0
     net_lift = ((rev_net_mean - safe_net_mean) / max(1, safe_net_mean)) * 100.0
+    net_lift_vs_naive = ((rev_net_mean - naive_net_mean) / max(1, naive_net_mean)) * 100.0
 
     diff_mean, ci_lower, ci_upper = calculate_paired_95_confidence_interval(paired_net_diffs)
+
+    best_seed = max(summaries, key=lambda s: s.revplug_net).seed if summaries else None
+    worst_seed = min(summaries, key=lambda s: s.revplug_net).seed if summaries else None
 
     return MultiSeedAggregateReport(
         cases_per_seed=cases,
         seeds=seeds,
         total_seeds=total_seeds,
         revplug_wins_vs_safe=wins,
+        safe_wins_vs_revplug=safe_wins,
+        naive_wins_vs_revplug=naive_wins,
+        ties_vs_safe=ties,
         revplug_win_rate_pct=win_rate,
         mean_amount_at_risk=mean_aar,
         naive_mean_gross=naive_gross_mean,
@@ -239,9 +262,12 @@ def run_benchmark_suite(
         revplug_mean_decision_quality=rev_dq_mean,
         gross_lift_pct=gross_lift,
         net_lift_pct=net_lift,
+        net_lift_vs_naive_pct=net_lift_vs_naive,
         net_diff_mean=diff_mean,
         confidence_interval_95_lower=ci_lower,
         confidence_interval_95_upper=ci_upper,
+        best_seed=best_seed,
+        worst_seed=worst_seed,
         per_seed_summaries=summaries,
     )
 

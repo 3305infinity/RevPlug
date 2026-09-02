@@ -132,12 +132,13 @@ class RecoveryOSBatchResult:
 
 @dataclass
 class EvaluationComparison:
-    """Head-to-head comparison between RevPlug and Baseline."""
+    """Head-to-head comparison between RevPlug and Baselines."""
 
-    absolute_recovery_difference: int  # RevPlug - Baseline
-    recovery_rate_difference: float    # RevPlug rate - Baseline rate
-    relative_improvement: float | None  # (RevPlug - Baseline) / Baseline (None if baseline=0)
-    revplug_beat_baseline: bool
+    absolute_recovery_difference: int  # RevPlug - Naive Baseline
+    recovery_rate_difference: float    # RevPlug rate - Naive Baseline rate
+    relative_improvement: float | None  # (RevPlug - Naive) / Naive (None if naive=0)
+    revplug_beat_baseline: bool        # RevPlug net > Naive net
+    revplug_beat_safe: bool            # RevPlug net > Safe net
     honest_summary: str               # Human-readable, never manipulated
 
 
@@ -153,7 +154,8 @@ class EvaluationRunResult:
     completed_at: str | None
     dataset_info: dict[str, Any]
     revplug: RecoveryOSBatchResult
-    baseline: Any  # BaselineBatchResult
+    baseline: Any  # BaselineBatchResult (Naive Retry)
+    safe_baseline: Any  # BaselineBatchResult (Safe Fixed Retry)
     comparison: EvaluationComparison
     per_case: list[dict[str, Any]]
     error: str | None = None
@@ -652,11 +654,14 @@ class EvaluationService:
 
         ros_result.per_case = ros_per_case
 
-        # ---- 3. Run Baseline on same items ----
+        # ---- 3. Run Baselines on same items ----
         baseline_evaluator = BaselineEvaluator(rng_seed=seed)
         baseline_result = baseline_evaluator.evaluate_batch(items)
         if baseline_result.cases_failed_processing > 0 and status == "completed":
             status = "partial"
+
+        safe_baseline_evaluator = BaselineEvaluator(rng_seed=seed, mode="safe")
+        safe_baseline_result = safe_baseline_evaluator.evaluate_batch(items)
 
         # ---- 4. Compute comparison ----
         abs_diff = ros_result.actual_recovered - baseline_result.actual_recovered
@@ -667,7 +672,9 @@ class EvaluationService:
         else:
             rel_improvement = None  # Division by zero: baseline recovered nothing
 
+        safe_net = safe_baseline_result.actual_recovered - safe_baseline_result.intervention_cost
         ros_beat = net_diff >= 0
+        ros_beat_safe = ros_result.net_recovered > safe_net
 
         # Honest summary — never manipulate
         if ros_beat:
@@ -687,15 +694,18 @@ class EvaluationService:
             recovery_rate_difference=rate_diff,
             relative_improvement=rel_improvement,
             revplug_beat_baseline=ros_beat,
+            revplug_beat_safe=ros_beat_safe,
             honest_summary=honest_summary,
         )
 
         # ---- 5. Build per-case combined list ----
         baseline_by_case = {r.case_id: r for r in baseline_result.per_case}
+        safe_baseline_by_case = {r.case_id: r for r in safe_baseline_result.per_case}
         per_case_combined: list[dict[str, Any]] = []
 
         for ros_case in ros_per_case:
             bl_case = baseline_by_case.get(ros_case.case_id)
+            safe_bl_case = safe_baseline_by_case.get(ros_case.case_id)
             per_case_combined.append({
                 "case_id": ros_case.case_id,
                 "case_map_id": ros_case.case_id,  # stable mapping
@@ -729,7 +739,17 @@ class EvaluationService:
                     "unnecessary_intervention": bl_case.unnecessary_intervention if bl_case else False,
                     "stop_reason": bl_case.stop_reason if bl_case else None,
                 } if bl_case else None,
-            })
+                "safe_baseline": {
+                    "proposed_action": "retry_payment" if safe_bl_case else None,
+                     "outcome": safe_bl_case.outcome if safe_bl_case else "processing_error",
+                     "actual_recovered": safe_bl_case.actual_recovered if safe_bl_case else 0,
+                     "intervention_cost": safe_bl_case.intervention_cost if safe_bl_case else 0,
+                     "net_recovered": (safe_bl_case.actual_recovered - safe_bl_case.intervention_cost) if safe_bl_case else 0,
+                     "attempts_made": safe_bl_case.attempts_made if safe_bl_case else 0,
+                     "unnecessary_intervention": safe_bl_case.unnecessary_intervention if safe_bl_case else False,
+                     "stop_reason": safe_bl_case.stop_reason if safe_bl_case else None,
+                 } if safe_bl_case else None,
+             })
 
         completed_at = datetime.now(timezone.utc).isoformat()
 
@@ -743,6 +763,7 @@ class EvaluationService:
             dataset_info=dataset_info,
             revplug=ros_result,
             baseline=baseline_result,
+            safe_baseline=safe_baseline_result,
             comparison=comparison,
             per_case=per_case_combined,
             error=error,
@@ -810,12 +831,24 @@ class EvaluationService:
         }
 
         comp = result.comparison
+        safe_net = (result.safe_baseline.actual_recovered - result.safe_baseline.intervention_cost) if result.safe_baseline else 0
+        naive_net = (result.baseline.actual_recovered - result.baseline.intervention_cost) if result.baseline else 0
+        revplug_net = result.revplug.net_recovered
+        safe_lift = ((revplug_net - safe_net) / max(1, safe_net)) * 100.0 if safe_net > 0 else None
+        naive_lift = ((revplug_net - naive_net) / max(1, naive_net)) * 100.0 if naive_net > 0 else None
+
         comp_dict = {
             "absolute_recovery_difference": comp.absolute_recovery_difference,
             "recovery_rate_difference": round(comp.recovery_rate_difference, 6),
             "relative_improvement": round(comp.relative_improvement, 4) if comp.relative_improvement is not None else None,
             "revplug_beat_baseline": comp.revplug_beat_baseline,
+            "revplug_beat_safe": comp.revplug_beat_safe,
             "honest_summary": comp.honest_summary,
+            "safe_baseline_net": safe_net,
+            "naive_baseline_net": naive_net,
+            "revplug_net": revplug_net,
+            "safe_lift_pct": round(safe_lift, 4) if safe_lift is not None else None,
+            "naive_lift_pct": round(naive_lift, 4) if naive_lift is not None else None,
         }
 
         return {
@@ -829,6 +862,7 @@ class EvaluationService:
             "revplug": ros_dict,
             "recoveros": ros_dict,
             "baseline": bl_dict,
+            "safe_baseline": bl_evaluator.to_dict(result.safe_baseline) if result.safe_baseline else {},
             "comparison": comp_dict,
             "per_case": result.per_case,
             "error": result.error,

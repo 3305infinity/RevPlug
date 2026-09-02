@@ -973,7 +973,18 @@ def _outcome_to_dict(outcome) -> dict[str, Any] | None:
 
 def _promise_to_dict(promise) -> dict[str, Any]:
     if isinstance(promise, dict):
-        return promise
+        result = dict(promise)
+        result.setdefault("id", result.get("id"))
+        result.setdefault("recovery_item_id", result.get("recovery_item_id"))
+        result.setdefault("customer_id", result.get("customer_id"))
+        result.setdefault("promised_amount_minor", result.get("promised_amount_minor"))
+        result.setdefault("status", result.get("status"))
+        result.setdefault("created_at", result.get("created_at"))
+        result.setdefault("fulfilled_at", result.get("fulfilled_at"))
+        result.setdefault("expired_at", result.get("expired_at"))
+        result.setdefault("metadata", result.get("metadata", {}))
+        return result
+    meta = getattr(promise, "metadata", {}) or {}
     return {
         "id": promise.id,
         "recovery_item_id": promise.recovery_item_id,
@@ -983,7 +994,13 @@ def _promise_to_dict(promise) -> dict[str, Any]:
         "status": promise.status,
         "created_at": promise.created_at.isoformat() if promise.created_at else None,
         "fulfilled_at": promise.fulfilled_at.isoformat() if promise.fulfilled_at else None,
-        "metadata": promise.metadata,
+        "expired_at": promise.expired_at.isoformat() if promise.expired_at else None,
+        "verified_recovered_minor": meta.get("verified_recovered_minor"),
+        "settled_amount_minor": meta.get("settled_amount_minor"),
+        "break_reason": meta.get("break_reason"),
+        "source": meta.get("source"),
+        "channel": meta.get("channel"),
+        "metadata": meta,
     }
 
 

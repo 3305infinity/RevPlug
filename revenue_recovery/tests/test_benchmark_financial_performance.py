@@ -201,3 +201,101 @@ def test_15_recovered_case_terminates():
         assert c.actual_recovered == c.amount_at_risk
         # Actions stop immediately upon recovery
         assert len(c.metadata.get("actions_executed", [])) <= 3
+
+
+def test_16_expected_recovery_cannot_become_verified():
+    """Expected recovery must not be counted as actual verified recovery."""
+    eval_service = EvaluationService()
+    result = eval_service.run_batch_evaluation(count=20, seed=42)
+
+    for case in result.revplug.per_case:
+        if case.outcome == "recovered":
+            assert case.actual_recovered > 0
+            assert case.actual_recovered <= case.amount_at_risk
+        else:
+            assert case.actual_recovered == 0
+
+
+def test_17_gross_recovery_not_equated_to_net():
+    """Net recovery must equal actual_recovered minus intervention_cost."""
+    eval_service = EvaluationService()
+    result = eval_service.run_batch_evaluation(count=20, seed=42)
+
+    expected_net = result.revplug.actual_recovered - result.revplug.intervention_cost
+    assert result.revplug.net_recovered == expected_net
+
+
+def test_18_duplicate_settlement_cannot_double_count():
+    """A single case cannot recover more than its amount_at_risk."""
+    eval_service = EvaluationService()
+    result = eval_service.run_batch_evaluation(count=30, seed=42)
+
+    for case in result.revplug.per_case:
+        assert case.actual_recovered <= case.amount_at_risk, (
+            f"Case {case.case_id} recovered {case.actual_recovered} > amount_at_risk {case.amount_at_risk}"
+        )
+
+
+def test_19_recovery_rate_denominator_stable():
+    """Recovery rate denominator must be total amount at risk, not just attempted cases."""
+    eval_service = EvaluationService()
+    result = eval_service.run_batch_evaluation(count=20, seed=42)
+
+    expected_rate = result.revplug.actual_recovered / max(1, result.revplug.total_amount_at_risk)
+    assert abs(result.revplug.recovery_rate - expected_rate) < 1e-6
+
+
+def test_20_per_seed_aggregation_matches_sum():
+    """Multi-seed aggregate values must equal the mean of per-seed values."""
+    from app.evaluation.benchmark import run_benchmark_suite
+    report = run_benchmark_suite(cases=20, seeds=[42, 43])
+
+    seed_nets = [s.revplug_net for s in report.per_seed_summaries]
+    assert abs(report.revplug_mean_net - sum(seed_nets) / len(seed_nets)) < 1e-6
+
+    seed_gross = [s.revplug_gross for s in report.per_seed_summaries]
+    assert abs(report.revplug_mean_gross - sum(seed_gross) / len(seed_gross)) < 1e-6
+
+
+def test_21_uplift_uses_correct_baseline():
+    """Uplift percentage must use safe baseline net recovery as denominator."""
+    from app.evaluation.benchmark import run_benchmark_suite
+    report = run_benchmark_suite(cases=20, seeds=[42])
+
+    if report.safe_mean_net > 0:
+        expected_lift = ((report.revplug_mean_net - report.safe_mean_net) / report.safe_mean_net) * 100.0
+        assert abs(report.net_lift_pct - expected_lift) < 1e-6
+
+
+def test_22_zero_risk_cases_handled():
+    """Cases with zero amount at risk must not crash or produce NaN."""
+    from app.datasets.synthetic import generate_evaluation_dataset
+    eval_service = EvaluationService()
+    result = eval_service.run_batch_evaluation(count=10, seed=42)
+
+    for case in result.revplug.per_case:
+        if case.amount_at_risk == 0:
+            assert case.actual_recovered == 0
+            assert case.net_recovered == -case.intervention_cost
+
+
+def test_23_missing_settlement_not_treated_as_recovered():
+    """Cases without settlement evidence must not show recovered."""
+    eval_service = EvaluationService()
+    result = eval_service.run_batch_evaluation(count=20, seed=42)
+
+    for case in result.revplug.per_case:
+        if case.outcome != "recovered":
+            assert case.actual_recovered == 0
+
+
+def test_24_benchmark_results_reproducible_across_runs():
+    """Running the same benchmark twice must produce identical results."""
+    from app.evaluation.benchmark import run_benchmark_suite
+    report1 = run_benchmark_suite(cases=20, seeds=[42, 43])
+    report2 = run_benchmark_suite(cases=20, seeds=[42, 43])
+
+    assert report1.revplug_mean_net == report2.revplug_mean_net
+    assert report1.safe_mean_net == report2.safe_mean_net
+    assert report1.net_lift_pct == report2.net_lift_pct
+    assert report1.per_seed_summaries[0].revplug_net == report2.per_seed_summaries[0].revplug_net

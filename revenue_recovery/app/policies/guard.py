@@ -15,13 +15,14 @@ class RecoveryGuardDecision:
 
     Fields:
         allowed: Whether the proposed action is permitted.
-        decision_type: Human-readable classification: ALLOWED, STOP, DENY, ESCALATE.
+        decision_type: Human-readable classification: ALLOWED, STOP, DENY, ESCALATE, WAIT.
         reason_code: Stable machine-readable reason (e.g. "retry_budget_exhausted").
         reason: Human-readable explanation.
         rule: The specific rule that produced this decision.
         next_state: The RecoveryStatus to transition to if this decision is applied.
         stopping_decision: The underlying StoppingDecision, if stopping rules matched.
         policy_decision: The underlying PolicyDecision, if policy was evaluated.
+        scheduled_for: datetime to wait until if decision_type is WAIT.
     """
 
     allowed: bool
@@ -32,6 +33,7 @@ class RecoveryGuardDecision:
     next_state: RecoveryStatus
     stopping_decision: object | None = None
     policy_decision: object | None = None
+    scheduled_for: datetime | None = None
 
 
 class RecoveryGuard(Protocol):
@@ -76,6 +78,7 @@ class DefaultRecoveryGuard:
         promises=None,
         now=None,
     ) -> RecoveryGuardDecision:
+        from datetime import datetime, timezone
         # Stage 1: stopping rules (highest priority, cannot be overridden)
         stopping = self._stopping_rules.evaluate(
             item,
@@ -84,6 +87,20 @@ class DefaultRecoveryGuard:
             promises=promises,
             now=now,
         )
+
+        # Handle WAIT from stopping rules (e.g. active promise)
+        if stopping.should_wait:
+            return RecoveryGuardDecision(
+                allowed=True,
+                decision_type="WAIT",
+                reason_code=stopping.reason_code,
+                reason=stopping.reason,
+                rule=stopping.rule,
+                next_state=item.status,
+                stopping_decision=stopping,
+                scheduled_for=stopping.wait_until,
+            )
+
         if stopping.should_stop:
             return RecoveryGuardDecision(
                 allowed=False,

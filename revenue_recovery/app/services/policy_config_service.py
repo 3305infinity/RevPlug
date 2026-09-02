@@ -23,6 +23,12 @@ class PolicyConfig:
     escalation_thresholds_minor: int = 5000000  # ₹50,000
     failure_categories_blocked: list[str] = field(default_factory=lambda: ["fraud", "hard_decline", "account_closed"])
     systemic_suppression_threshold_pct: float = 25.0
+    # Incident detection thresholds
+    incident_min_affected_opportunities: int = 3
+    incident_min_distinct_customers: int = 2
+    incident_min_revenue_at_risk_minor: int = 100000  # ₹1,000
+    incident_concentration_multiplier: float = 2.0
+    incident_detection_window_minutes: int = 60
     updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_by: str = "operator_admin"
 
@@ -39,6 +45,11 @@ class PolicyConfig:
             "escalation_thresholds_minor": self.escalation_thresholds_minor,
             "failure_categories_blocked": self.failure_categories_blocked,
             "systemic_suppression_threshold_pct": self.systemic_suppression_threshold_pct,
+            "incident_min_affected_opportunities": self.incident_min_affected_opportunities,
+            "incident_min_distinct_customers": self.incident_min_distinct_customers,
+            "incident_min_revenue_at_risk_minor": self.incident_min_revenue_at_risk_minor,
+            "incident_concentration_multiplier": self.incident_concentration_multiplier,
+            "incident_detection_window_minutes": self.incident_detection_window_minutes,
             "updated_at": self.updated_at,
             "updated_by": self.updated_by,
             "preview_summary": {
@@ -48,6 +59,7 @@ class PolicyConfig:
                 "hard_decline": "BLOCKED" if "hard_decline" in self.failure_categories_blocked else "ALLOWED",
                 "fraud_recovery": "BLOCKED" if "fraud" in self.failure_categories_blocked else "ALLOWED",
                 "dispute_collection": "HUMAN ONLY",
+                "incident_detection": f"{self.incident_min_affected_opportunities}+ ops, {self.incident_concentration_multiplier}x concentration",
             },
         }
 
@@ -90,6 +102,11 @@ class PolicyConfigStore:
             escalation_thresholds_minor=updates.get("escalation_thresholds_minor", self._current_config.escalation_thresholds_minor),
             failure_categories_blocked=updates.get("failure_categories_blocked", self._current_config.failure_categories_blocked),
             systemic_suppression_threshold_pct=updates.get("systemic_suppression_threshold_pct", self._current_config.systemic_suppression_threshold_pct),
+            incident_min_affected_opportunities=updates.get("incident_min_affected_opportunities", self._current_config.incident_min_affected_opportunities),
+            incident_min_distinct_customers=updates.get("incident_min_distinct_customers", self._current_config.incident_min_distinct_customers),
+            incident_min_revenue_at_risk_minor=updates.get("incident_min_revenue_at_risk_minor", self._current_config.incident_min_revenue_at_risk_minor),
+            incident_concentration_multiplier=updates.get("incident_concentration_multiplier", self._current_config.incident_concentration_multiplier),
+            incident_detection_window_minutes=updates.get("incident_detection_window_minutes", self._current_config.incident_detection_window_minutes),
             updated_at=datetime.now(timezone.utc).isoformat(),
             updated_by=updated_by,
         )

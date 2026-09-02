@@ -1,10 +1,10 @@
 {
-  "evaluation_id": "44d2f883-fe5a-47cb-81ba-0b536416abed",
+  "evaluation_id": "ca4b3718-c060-4c28-8703-bf40013ed29d",
   "seed": 42,
   "count": 10,
   "status": "completed",
-  "started_at": "2026-09-02T04:42:05.018043+00:00",
-  "completed_at": "2026-09-02T04:42:05.030742+00:00",
+  "started_at": "2026-09-02T14:53:25.652547+00:00",
+  "completed_at": "2026-09-02T14:53:25.671251+00:00",
   "dataset": {
     "count": 10,
     "seed": 42,
@@ -263,12 +263,45 @@
     },
     "unnecessary_intervention_definition": "action=retry_payment AND outcome!=recovered"
   },
+  "safe_baseline": {
+    "cases_evaluated": 10,
+    "cases_completed": 10,
+    "cases_failed_processing": 0,
+    "total_amount_at_risk": 840150,
+    "expected_recovery": null,
+    "actual_recovered": 175150,
+    "recovery_rate": 0.208475,
+    "recovered_count": 4,
+    "stopped_count": 6,
+    "escalated_count": 0,
+    "total_interventions": 17,
+    "intervention_cost": 8500,
+    "cost_per_recovery": 2125.0,
+    "unnecessary_interventions": 5,
+    "raw_retry_attempts": 17,
+    "raw_retries_that_failed": 13,
+    "baseline_policy_violations": {
+      "hard_decline_retry": 2,
+      "fraud_retry": 0,
+      "do_not_contact_violation": 0,
+      "retry_budget_violation": 0,
+      "promise_contact_violation": 0,
+      "total_policy_violations": 2
+    },
+    "unnecessary_intervention_definition": "action=retry_payment AND outcome!=recovered"
+  },
   "comparison": {
     "absolute_recovery_difference": 99850,
     "recovery_rate_difference": 0.118848,
     "relative_improvement": 0.5701,
     "revplug_beat_baseline": true,
-    "honest_summary": "RevPlug net recovery \u20b91044 higher than baseline (Net \u20b92700 vs \u20b91656)."
+    "revplug_beat_safe": true,
+    "honest_summary": "RevPlug net recovery \u20b91044 higher than baseline (Net \u20b92700 vs \u20b91656).",
+    "safe_baseline_net": 166650,
+    "naive_baseline_net": 165650,
+    "revplug_net": 270000,
+    "safe_lift_pct": 62.0162,
+    "naive_lift_pct": 62.9943
   },
   "per_case": [
     {
@@ -363,6 +396,16 @@
         "processing_error": null
       },
       "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "intervention_cost": 1000,
+        "net_recovered": 49000,
+        "attempts_made": 2,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      },
+      "safe_baseline": {
         "proposed_action": "retry_payment",
         "outcome": "recovered",
         "actual_recovered": 50000,
@@ -474,6 +517,16 @@
         "attempts_made": 2,
         "unnecessary_intervention": true,
         "stop_reason": "max_retries"
+      },
+      "safe_baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
       }
     },
     {
@@ -568,6 +621,16 @@
         "processing_error": null
       },
       "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 150,
+        "intervention_cost": 500,
+        "net_recovered": -350,
+        "attempts_made": 1,
+        "unnecessary_intervention": false,
+        "stop_reason": null
+      },
+      "safe_baseline": {
         "proposed_action": "retry_payment",
         "outcome": "recovered",
         "actual_recovered": 150,
@@ -679,6 +742,16 @@
         "attempts_made": 2,
         "unnecessary_intervention": true,
         "stop_reason": "max_retries"
+      },
+      "safe_baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 0,
+        "net_recovered": 0,
+        "attempts_made": 0,
+        "unnecessary_intervention": false,
+        "stop_reason": "policy_blocked"
       }
     },
     {
@@ -781,6 +854,16 @@
         "attempts_made": 2,
         "unnecessary_intervention": false,
         "stop_reason": null
+      },
+      "safe_baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 25000,
+        "intervention_cost": 1000,
+        "net_recovered": 24000,
+        "attempts_made": 2,
+        "unnecessary_intervention": false,
+        "stop_reason": null
       }
     },
     {
@@ -875,6 +958,16 @@
         "processing_error": null
       },
       "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      },
+      "safe_baseline": {
         "proposed_action": "retry_payment",
         "outcome": "stopped",
         "actual_recovered": 0,
@@ -986,6 +1079,16 @@
         "attempts_made": 2,
         "unnecessary_intervention": true,
         "stop_reason": "max_retries"
+      },
+      "safe_baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
       }
     },
     {
@@ -1080,6 +1183,16 @@
         "processing_error": null
       },
       "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      },
+      "safe_baseline": {
         "proposed_action": "retry_payment",
         "outcome": "stopped",
         "actual_recovered": 0,
@@ -1190,6 +1303,16 @@
         "attempts_made": 2,
         "unnecessary_intervention": false,
         "stop_reason": null
+      },
+      "safe_baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "recovered",
+        "actual_recovered": 100000,
+        "intervention_cost": 1000,
+        "net_recovered": 99000,
+        "attempts_made": 2,
+        "unnecessary_intervention": false,
+        "stop_reason": null
       }
     },
     {
@@ -1284,6 +1407,16 @@
         "processing_error": null
       },
       "baseline": {
+        "proposed_action": "retry_payment",
+        "outcome": "stopped",
+        "actual_recovered": 0,
+        "intervention_cost": 1000,
+        "net_recovered": -1000,
+        "attempts_made": 2,
+        "unnecessary_intervention": true,
+        "stop_reason": "max_retries"
+      },
+      "safe_baseline": {
         "proposed_action": "retry_payment",
         "outcome": "stopped",
         "actual_recovered": 0,

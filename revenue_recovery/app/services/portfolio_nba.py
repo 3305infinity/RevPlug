@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.domain.models import RecoveryItem, RecoveryStatus
+from app.domain.product_decision import resolve_decision
 from app.db.container import PersistenceContainer
 
 
@@ -25,6 +26,8 @@ class OpportunityItem:
     action_label: str
     reason: str
     urgency: str  # HIGH, MEDIUM, LOW
+    decision: str  # RECOVER | WAIT | ESCALATE | STOP
+    reason_code: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -38,6 +41,8 @@ class OpportunityItem:
             "action_label": self.action_label,
             "reason": self.reason,
             "urgency": self.urgency,
+            "decision": self.decision,
+            "reason_code": self.reason_code,
         }
 
 
@@ -69,24 +74,31 @@ class PortfolioNextBestActionEngine:
                 exp_ev = int(amt * 0.72)
                 reason = "authentication failure + high historical link success (72%)"
                 urgency = "HIGH"
+                reason_code = "authentication_required"
             elif "dispute" in root or item.status == RecoveryStatus.ESCALATED:
                 action = "escalate_human"
                 act_label = "Human Review"
                 exp_ev = int(amt * 0.55)
                 reason = "Invoice disputed — automated collection prohibited by Policy Guard"
                 urgency = "HIGH"
+                reason_code = "dispute"
             elif "fraud" in root or "hard" in root:
                 action = "stop_recovery"
                 act_label = "STOP"
                 exp_ev = 0
                 reason = "Hard decline / fraud risk flag — recovery suppressed by Policy Shield"
                 urgency = "LOW"
+                reason_code = "fraud_block" if "fraud" in root else "hard_decline"
             else:
                 action = "wait"
-                act_label = "WAIT until 10:30 AM"
+                act_label = "WAIT"
                 exp_ev = int(amt * 0.68)
                 reason = "Optimal morning retry window (10:00–11:30 AM) aligned with customer salary deposit history"
                 urgency = "MEDIUM"
+                reason_code = "retry_window"
+
+            # Resolve canonical product decision
+            product_decision = resolve_decision(action=action, reason_code=reason_code, reason=reason)
 
             meta = item.metadata if isinstance(item.metadata, dict) else {}
             c_name = meta.get("customer_name") or derive_customer_name(item.customer_id)
@@ -103,10 +115,12 @@ class PortfolioNextBestActionEngine:
                     action_label=act_label,
                     reason=reason,
                     urgency=urgency,
-                )
-            )
+                     decision=product_decision.decision,
+                     reason_code=reason_code,
+                 )
+             )
 
-        # Sort descending by Expected Net Recovery
+         # Sort descending by Expected Net Recovery
         opportunities.sort(key=lambda o: -o.expected_net_recovery_minor)
 
         ranked: list[OpportunityItem] = []
@@ -123,6 +137,8 @@ class PortfolioNextBestActionEngine:
                     action_label=opp.action_label,
                     reason=opp.reason,
                     urgency=opp.urgency,
+                    decision=opp.decision,
+                    reason_code=opp.reason_code,
                 )
             )
 

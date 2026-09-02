@@ -17,6 +17,8 @@ class StoppingDecision:
     reason: str
     next_state: RecoveryStatus
     rule: str
+    should_wait: bool = False
+    wait_until: datetime | None = None
 
 
 class StoppingRules:
@@ -138,16 +140,21 @@ class StoppingRules:
                 rule="invoice_written_off",
             )
 
-        # Rule 2c: active_promise
+        # Rule 2c: active_promise — produces WAIT, not STOP
         promise_repo = promises or (getattr(container, "promises", None) if container is not None else None)
-        if promise_repo is not None and self._has_active_promise(item, promises=promise_repo, now=now):
-            return StoppingDecision(
-                should_stop=True,
-                reason_code="active_promise_pauses_recovery",
-                reason="Active Promise-to-Pay exists; ordinary recovery actions paused",
-                next_state=RecoveryStatus.STOPPED,
-                rule="active_promise_pauses_recovery",
-            )
+        if promise_repo is not None:
+            wait_until = self._get_active_promise_wait_time(item, promises=promise_repo, now=now)
+            if wait_until is not None:
+                wait_dt_str = wait_until.strftime("%d %b %Y, %H:%M") if wait_until else "commitment date"
+                return StoppingDecision(
+                    should_stop=False,
+                    should_wait=True,
+                    wait_until=wait_until,
+                    reason_code="active_promise_wait",
+                    reason=f"Active Promise-to-Pay; next eligible action at {wait_dt_str}",
+                    next_state=item.status,
+                    rule="active_promise_wait",
+                )
 
         # Rule 3: fraud_detected
         if self._is_fraud_detected(item):
@@ -284,6 +291,51 @@ class StoppingRules:
             return False
         status = promise.get("status", "") if isinstance(promise, dict) else getattr(promise, "status", "")
         if status in {PromiseStatus.PROMISED.value, "active", "PROMISED"}:
-            # Ensure it is not expired
             return not self._is_promise_expired(item, promises=promises, now=now)
         return False
+
+    def _get_active_promise_wait_time(
+        self,
+        item: RecoveryItem,
+        *,
+        promises: Any,
+        now: datetime,
+    ) -> datetime | None:
+        """Return the datetime to wait until for an active promise, or None if no active promise."""
+        promise = promises.get_for_item(item.id) if promises is not None else None
+        if promise is None and item.metadata.get("promise_status"):
+            status = item.metadata.get("promise_status", "")
+            due_at = item.metadata.get("promise_date")
+            promise = {"status": status, "due_at": due_at}
+        if promise is None:
+            return None
+        status = promise.get("status", "") if isinstance(promise, dict) else getattr(promise, "status", "")
+        if status not in {PromiseStatus.PROMISED.value, "active", "PROMISED"}:
+            return None
+        if self._is_promise_expired(item, promises=promises, now=now):
+            return None
+        promised_date: date | None = None
+        if isinstance(promise, dict):
+            raw = promise.get("promised_date") or promise.get("due_at")
+        else:
+            raw = getattr(promise, "promised_date", None) or getattr(promise, "due_at", None)
+        if raw is None:
+            return None
+        if isinstance(raw, datetime):
+            promised_date = raw.date()
+        elif isinstance(raw, date):
+            promised_date = raw
+        elif isinstance(raw, str):
+            try:
+                parsed = datetime.fromisoformat(raw)
+                promised_date = parsed.date()
+            except ValueError:
+                try:
+                    promised_date = date.fromisoformat(raw)
+                except ValueError:
+                    return None
+        if promised_date is None:
+            return None
+        from datetime import time as dt_time
+        wait_until = datetime.combine(promised_date, dt_time.min, tzinfo=timezone.utc)
+        return wait_until

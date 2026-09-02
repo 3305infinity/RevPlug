@@ -199,7 +199,7 @@ class RecoveryOrchestrator:
                 break
 
             # Stage 3: Safety check (stopping rules + policy + EV gate)
-            safety_decision, reason_code, rule_name = self._safety_check(current_item, current_context, proposal, score_result, events)
+            safety_decision, reason_code, rule_name, scheduled_for = self._safety_check(current_item, current_context, proposal, score_result, events)
             last_safety_decision = safety_decision
 
             # Build explainability metadata
@@ -236,6 +236,18 @@ class RecoveryOrchestrator:
                 reason=f"Selected '{proposed_act}' via multi-candidate EV optimization (iteration {loop_iteration})",
                 metadata=explainability,
             ))
+
+            if safety_decision == "WAIT":
+                from dataclasses import replace as dc_replace
+                wait_meta = {
+                    **current_item.metadata,
+                    "wait_reason_code": reason_code,
+                    "wait_scheduled_for": scheduled_for.isoformat() if scheduled_for else None,
+                    "decision": "WAIT",
+                    "policy_status": "WAIT",
+                }
+                current_item = dc_replace(current_item, metadata=wait_meta)
+                break
 
             if safety_decision != "ALLOWED":
                 if safety_decision == "STOP":
@@ -543,15 +555,15 @@ class RecoveryOrchestrator:
         proposal: RecoveryProposal | None,
         score_result: Any = None,
         events: list[AuditEvent] = None,
-    ) -> tuple[str, str, str]:
+    ) -> tuple[str, str, str, datetime | None]:
         """Stage 3: Safety check — confidence check → EV gate → stopping rules + policy engine + guard.
 
-        Returns tuple of (decision_type, reason_code, rule_name)
+        Returns tuple of (decision_type, reason_code, rule_name, scheduled_for)
         """
         if events is None:
             events = []
         if proposal is None:
-            return "STOP", "proposal_missing", "guard"
+            return "STOP", "proposal_missing", "guard", None
 
         proposed_action = getattr(proposal.action, "value", str(proposal.action))
 
@@ -569,7 +581,7 @@ class RecoveryOrchestrator:
                     "proposed_action": proposed_action,
                 },
             ))
-            return "ESCALATE", "confidence_below_minimum", "low_confidence"
+            return "ESCALATE", "confidence_below_minimum", "low_confidence", None
 
         if confidence < self._high_confidence:
             events.append(self._audit_log.log(
@@ -611,8 +623,26 @@ class RecoveryOrchestrator:
                     "reason_code": guard_decision.reason_code,
                     "rule": guard_decision.rule,
                     "next_state": guard_decision.next_state.value if hasattr(guard_decision.next_state, "value") else str(guard_decision.next_state),
+                    "scheduled_for": guard_decision.scheduled_for.isoformat() if guard_decision.scheduled_for else None,
                 },
             ))
+
+            if guard_decision.decision_type == "WAIT":
+                scheduled = guard_decision.scheduled_for
+                scheduled_str = scheduled.isoformat() if scheduled else None
+                events.append(self._audit_log.log(
+                    recovery_item_id=item.id,
+                    actor="system",
+                    action="recovery_waiting",
+                    reason=guard_decision.reason,
+                    metadata={
+                        "reason_code": guard_decision.reason_code,
+                        "rule": guard_decision.rule,
+                        "decision_type": "WAIT",
+                        "scheduled_for": scheduled_str,
+                    },
+                ))
+                return "WAIT", guard_decision.reason_code, guard_decision.rule, scheduled
 
             if not guard_decision.allowed:
                 events.append(self._audit_log.log(
@@ -626,7 +656,7 @@ class RecoveryOrchestrator:
                         "decision_type": guard_decision.decision_type,
                     },
                 ))
-                return guard_decision.decision_type, guard_decision.reason_code, guard_decision.rule
+                return guard_decision.decision_type, guard_decision.reason_code, guard_decision.rule, None
 
         # EV Gate enforcement: non-positive EV actions must be stopped to prevent unprofitable execution
         if score_result is not None and proposed_action not in {"stop_recovery", "escalate_human"}:
@@ -646,10 +676,10 @@ class RecoveryOrchestrator:
                         "rule": "ev_gate_enforcement",
                     },
                 ))
-                return "STOP", "ev_gate_enforcement", "ev_gate"
+                return "STOP", "ev_gate_enforcement", "ev_gate", None
 
         if self._guard is not None:
-            return "ALLOWED", "policy_allowed", guard_decision.rule
+            return "ALLOWED", "policy_allowed", guard_decision.rule, None
 
         # Fallback: policy engine only
         if self._policy_engine is not None:
@@ -706,7 +736,7 @@ class RecoveryOrchestrator:
                         "rule": decision.policy_rule,
                     },
                 ))
-                return "DENY", decision.reason_code, decision.policy_rule
+                return "DENY", decision.reason_code, decision.policy_rule, None
 
             if decision.requires_human_approval:
                 events.append(self._audit_log.log(
@@ -716,11 +746,11 @@ class RecoveryOrchestrator:
                     reason="Human approval required before execution",
                     metadata={"action": proposed_action, "policy_rule": decision.policy_rule},
                 ))
-                return "ESCALATE", decision.reason_code, decision.policy_rule
+                return "ESCALATE", decision.reason_code, decision.policy_rule, None
 
-            return "ALLOWED", "policy_allowed", decision.policy_rule
+            return "ALLOWED", "policy_allowed", decision.policy_rule, None
 
-        return "ALLOWED", "policy_allowed", "default"
+        return "ALLOWED", "policy_allowed", "default", None
 
     def _execute(self, item: RecoveryItem, context: RecoveryContext, proposal: RecoveryProposal, events: list[AuditEvent]) -> dict[str, Any] | None:
         """Stage 4: Execute bounded action."""

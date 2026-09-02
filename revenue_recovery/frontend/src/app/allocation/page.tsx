@@ -3,18 +3,10 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { api, DashboardSummary, OpportunityItem, CapitalProtected } from "@/lib/api";
+import DecisionBadge from "@/components/shared/DecisionBadge";
 
 type Opportunity = OpportunityItem;
 type PortfolioSummary = DashboardSummary;
-
-const ACTION_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  send_payment_link: { label: "ACT — Payment Link", color: "#10b981", bg: "rgba(16,185,129,0.08)", icon: "→" },
-  retry_payment: { label: "ACT — Retry Payment", color: "#3b82f6", bg: "rgba(59,130,246,0.08)", icon: "↻" },
-  send_reminder: { label: "ACT — Send Reminder", color: "#f59e0b", bg: "rgba(245,158,11,0.08)", icon: "✉" },
-  escalate_human: { label: "ESCALATE", color: "#6366f1", bg: "rgba(99,102,241,0.08)", icon: "⚑" },
-  stop_recovery: { label: "SUPPRESS / NO_ACTION", color: "#ef4444", bg: "rgba(239,68,68,0.08)", icon: "■" },
-  wait: { label: "WAIT", color: "#64748b", bg: "rgba(100,116,139,0.08)", icon: "◷" },
-};
 
 export default function Allocation() {
   const [loading, setLoading] = useState(true);
@@ -55,15 +47,16 @@ export default function Allocation() {
 
   const actionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    opportunities.forEach((o) => {
-      counts[o.action] = (counts[o.action] || 0) + 1;
-    });
+    for (const opp of opportunities) {
+      const d = opp.decision || "STOP";
+      counts[d] = (counts[d] || 0) + 1;
+    }
     return counts;
   }, [opportunities]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return opportunities;
-    return opportunities.filter((o) => o.action === filter);
+    return opportunities.filter((o) => (o.decision || "STOP") === filter);
   }, [opportunities, filter]);
 
   if (loading) {
@@ -133,21 +126,18 @@ export default function Allocation() {
               background: filter === "all" ? "rgba(99,102,241,0.12)" : "var(--bg-secondary)", color: filter === "all" ? "var(--accent)" : "var(--text-primary)", cursor: "pointer", fontWeight: 600
             }}
           >All ({opportunities.length})</button>
-          {Object.entries(actionCounts).map(([action, count]) => {
-            const meta = ACTION_META[action] || { label: action, color: "var(--text-muted)", bg: "var(--bg-secondary)", icon: "•" };
-            return (
-              <button
-                key={action}
-                onClick={() => setFilter(action)}
-                style={{
-                  fontSize: "0.75rem", padding: "0.35rem 0.75rem", borderRadius: 6,
-                  border: filter === action ? `1px solid ${meta.color}` : "1px solid var(--border)",
-                  background: filter === action ? meta.bg : "var(--bg-secondary)",
-                  color: filter === action ? meta.color : "var(--text-primary)", cursor: "pointer", fontWeight: 600
-                }}
-              >{meta.label} ({count})</button>
-            );
-          })}
+          {Object.entries(actionCounts).map(([decision, count]) => (
+            <button
+              key={decision}
+              onClick={() => setFilter(decision)}
+              style={{
+                fontSize: "0.75rem", padding: "0.35rem 0.75rem", borderRadius: 6,
+                border: filter === decision ? "1px solid currentColor" : "1px solid var(--border)",
+                background: filter === decision ? "var(--bg-secondary)" : "var(--bg-secondary)",
+                color: "var(--text-primary)", cursor: "pointer", fontWeight: 600
+              }}
+            >{decision} ({count})</button>
+          ))}
         </div>
       </div>
 
@@ -163,14 +153,13 @@ export default function Allocation() {
             </div>
           ) : (
             filtered.map((opp) => {
-              const meta = ACTION_META[opp.action] || { label: opp.action, color: "var(--text-muted)", bg: "var(--bg-secondary)", icon: "•" };
               const isExpanded = expandedId === opp.item_id;
               const efficiency = opp.amount_at_risk_minor > 0 ? (opp.expected_net_recovery_minor / opp.amount_at_risk_minor) : 0;
               return (
                 <div
                   key={opp.item_id}
                   style={{
-                    padding: "0.875rem 1rem", borderRadius: 8, background: "var(--bg-secondary)", border: `1px solid ${isExpanded ? meta.color + "60" : "var(--border)"}`,
+                    padding: "0.875rem 1rem", borderRadius: 8, background: "var(--bg-secondary)", border: `1px solid ${isExpanded ? "var(--accent)" : "var(--border)"}`,
                     cursor: "pointer", transition: "border-color 0.15s"
                   }}
                   onClick={() => setExpandedId(isExpanded ? null : opp.item_id)}
@@ -183,7 +172,7 @@ export default function Allocation() {
                           {opp.customer_name || opp.customer_id}
                         </div>
                         <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }} className="font-mono">
-                          {opp.item_id} · {opp.action_label || opp.action}
+                          {opp.item_id}
                         </div>
                       </div>
                     </div>
@@ -200,12 +189,7 @@ export default function Allocation() {
                         <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Efficiency</div>
                         <div className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 700, color: efficiency > 0 ? "var(--success)" : "var(--text-muted)" }}>{fmtPct(efficiency)}</div>
                       </div>
-                      <span style={{
-                        fontSize: "0.75rem", fontWeight: 700, padding: "0.25rem 0.6rem", borderRadius: 6,
-                        background: meta.bg, color: meta.color, border: `1px solid ${meta.color}30`, whiteSpace: "nowrap"
-                      }}>
-                        {meta.icon} {meta.label}
-                      </span>
+                      <DecisionBadge decision={opp.decision} reason={opp.reason} selectedAction={opp.action} compact />
                       <span style={{
                         fontSize: "0.625rem", fontWeight: 700, padding: "0.15rem 0.4rem", borderRadius: 4,
                         background: opp.urgency === "HIGH" ? "rgba(239,68,68,0.12)" : opp.urgency === "MEDIUM" ? "rgba(245,158,11,0.12)" : "rgba(100,116,139,0.12)",
@@ -214,8 +198,8 @@ export default function Allocation() {
                       }}>
                         {opp.urgency}
                       </span>
-        </div>
-      </div>
+                    </div>
+                  </div>
 
       {/* CROSS-REFERENCES */}
       <div style={{ padding: "0.875rem 1.25rem", display: "flex", gap: "1rem", alignItems: "center", justifyContent: "space-between", borderLeft: "4px solid var(--accent)", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)", marginBottom: "1.5rem" }}>
@@ -241,10 +225,12 @@ export default function Allocation() {
                           <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Expected Net Recovery</div>
                           <div className="font-mono" style={{ fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>{fmt(opp.expected_net_recovery_minor)}</div>
                         </div>
-                        <div>
-                          <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Recommended Action</div>
-                          <div className="font-mono" style={{ fontWeight: 700, color: meta.color, marginTop: 2 }}>{opp.action_label}</div>
-                        </div>
+                         <div>
+                           <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Recommended Action</div>
+                           <div style={{ marginTop: 4 }}>
+                             <DecisionBadge decision={opp.decision} selectedAction={opp.action} compact />
+                           </div>
+                         </div>
                       </div>
                     </div>
                   )}
@@ -259,7 +245,7 @@ export default function Allocation() {
       <div className="card" style={{ padding: "1.25rem", borderLeft: "4px solid #6366f1" }}>
         <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>Portfolio Insight</div>
         <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          RecoverOS prioritized these {opportunities.length} cases because they offer the highest safe expected net recovery under current intervention constraints. NO_ACTION and SUPPRESS decisions are explicit — they reflect negative expected value or policy blocks, not processing failures.
+          RecoverOS prioritized these {opportunities.length} cases because they offer the highest safe expected net recovery under current intervention constraints. STOP decisions are explicit — they reflect negative expected value or policy blocks, not processing failures.
         </div>
       </div>
     </div>

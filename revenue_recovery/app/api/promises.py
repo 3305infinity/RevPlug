@@ -74,6 +74,21 @@ def api_get_promise(promise_id: str, container: PersistenceContainer = Depends(g
             return JSONResponse(status_code=200, content=_promise_to_dict(promise))
     return JSONResponse(status_code=404, content={"error": "Promise not found"})
 
+@router.get("/api/promises/by-item/{item_id}")
+def api_get_promise_by_item(item_id: str, active: bool = False, container: PersistenceContainer = Depends(get_container)) -> Response:
+    """Get the active promise for a recovery item."""
+    if not hasattr(container.promises, "get_for_item"):
+        return JSONResponse(status_code=404, content={"error": "Promises not configured"})
+    promise = container.promises.get_for_item(item_id)
+    if not promise:
+        return JSONResponse(status_code=404, content={"error": "No promise found for this opportunity"})
+    from app.dashboard_api import _promise_to_dict
+    from app.domain.models import PromiseStatus
+    p_dict = _promise_to_dict(promise)
+    if active and p_dict.get("status") not in {PromiseStatus.PROMISED.value, "promised", "active"}:
+        return JSONResponse(status_code=404, content={"error": "No active promise found for this opportunity"})
+    return JSONResponse(status_code=200, content=p_dict)
+
 @router.post("/api/promises/{promise_id}/fulfill")
 def api_fulfill_promise(promise_id: str, container: PersistenceContainer = Depends(get_container)) -> Response:
     """Fulfill a promise, generating a RecoveryOutcome (financial truth)."""
@@ -94,10 +109,14 @@ def api_fulfill_promise(promise_id: str, container: PersistenceContainer = Depen
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
     if hasattr(container.promises, "update_status"):
-        updated = container.promises.update_status(promise_id, "fulfilled", fulfilled_at=now)
+        updated = container.promises.update_status(
+            promise_id, "fulfilled",
+            fulfilled_at=now,
+            metadata={"verified_recovered_minor": amount},
+        )
         if updated:
             promise = updated
-            
+
     if container.outcomes:
         from app.domain.models import RecoveryOutcome
         outcome = RecoveryOutcome(
@@ -109,6 +128,7 @@ def api_fulfill_promise(promise_id: str, container: PersistenceContainer = Depen
             recovery_cost_minor=0,
             net_recovery_minor=amount,
             recovered_at=now,
+            metadata={"source": "promise_fulfillment", "promise_id": promise_id},
         )
         container.outcomes.save(outcome)
         
@@ -150,9 +170,9 @@ async def api_break_promise(promise_id: str, request: Request, container: Persis
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
         updated = container.promises.update_status(
-            promise_id, 
-            "broken", 
-            metadata={"break_reason": reason},
+            promise_id,
+            "broken",
+            metadata={"break_reason": reason, "broken_at": now.isoformat()},
             expired_at=now
         )
         if updated:

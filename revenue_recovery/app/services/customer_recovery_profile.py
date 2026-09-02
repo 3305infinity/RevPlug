@@ -47,6 +47,7 @@ class Customer360RecoveryProfile:
     customer_id: str
     total_lifetime_revenue_minor: int
     current_amount_at_risk_minor: int
+    current_expected_recovery_minor: int
     actually_recovered_lifetime_minor: int
     historical_recovery_rate: float
     total_cases_count: int
@@ -67,12 +68,23 @@ class Customer360RecoveryProfile:
     last_successful_payment_at: str | None
     last_failed_payment_at: str | None
     last_failed_reason: str | None
+    # New fields
+    customer_decision: str | None
+    customer_decision_reason: str | None
+    active_opportunities: list[dict[str, Any]]
+    intervention_outcomes: list[dict[str, Any]]
+    policy_constraints: list[str]
+    active_incident_ids: list[str]
+    active_incident_count: int
+    recovery_pressure_summary: str
+    why_this_matters: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "customer_id": self.customer_id,
             "total_lifetime_revenue_minor": self.total_lifetime_revenue_minor,
             "current_amount_at_risk_minor": self.current_amount_at_risk_minor,
+            "current_expected_recovery_minor": self.current_expected_recovery_minor,
             "actually_recovered_lifetime_minor": self.actually_recovered_lifetime_minor,
             "historical_recovery_rate": self.historical_recovery_rate,
             "total_cases_count": self.total_cases_count,
@@ -93,6 +105,15 @@ class Customer360RecoveryProfile:
             "last_successful_payment_at": self.last_successful_payment_at,
             "last_failed_payment_at": self.last_failed_payment_at,
             "last_failed_reason": self.last_failed_reason,
+            "customer_decision": self.customer_decision,
+            "customer_decision_reason": self.customer_decision_reason,
+            "active_opportunities": self.active_opportunities,
+            "intervention_outcomes": self.intervention_outcomes,
+            "policy_constraints": self.policy_constraints,
+            "active_incident_ids": self.active_incident_ids,
+            "active_incident_count": self.active_incident_count,
+            "recovery_pressure_summary": self.recovery_pressure_summary,
+            "why_this_matters": self.why_this_matters,
         }
 
 
@@ -268,10 +289,114 @@ class CustomerRecoveryProfileService:
         # Subscription State
         sub_state = "Disputed" if any(i.metadata.get("disputed") for i in items) else "Overdue" if active_items else "Active"
 
+        # --- New: Customer-level decision ---
+        from app.domain.product_decision import resolve_decision
+        customer_decision = None
+        customer_decision_reason = None
+        if active_items:
+            # Derive customer-level posture from most common decision across active items
+            decision_counts: dict[str, int] = {}
+            for ai in active_items:
+                meta = ai.metadata if isinstance(ai.metadata, dict) else {}
+                pd = resolve_decision(
+                    action=meta.get("recommended_action", "wait"),
+                    policy_state=meta.get("policy_state"),
+                    status=ai.status.value if hasattr(ai.status, "value") else str(ai.status),
+                    reason_code=meta.get("reason_code", ""),
+                    reason=meta.get("reason", ""),
+                )
+                decision_counts[pd.decision] = decision_counts.get(pd.decision, 0) + 1
+            if decision_counts:
+                customer_decision = max(decision_counts, key=decision_counts.get)
+                customer_decision_reason = f"Derived from {len(active_items)} active opportunity decisions"
+
+        # --- New: Active opportunities with decisions ---
+        active_opps = []
+        for ai in active_items:
+            meta = ai.metadata if isinstance(ai.metadata, dict) else {}
+            pd = resolve_decision(
+                action=meta.get("recommended_action", "wait"),
+                policy_state=meta.get("policy_state"),
+                status=ai.status.value if hasattr(ai.status, "value") else str(ai.status),
+                reason_code=meta.get("reason_code", ""),
+                reason=meta.get("reason", ""),
+            )
+            active_opps.append({
+                "item_id": ai.id,
+                "amount_minor": ai.amount_minor,
+                "expected_recovery_minor": ai.expected_recovery_value or 0,
+                "decision": pd.decision,
+                "selected_action": meta.get("recommended_action"),
+                "policy_state": meta.get("policy_state", ""),
+                "execution_status": ai.status.value if hasattr(ai.status, "value") else str(ai.status),
+                "root_cause": ai.root_cause,
+                "incident_affected": meta.get("systemic_suppress", False) or meta.get("policy_state") == "SUPPRESSED_SYSTEMIC",
+            })
+
+        # --- New: Intervention outcomes ---
+        intervention_outcomes = []
+        for action_key, stats in action_stats.items():
+            if stats["total"] > 0:
+                intervention_outcomes.append({
+                    "intervention": action_key,
+                    "attempts": stats["total"],
+                    "successful": stats["success"],
+                    "success_rate_pct": round(stats["success"] / stats["total"] * 100, 1),
+                })
+
+        # --- New: Policy constraints ---
+        policy_constraints: list[str] = []
+        if has_opt_out:
+            policy_constraints.append("Customer has opted out — contact blocked by policy")
+        if contacts_24h >= 2:
+            policy_constraints.append(f"Contact frequency limit reached ({contacts_24h}/2 today)")
+        if any(i.metadata.get("policy_state") == "SUPPRESSED_SYSTEMIC" for i in items):
+            policy_constraints.append("Some opportunities suppressed by active systemic incident")
+        if any(i.metadata.get("fraud_risk") for i in items):
+            policy_constraints.append("Fraud risk flag active — recovery blocked")
+        if any(i.metadata.get("disputed") for i in items):
+            policy_constraints.append("Invoice disputed — requires human review")
+
+        # --- New: Active incident IDs ---
+        from app.services.revenue_incident_manager import RevenueIncidentManager
+        incident_mgr = RevenueIncidentManager(self._container)
+        active_incidents = incident_mgr.detect_incidents()
+        customer_incident_ids = []
+        for inc in active_incidents:
+            if any(iid in inc.affected_opportunity_ids for iid in item_ids):
+                customer_incident_ids.append(inc.incident_id)
+
+        # --- New: Recovery pressure summary ---
+        pressure_parts = []
+        if contacts_24h > 0:
+            pressure_parts.append(f"{contacts_24h} contact(s) today")
+        if contacts_7d > 0:
+            pressure_parts.append(f"{contacts_7d} this week")
+        if prev_actions:
+            pressure_parts.append(f"actions tried: {', '.join(prev_actions[:3])}")
+        recovery_pressure_summary = "; ".join(pressure_parts) if pressure_parts else "No recent recovery pressure"
+
+        # --- New: Expected recovery total ---
+        expected_recovery_total = sum(ai.expected_recovery_value or 0 for ai in active_items)
+
+        # --- New: Why this matters now ---
+        why_parts = []
+        if at_risk > 0:
+            why_parts.append(f"₹{at_risk / 100:,.0f} at risk across {len(active_items)} open opportunity")
+        if customer_incident_ids:
+            why_parts.append(f"affected by {len(customer_incident_ids)} active incident(s)")
+        if contacts_24h >= 2:
+            why_parts.append("contact frequency threshold reached")
+        if active_items and any(i.expected_recovery_value and i.expected_recovery_value > 0 for i in active_items):
+            best = max(active_items, key=lambda x: x.expected_recovery_value or 0)
+            why_parts.append(f"best opportunity: ₹{(best.expected_recovery_value or 0) / 100:,.0f} expected recovery")
+        why_this_matters = "; ".join(why_parts) if why_parts else "No active recovery concerns"
+
         return Customer360RecoveryProfile(
             customer_id=customer_id,
             total_lifetime_revenue_minor=total_lifetime,
             current_amount_at_risk_minor=at_risk,
+            current_expected_recovery_minor=expected_recovery_total,
             actually_recovered_lifetime_minor=actually_recovered,
             historical_recovery_rate=recovery_rate,
             total_cases_count=len(items),
@@ -292,4 +417,13 @@ class CustomerRecoveryProfileService:
             last_successful_payment_at=last_succ,
             last_failed_payment_at=last_failed,
             last_failed_reason=last_reason,
+            customer_decision=customer_decision,
+            customer_decision_reason=customer_decision_reason,
+            active_opportunities=active_opps,
+            intervention_outcomes=intervention_outcomes,
+            policy_constraints=policy_constraints,
+            active_incident_ids=customer_incident_ids,
+            active_incident_count=len(customer_incident_ids),
+            recovery_pressure_summary=recovery_pressure_summary,
+            why_this_matters=why_this_matters,
         )

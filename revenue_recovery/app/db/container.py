@@ -648,12 +648,12 @@ class _InMemoryPromiseRepository:
     def update_status(self, promise_id: str, status: str, **extra) -> object | None:
         """Update promise status and extra fields. Returns updated promise."""
         from app.domain.models import Promise
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
         promise = self._by_id.get(promise_id)
         if promise is None:
             return None
         if isinstance(promise, Promise):
-            from datetime import datetime, timezone
-            now = datetime.now(timezone.utc)
             updated = Promise(
                 id=promise.id,
                 recovery_item_id=promise.recovery_item_id,
@@ -668,6 +668,16 @@ class _InMemoryPromiseRepository:
             )
             self.save(updated)
             return updated
+        if isinstance(promise, dict):
+            promise["status"] = status
+            if "fulfilled_at" in extra:
+                promise["fulfilled_at"] = extra["fulfilled_at"].isoformat() if hasattr(extra["fulfilled_at"], "isoformat") else extra["fulfilled_at"]
+            if "expired_at" in extra:
+                promise["expired_at"] = extra["expired_at"].isoformat() if hasattr(extra["expired_at"], "isoformat") else extra["expired_at"]
+            if "metadata" in extra:
+                promise["metadata"] = {**promise.get("metadata", {}), **extra["metadata"]}
+            self.save(promise)
+            return promise
         return None
 
 

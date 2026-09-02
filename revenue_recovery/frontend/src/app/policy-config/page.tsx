@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 interface PolicyConfigData {
   version: string;
@@ -200,13 +201,23 @@ export default function PolicyConfigPage() {
 
         {/* LIVE POLICY PREVIEW CARD */}
         <div className="card" style={{ padding: "1.5rem", borderLeft: "3px solid #3b82f6" }}>
-          <div style={{ fontSize: "0.6875rem", color: "#3b82f6", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-            LIVE POLICY PREVIEW
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+            <div>
+              <div style={{ fontSize: "0.6875rem", color: "#3b82f6", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
+                LIVE POLICY PREVIEW
+              </div>
+              <h3 style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+                CURRENT POLICY ({config.version})
+              </h3>
+            </div>
+            <Link href="/policy-simulator" style={{
+              fontSize: "0.75rem", fontWeight: 700, color: "#f59e0b",
+              textDecoration: "none", padding: "0.35rem 0.75rem", borderRadius: 4,
+              border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", whiteSpace: "nowrap",
+            }}>
+              Policy Simulator →
+            </Link>
           </div>
-
-          <h3 style={{ fontSize: "1.125rem", fontWeight: 700, marginBottom: "1rem", color: "var(--text-primary)" }}>
-            CURRENT POLICY ({config.version})
-          </h3>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", fontSize: "0.8125rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", paddingBottom: 4 }}>

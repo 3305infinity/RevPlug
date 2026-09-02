@@ -45,7 +45,10 @@ class SystemicIncident:
 
 
 class SystemicLeakDetector:
-    """Detects systemic payment gateway outages and segment degradation."""
+    """Detects systemic payment gateway outages and segment degradation.
+
+    Thresholds are configurable via PolicyConfigStore; defaults are sensible baselines.
+    """
 
     DEFAULT_BASELINES = {
         "upi": 0.05,
@@ -54,12 +57,41 @@ class SystemicLeakDetector:
         "wallet": 0.03,
     }
 
-    def detect_incidents(self, items: list[RecoveryItem], window_minutes: int = 60) -> list[SystemicIncident]:
-        cutoff = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
+    def __init__(
+        self,
+        min_affected: int = 3,
+        min_distinct_customers: int = 2,
+        min_revenue_at_risk_minor: int = 100000,
+        concentration_multiplier: float = 2.0,
+        window_minutes: int = 60,
+    ) -> None:
+        self._min_affected = min_affected
+        self._min_distinct_customers = min_distinct_customers
+        self._min_revenue_at_risk_minor = min_revenue_at_risk_minor
+        self._concentration_multiplier = concentration_multiplier
+        self._window_minutes = window_minutes
+
+    @classmethod
+    def from_config(cls) -> "SystemicLeakDetector":
+        """Create detector with thresholds from PolicyConfigStore."""
+        try:
+            from app.services.policy_config_service import PolicyConfigStore
+            cfg = PolicyConfigStore.get_instance().get_config()
+            return cls(
+                min_affected=cfg.incident_min_affected_opportunities,
+                min_distinct_customers=cfg.incident_min_distinct_customers,
+                min_revenue_at_risk_minor=cfg.incident_min_revenue_at_risk_minor,
+                concentration_multiplier=cfg.incident_concentration_multiplier,
+                window_minutes=cfg.incident_detection_window_minutes,
+            )
+        except Exception:
+            return cls()
+
+    def detect_incidents(self, items: list[RecoveryItem], window_minutes: int | None = None) -> list[SystemicIncident]:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=window_minutes or self._window_minutes)
         recent_items = [i for i in items if i.created_at and (i.created_at if i.created_at.tzinfo else i.created_at.replace(tzinfo=timezone.utc)) >= cutoff]
 
         if not recent_items:
-            # Fallback to evaluating all items if timestamp filtering yields 0 items
             recent_items = items
 
         grouped: dict[tuple[str, str], list[RecoveryItem]] = {}
@@ -74,26 +106,35 @@ class SystemicLeakDetector:
         incidents: list[SystemicIncident] = []
         for (method, cat), seg_items in grouped.items():
             count = len(seg_items)
+            distinct_customers = len(set(i.customer_id for i in seg_items))
+            total_risk = sum(i.amount_minor for i in seg_items)
             base_rate = self.DEFAULT_BASELINES.get(method, 0.05)
-            # Threshold: >= 3 items in window with failure rate > 2x baseline
             current_rate = min(1.0, base_rate * (1.0 + count * 0.4))
             multiplier = current_rate / max(0.01, base_rate)
 
-            if count >= 3 and multiplier >= 2.0:
-                tot_amount = sum(i.amount_minor for i in seg_items)
-                incidents.append(
-                    SystemicIncident(
-                        incident_id=f"sys_{method}_{cat}",
-                        segment=f"{method.upper()} : {cat.upper()}",
-                        payment_method=method,
-                        failure_category=cat,
-                        failure_count=count,
-                        baseline_failure_rate=base_rate,
-                        current_failure_rate=current_rate,
-                        multiplier=multiplier,
-                        total_amount_at_risk_minor=tot_amount,
-                        recommended_action="wait",
-                    )
+            # Apply configurable thresholds
+            if count < self._min_affected:
+                continue
+            if distinct_customers < self._min_distinct_customers:
+                continue
+            if total_risk < self._min_revenue_at_risk_minor:
+                continue
+            if multiplier < self._concentration_multiplier:
+                continue
+
+            incidents.append(
+                SystemicIncident(
+                    incident_id=f"sys_{method}_{cat}",
+                    segment=f"{method.upper()} : {cat.upper()}",
+                    payment_method=method,
+                    failure_category=cat,
+                    failure_count=count,
+                    baseline_failure_rate=base_rate,
+                    current_failure_rate=current_rate,
+                    multiplier=multiplier,
+                    total_amount_at_risk_minor=total_risk,
+                    recommended_action="wait",
                 )
+            )
 
         return incidents

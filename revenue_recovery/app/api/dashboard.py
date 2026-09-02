@@ -341,7 +341,7 @@ def api_checkout_recovery_items(container: PersistenceContainer = Depends(get_co
 
 @router.get("/api/incidents/summary")
 def api_incidents_summary(container: PersistenceContainer = Depends(get_container)) -> dict[str, Any]:
-    """Return portfolio-level incident manager summary."""
+    """Return portfolio-level incident summary derived from real data."""
     from app.services.revenue_incident_manager import RevenueIncidentManager
     mgr = RevenueIncidentManager(container)
     incidents = mgr.detect_incidents()
@@ -349,13 +349,21 @@ def api_incidents_summary(container: PersistenceContainer = Depends(get_containe
     protected_rev = sum(i.revenue_protected_by_waiting_minor for i in incidents)
     affected_custs = sum(i.affected_customers_count for i in incidents)
 
+    # Count suppressed actions from actual items with systemic_suppress
+    from app.dashboard_api import _get_items
+    items = _get_items(container)
+    suppressed_count = sum(
+        1 for i in items
+        if isinstance(i.metadata, dict) and i.metadata.get("systemic_suppress") is True
+    )
+
     return {
         "active_incidents_count": len(incidents),
         "total_revenue_at_risk_minor": total_risk,
         "revenue_protected_by_waiting_minor": protected_rev,
         "total_affected_customers": affected_custs,
-        "suppressed_actions_count": affected_custs * 2,
-        "resumed_cases_count": 0,
+        "suppressed_actions_count": suppressed_count,
+        "resumed_cases_count": len(mgr._resolved_incidents),
     }
 
 
@@ -374,6 +382,82 @@ def api_incidents_resolve(incident_id: str, container: PersistenceContainer = De
     from app.services.revenue_incident_manager import RevenueIncidentManager
     mgr = RevenueIncidentManager(container)
     return mgr.resolve_incident(incident_id)
+
+
+@router.get("/api/incidents/{incident_id}")
+def api_incident_detail(incident_id: str, container: PersistenceContainer = Depends(get_container)) -> dict[str, Any]:
+    """Return full detail for a specific systemic incident."""
+    from app.services.revenue_incident_manager import RevenueIncidentManager
+    mgr = RevenueIncidentManager(container)
+    detail = mgr.get_incident_detail(incident_id)
+    if detail is None:
+        return {"error": "Incident not found", "incident_id": incident_id}
+    return detail
+
+
+@router.get("/api/incidents/{incident_id}/opportunities")
+def api_incident_opportunities(incident_id: str, container: PersistenceContainer = Depends(get_container)) -> list[dict[str, Any]]:
+    """Return affected opportunities for a specific systemic incident."""
+    from app.services.revenue_incident_manager import RevenueIncidentManager
+    mgr = RevenueIncidentManager(container)
+    return mgr.get_incident_opportunities(incident_id)
+
+
+@router.get("/api/incidents/{incident_id}/timeline")
+def api_incident_timeline(incident_id: str, container: PersistenceContainer = Depends(get_container)) -> list[dict[str, Any]]:
+    """Return timeline of events for a specific systemic incident."""
+    from app.services.revenue_incident_manager import RevenueIncidentManager
+    from app.dashboard_api import _get_items
+
+    mgr = RevenueIncidentManager(container)
+    detail = mgr.get_incident_detail(incident_id)
+    if detail is None:
+        return []
+
+    items = _get_items(container)
+    affected_ids = set(detail.get("affected_opportunity_ids", []))
+    affected_items = [i for i in items if i.id in affected_ids]
+
+    # Build timeline from audit events for affected items
+    audit_log = getattr(container, "audit_log", None)
+    timeline: list[dict[str, Any]] = []
+    if audit_log and hasattr(audit_log, "_events"):
+        for evt in audit_log._events:
+            if evt.recovery_item_id in affected_ids:
+                timeline.append({
+                    "timestamp": evt.timestamp.isoformat() if hasattr(evt.timestamp, "isoformat") else str(evt.timestamp),
+                    "event": _human_readable_event(evt.action, evt.reason or ""),
+                    "action": evt.action,
+                    "recovery_item_id": evt.recovery_item_id,
+                    "actor": evt.actor,
+                    "reason": evt.reason or "",
+                })
+
+    timeline.sort(key=lambda e: e.get("timestamp", ""))
+    return timeline
+
+
+@router.get("/api/incidents/by-opportunity/{item_id}")
+def api_incident_by_opportunity(item_id: str, container: PersistenceContainer = Depends(get_container)) -> dict[str, Any] | None:
+    """Return the active incident affecting a specific opportunity, if any."""
+    from app.services.revenue_incident_manager import RevenueIncidentManager
+
+    mgr = RevenueIncidentManager(container)
+    incidents = mgr.detect_incidents()
+    for inc in incidents:
+        if item_id in inc.affected_opportunity_ids:
+            return {
+                "incident_id": inc.incident_id,
+                "title": inc.title,
+                "severity": inc.severity,
+                "decision": inc.decision,
+                "decision_reason": inc.decision_reason,
+                "payment_method": inc.payment_method,
+                "failure_category": inc.failure_category,
+                "status": inc.status,
+                "affected_opportunity_ids": inc.affected_opportunity_ids,
+            }
+    return None
 
 
 @router.get("/api/analytics/time-to-recovery")
@@ -1010,4 +1094,339 @@ def api_case_naive_baseline(item_id: str, container: PersistenceContainer = Depe
             + (f"Incurred {len(violations)} policy violations ({', '.join(violations)})." if violations else "Spent intervention cost without optimal channel selection.")
         )
     })
+
+
+@router.get("/api/dashboard/activity")
+def api_dashboard_activity(container: PersistenceContainer = Depends(get_container)) -> list[dict[str, Any]]:
+    """Return recent recovery activity events for the dashboard activity stream."""
+    from app.dashboard_api import _get_items
+    items = _get_items(container)
+    item_map = {i.id: i for i in items}
+
+    # Collect audit events for all live items
+    events: list[dict[str, Any]] = []
+    audit_log = getattr(container, "audit_log", None)
+    if audit_log and hasattr(audit_log, "_events"):
+        for evt in audit_log._events:
+            if evt.recovery_item_id not in item_map:
+                continue
+            item = item_map[evt.recovery_item_id]
+            events.append({
+                "id": evt.id,
+                "timestamp": evt.timestamp.isoformat() if hasattr(evt.timestamp, "isoformat") else str(evt.timestamp),
+                "recovery_item_id": evt.recovery_item_id,
+                "customer_id": item.customer_id,
+                "amount_minor": item.amount_minor,
+                "action": evt.action,
+                "reason": evt.reason or "",
+                "actor": evt.actor,
+                "item_status": item.status.value if hasattr(item.status, "value") else str(item.status),
+                "root_cause": item.root_cause,
+            })
+
+    # Sort by timestamp descending, cap at 20
+    events.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
+    return events[:20]
+
+
+@router.get("/api/dashboard/promise-summary")
+def api_dashboard_promise_summary(container: PersistenceContainer = Depends(get_container)) -> dict[str, Any]:
+    """Return compact promise-to-pay metrics for the dashboard."""
+    from app.domain.models import PromiseStatus
+
+    promises_repo = getattr(container, "promises", None)
+    if promises_repo is None:
+        return {
+            "active_count": 0,
+            "committed_amount_minor": 0,
+            "due_soon_count": 0,
+            "fulfilled_count": 0,
+            "fulfilled_amount_minor": 0,
+            "broken_count": 0,
+        }
+
+    all_promises = []
+    if hasattr(promises_repo, "list_all"):
+        all_promises = promises_repo.list_all()
+    elif hasattr(promises_repo, "_by_id"):
+        all_promises = list(getattr(promises_repo, "_by_id", {}).values())
+
+    active = []
+    fulfilled = []
+    broken = []
+    now = datetime.now(timezone.utc)
+
+    for p in all_promises:
+        status = p.get("status", "") if isinstance(p, dict) else getattr(p, "status", "")
+        if status in {PromiseStatus.PROMISED.value, "promised", "active"}:
+            active.append(p)
+        elif status == PromiseStatus.FULFILLED.value or status == "fulfilled":
+            fulfilled.append(p)
+        elif status in {PromiseStatus.BROKEN.value, "broken", PromiseStatus.EXPIRED.value, "expired"}:
+            broken.append(p)
+
+    committed = sum(p.get("promised_amount_minor", 0) if isinstance(p, dict) else getattr(p, "promised_amount_minor", 0) for p in active)
+
+    from datetime import date
+    due_soon = [
+        p for p in active
+        if True  # will filter below
+    ]
+    due_soon_count = 0
+    for p in active:
+        raw = p.get("promised_date") if isinstance(p, dict) else getattr(p, "promised_date", None)
+        if raw:
+            if isinstance(raw, datetime):
+                pd = raw.date()
+            elif isinstance(raw, date):
+                pd = raw
+            elif isinstance(raw, str):
+                try:
+                    pd = date.fromisoformat(raw)
+                except ValueError:
+                    continue
+            else:
+                continue
+            from datetime import timedelta
+            if pd <= (now.date() + timedelta(days=3)):
+                due_soon_count += 1
+
+    fulfilled_amount = sum(p.get("verified_recovered_minor") or p.get("promised_amount_minor", 0) if isinstance(p, dict) else getattr(p, "verified_recovered_minor", None) or getattr(p, "promised_amount_minor", 0) for p in fulfilled)
+
+    return {
+        "active_count": len(active),
+        "committed_amount_minor": committed,
+        "due_soon_count": due_soon_count,
+        "fulfilled_count": len(fulfilled),
+        "fulfilled_amount_minor": fulfilled_amount,
+        "broken_count": len(broken),
+    }
+
+
+@router.get("/api/dashboard/decisions")
+def api_dashboard_decisions(container: PersistenceContainer = Depends(get_container)) -> dict[str, Any]:
+    """Return distribution of canonical decisions across the portfolio."""
+    from app.dashboard_api import _get_items
+    from app.domain.product_decision import resolve_decision
+
+    items = _get_items(container)
+
+    distribution: dict[str, dict[str, Any]] = {
+        "RECOVER": {"count": 0, "total_at_risk": 0, "total_expected": 0, "top_opportunity": None},
+        "WAIT": {"count": 0, "total_at_risk": 0, "total_expected": 0, "top_opportunity": None},
+        "ESCALATE": {"count": 0, "total_at_risk": 0, "total_expected": 0, "top_opportunity": None},
+        "STOP": {"count": 0, "total_at_risk": 0, "total_expected": 0, "top_opportunity": None},
+    }
+
+    for item in items:
+        meta = item.metadata if isinstance(item.metadata, dict) else {}
+        policy_state = meta.get("policy_state", "")
+        reason_code = meta.get("reason_code", "") or policy_state.lower()
+        reason = meta.get("reason", "")
+
+        product_decision = resolve_decision(
+            action=meta.get("recommended_action", ""),
+            policy_state=policy_state or None,
+            status=item.status.value if hasattr(item.status, "value") else str(item.status),
+            reason_code=reason_code,
+            reason=reason,
+        )
+
+        d = product_decision.decision
+        if d not in distribution:
+            d = "STOP"
+
+        distribution[d]["count"] += 1
+        distribution[d]["total_at_risk"] += item.amount_minor
+        distribution[d]["total_expected"] += item.expected_recovery_value or 0
+
+        # Track top opportunity (highest expected recovery)
+        current_top = distribution[d]["top_opportunity"]
+        if current_top is None or (item.expected_recovery_value or 0) > (current_top.get("expected_recovery_value", 0) or 0):
+            distribution[d]["top_opportunity"] = {
+                "item_id": item.id,
+                "customer_id": item.customer_id,
+                "amount_minor": item.amount_minor,
+                "expected_recovery_value": item.expected_recovery_value,
+                "root_cause": item.root_cause,
+                "reason": reason,
+            }
+
+    return distribution
+
+
+@router.get("/api/decisions/stream")
+def api_decision_stream(container: PersistenceContainer = Depends(get_container)) -> dict[str, Any]:
+    """Return the Autonomous Recovery Decision Stream.
+
+    A decision-centric portfolio stream showing what revenue opportunities appeared,
+    what RevPlug decided, why, what action followed, and what happened next.
+    """
+    from app.dashboard_api import _get_items, _actual_recovered_from_outcomes
+    from app.domain.product_decision import resolve_decision
+
+    items = _get_items(container)
+    item_map = {i.id: i for i in items}
+
+    # Build verified recovery map from outcomes
+    verified_map: dict[str, int] = {}
+    outcomes_repo = getattr(container, "outcomes", None)
+    if outcomes_repo and hasattr(outcomes_repo, "_outcomes"):
+        for outcome in outcomes_repo._outcomes.values():
+            if outcome is None:
+                continue
+            oid = getattr(outcome, "recovery_item_id", None)
+            if oid:
+                amt = getattr(outcome, "actual_recovery_minor", 0) or 0
+                verified_map[oid] = verified_map.get(oid, 0) + amt
+
+    # Collect and enrich audit events
+    raw_events: list[dict[str, Any]] = []
+    audit_log = getattr(container, "audit_log", None)
+    if audit_log and hasattr(audit_log, "_events"):
+        for evt in audit_log._events:
+            if evt.recovery_item_id not in item_map:
+                continue
+            item = item_map[evt.recovery_item_id]
+            meta = item.metadata if isinstance(item.metadata, dict) else {}
+
+            # Resolve canonical decision for this event
+            policy_state = meta.get("policy_state", "")
+            action = meta.get("recommended_action", evt.action)
+            reason_code = meta.get("reason_code", "") or policy_state.lower() or evt.action.lower()
+            reason = meta.get("reason", evt.reason or "")
+
+            product_decision = resolve_decision(
+                action=action,
+                policy_state=policy_state or None,
+                status=item.status.value if hasattr(item.status, "value") else str(item.status),
+                reason_code=reason_code,
+                reason=reason,
+            )
+
+            # Determine event type category
+            event_type = _categorize_event_type(evt.action)
+
+            # Determine execution status
+            execution_status = "pending"
+            if evt.action in ("execution_requested", "action_executed"):
+                execution_status = "executed"
+            elif evt.action == "recovery_stopped":
+                execution_status = "stopped"
+            elif evt.action == "settlement_verified":
+                execution_status = "verified"
+
+            raw_events.append({
+                "event_id": evt.id,
+                "timestamp": evt.timestamp.isoformat() if hasattr(evt.timestamp, "isoformat") else str(evt.timestamp),
+                "opportunity_id": evt.recovery_item_id,
+                "customer_id": item.customer_id,
+                "customer_name": meta.get("customer_name", ""),
+                "amount_at_risk_minor": item.amount_minor,
+                "decision": product_decision.decision,
+                "decision_reason": reason,
+                "reason_code": reason_code,
+                "selected_action": action if action != evt.action else None,
+                "event_type": event_type,
+                "event_action": evt.action,
+                "event_label": _human_readable_event(evt.action, reason),
+                "execution_status": execution_status,
+                "expected_recovery_minor": item.expected_recovery_value or 0,
+                "verified_recovered_minor": verified_map.get(evt.recovery_item_id, 0),
+                "policy_status": product_decision.policy_status,
+                "requires_human_review": product_decision.requires_human_review,
+                "terminal": item.status.value in ("recovered", "stopped") if hasattr(item.status, "value") else False,
+                "root_cause": item.root_cause,
+                "actor": evt.actor,
+            })
+
+    # Add incident detection events to the stream
+    from app.services.revenue_incident_manager import RevenueIncidentManager
+    incident_mgr = RevenueIncidentManager(container)
+    active_incidents = incident_mgr.detect_incidents()
+    for inc in active_incidents:
+        raw_events.append({
+            "event_id": f"incident_{inc.incident_id}",
+            "timestamp": inc.detected_at_ts,
+            "opportunity_id": "",
+            "customer_id": "",
+            "customer_name": "",
+            "amount_at_risk_minor": inc.amount_at_risk_minor,
+            "decision": inc.decision,
+            "decision_reason": inc.decision_reason,
+            "reason_code": "systemic_incident",
+            "selected_action": "wait_systemic",
+            "event_type": "incident",
+            "event_action": "incident_detected",
+            "event_label": f"Incident: {inc.title}",
+            "execution_status": "suppressed",
+            "expected_recovery_minor": inc.estimated_recoverable_minor,
+            "verified_recovered_minor": 0,
+            "policy_status": "SUPPRESSED_SYSTEMIC",
+            "requires_human_review": False,
+            "terminal": False,
+            "root_cause": inc.failure_category,
+            "actor": "system",
+            "incident_id": inc.incident_id,
+        })
+
+    # Sort by timestamp descending
+    raw_events.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
+
+    # Build summary
+    total_opportunities = len(items)
+    total_decisions = len([e for e in raw_events if e["event_type"] == "decision"])
+    awaiting_action = len([e for e in raw_events if e["decision"] == "RECOVER" and e["execution_status"] == "pending"])
+    total_expected = sum(i.expected_recovery_value or 0 for i in items if i.status.value not in ("recovered", "stopped") if hasattr(i.status, "value"))
+
+    return {
+        "events": raw_events,
+        "summary": {
+            "total_opportunities": total_opportunities,
+            "total_decisions": total_decisions,
+            "awaiting_action": awaiting_action,
+            "total_expected_recovery": total_expected,
+        },
+    }
+
+
+def _categorize_event_type(action: str) -> str:
+    """Categorize an audit action into a decision-stream event type."""
+    act = action.lower()
+    if act in ("failure_classified", "recovery_item_created", "recovery_scored", "agent_proposal_created"):
+        return "detection"
+    if act in ("guard_evaluate", "policy_evaluate"):
+        return "policy"
+    if act in ("execution_requested", "action_executed"):
+        return "intervention"
+    if act in ("settlement_verified", "recovery_outcome"):
+        return "outcome"
+    if act in ("recovery_stopped", "escalation_created"):
+        return "decision"
+    if act in ("promise_created", "promise_fulfilled", "promise_broken", "recovery_waiting"):
+        return "promise"
+    if act == "immediate_success_termination":
+        return "outcome"
+    return "decision"
+
+
+def _human_readable_event(action: str, reason: str) -> str:
+    """Convert a raw audit action into human-readable text."""
+    mapping = {
+        "failure_classified": "Failure classified",
+        "recovery_item_created": "Opportunity detected",
+        "recovery_scored": "Recovery scored",
+        "agent_proposal_created": "Agent proposal created",
+        "guard_evaluate": "Policy gate evaluated",
+        "policy_evaluate": "Policy evaluated",
+        "execution_requested": "Action executed",
+        "action_executed": "Action executed",
+        "recovery_stopped": "Recovery stopped",
+        "escalation_created": "Escalation created",
+        "settlement_verified": "Settlement verified",
+        "recovery_outcome": "Recovery outcome",
+        "immediate_success_termination": "Payment succeeded",
+        "case_cleared": "Case cleared",
+    }
+    return mapping.get(action, action.replace("_", " ").title())
 

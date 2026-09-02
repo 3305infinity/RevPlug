@@ -198,8 +198,10 @@ def test_hinglish_promise_extraction_and_lifecycle():
         amount_minor=50000, currency="INR", created_at=None, status=RecoveryStatus.DETECTED, root_cause="soft"
     )
     decision = stopping.evaluate(item_prom, proposed_action="retry_payment", promises=container.promises)
-    assert decision.should_stop
-    assert decision.reason_code == "active_promise_pauses_recovery"
+    assert decision.should_wait is True
+    assert decision.should_stop is False
+    assert decision.reason_code == "active_promise_wait"
+    assert decision.wait_until is not None
 
 
 def test_idempotency_and_no_double_counting():

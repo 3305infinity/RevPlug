@@ -27,7 +27,6 @@ export function resolveCaseData(trace: CaseTrace | null, detail: CaseDetail | nu
     detail?.amount_minor ??
     0;
 
-  // Smart EV fallback: trace > explicit field > amount×probability > 0
   const expectedRecovery =
     trace?.expected_recovery_minor ??
     (detail?.expected_recovery_value != null && detail.expected_recovery_value > 0
@@ -36,7 +35,7 @@ export function resolveCaseData(trace: CaseTrace | null, detail: CaseDetail | nu
     (detail?.amount_minor != null && detail?.recovery_probability != null && detail.recovery_probability > 0
       ? Math.round(detail.amount_minor * detail.recovery_probability)
       : null) ??
-    (amountAtRisk > 0 ? Math.round(amountAtRisk * 0.65) : 0);
+    0;
 
   const verifiedRecovery =
     trace?.verified_recovery_minor ??
@@ -171,43 +170,10 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
     status === "stopped" ? "Stopped by policy guard." : "In progress"
   );
 
-  // Candidates
-  const candidates = trace?.candidate_actions?.length ? trace.candidate_actions : [
-    {
-      action: "retry_payment",
-      expected_recovery: rootCause.includes("auth") ? 5000 : 35000,
-      cost: 500,
-      policy_status: rootCause === "fraud" ? "BLOCKED" : "ALLOWED" as const,
-      policy_rule: rootCause === "fraud" ? "fraud_prevention_rule" : "allowed",
-      selected: detail?.decisions?.[0]?.proposed_action === "retry_payment" || rootCause === "soft",
-    },
-    {
-      action: "send_payment_link",
-      expected_recovery: rootCause.includes("auth") ? 42000 : 28000,
-      cost: 2500,
-      policy_status: "ALLOWED" as const,
-      policy_rule: "allowed",
-      selected: detail?.decisions?.[0]?.proposed_action === "send_payment_link" || rootCause.includes("auth") || rootCause === "hard",
-    },
-    {
-      action: "send_reminder",
-      expected_recovery: 15000,
-      cost: 500,
-      policy_status: "ALLOWED" as const,
-      policy_rule: "allowed",
-      selected: false,
-    },
-    {
-      action: "escalate_human",
-      expected_recovery: 10000,
-      cost: 5000,
-      policy_status: "ALLOWED" as const,
-      policy_rule: "allowed",
-      selected: status === "escalated",
-    },
-  ];
+  // Candidates from trace only — never fabricate candidates
+  const candidates = trace?.candidate_actions?.length ? trace.candidate_actions : [];
 
-  const selectedCandidate = candidates.find((c) => c.selected) || candidates[0];
+  const selectedCandidate = candidates.find((c) => c.selected) || (candidates.length > 0 ? candidates[0] : null);
 
   // Pipeline stages
   const pipelineStages = [
@@ -330,17 +296,17 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
           <div>
             <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Selected Action</div>
             <div style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "monospace" }}>
-              {selectedCandidate.action.replace(/_/g, " ").toUpperCase()}
+               {selectedCandidate?.action?.replace(/_/g, " ").toUpperCase() || "—"}
             </div>
           </div>
           <div>
             <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Reason</div>
             <div style={{ fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.6875rem" }}>
-              {selectedCandidate.policy_status === "BLOCKED"
-                ? "Blocked by policy"
-                : (expectedRecovery - cost) <= 0
-                  ? "Negative expected net value"
-                  : "Highest safe expected net value"}
+               {selectedCandidate?.policy_status === "BLOCKED"
+                 ? "Blocked by policy"
+                 : (expectedRecovery - cost) <= 0
+                   ? "Negative expected net value"
+                   : "Highest safe expected net value"}
             </div>
           </div>
           <div>
@@ -625,18 +591,18 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
           </div>
 
           {/* Why this / Why not */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-            <div style={{ padding: "0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--accent)" }}>
-              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", marginBottom: "0.5rem" }}>
-                ✓ WHY {selectedCandidate.action.toUpperCase()}?
-              </div>
-              <ul style={{ margin: 0, paddingLeft: "1.1rem", fontSize: "0.75rem", color: "var(--text-primary)", display: "flex", flexDirection: "column", gap: 4 }}>
-                <li>Highest expected net recovery ({fmtRupee(selectedCandidate.expected_recovery)})</li>
-                <li>Historical customer evidence supports payment link completion</li>
-                <li>Permitted by policy engine (0 safety violations)</li>
-                <li>Within maximum intervention budget threshold</li>
-              </ul>
-            </div>
+           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+             <div style={{ padding: "0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--accent)" }}>
+               <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", marginBottom: "0.5rem" }}>
+                 ✓ WHY {selectedCandidate?.action?.toUpperCase() || "THIS ACTION"}?
+               </div>
+               <ul style={{ margin: 0, paddingLeft: "1.1rem", fontSize: "0.75rem", color: "var(--text-primary)", display: "flex", flexDirection: "column", gap: 4 }}>
+                 <li>Highest expected net recovery ({fmtRupee(selectedCandidate?.expected_recovery || 0)})</li>
+                 <li>Historical customer evidence supports payment link completion</li>
+                 <li>Permitted by policy engine (0 safety violations)</li>
+                 <li>Within maximum intervention budget threshold</li>
+               </ul>
+             </div>
             <div style={{ padding: "0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)" }}>
               <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#ef4444", marginBottom: "0.5rem" }}>
                 × WHY NOT THE OTHERS?
@@ -717,13 +683,13 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr auto 1fr", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
             <div style={{ padding: "0.75rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)" }}>
               <div style={{ fontSize: "0.5625rem", color: "#60a5fa", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>1. AI Agent</div>
-              <div className="font-mono" style={{ fontSize: "0.875rem", fontWeight: 700 }}>{selectedCandidate.action}</div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>EV: {fmtRupee(selectedCandidate.expected_recovery)}</div>
+               <div className="font-mono" style={{ fontSize: "0.875rem", fontWeight: 700 }}>{selectedCandidate?.action || "—"}</div>
+               <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>EV: {fmtRupee(selectedCandidate?.expected_recovery || 0)}</div>
             </div>
             <div style={{ fontSize: "1.125rem", color: "var(--text-muted)" }}>→</div>
             <div style={{ padding: "0.75rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid #10b981" }}>
               <div style={{ fontSize: "0.5625rem", color: "#10b981", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>2. Policy Engine</div>
-              <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#10b981" }}>{selectedCandidate.policy_status}</div>
+               <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#10b981" }}>{selectedCandidate?.policy_status || "—"}</div>
               <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>0 violations</div>
             </div>
             <div style={{ fontSize: "1.125rem", color: "var(--text-muted)" }}>→</div>
@@ -755,8 +721,8 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
             <tbody>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 <td style={{ padding: "0.4rem", fontWeight: 700, color: "#60a5fa" }}>AI Agent</td>
-                <td style={{ padding: "0.4rem" }} className="font-mono">{selectedCandidate.action}</td>
-                <td style={{ padding: "0.4rem" }}>{fmtRupee(selectedCandidate.expected_recovery)}</td>
+                <td style={{ padding: "0.4rem" }} className="font-mono">{selectedCandidate?.action || "—"}</td>
+                <td style={{ padding: "0.4rem" }}>{fmtRupee(selectedCandidate?.expected_recovery || 0)}</td>
                 <td style={{ padding: "0.4rem", color: "#10b981", fontWeight: 600 }}>PROPOSED</td>
                 <td style={{ padding: "0.4rem" }}>Stage 3 Recommendation</td>
               </tr>
