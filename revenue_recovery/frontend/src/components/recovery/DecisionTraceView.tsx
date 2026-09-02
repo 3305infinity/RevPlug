@@ -12,51 +12,50 @@ interface DecisionTraceViewProps {
 }
 
 export interface ResolvedCaseData {
-  amountAtRisk: number;
-  expectedRecovery: number;
-  verifiedRecovery: number;
-  cost: number;
+  amountAtRisk: number | null;
+  expectedRecovery: number | null;
+  verifiedRecovery: number | null;
+  cost: number | null;
   status: string;
-  rootCause: string;
+  rootCause: string | null;
 }
 
-/** Single point of truth for financial number derivation — never returns 0 when better data exists */
+/**
+ * Single point of truth for financial number derivation.
+ * NEVER substitutes missing evidence with estimates.
+ * null means "not available" — callers must handle this explicitly.
+ */
 export function resolveCaseData(trace: CaseTrace | null, detail: CaseDetail | null): ResolvedCaseData {
   const amountAtRisk =
-    trace?.amount_at_risk_minor ??
-    detail?.amount_minor ??
-    0;
+    trace?.amount_at_risk_minor != null ? trace.amount_at_risk_minor :
+    detail?.amount_minor != null ? detail.amount_minor :
+    null;
 
-  const expectedRecovery =
-    trace?.expected_recovery_minor ??
-    (detail?.expected_recovery_value != null && detail.expected_recovery_value > 0
-      ? detail.expected_recovery_value
-      : null) ??
-    (detail?.amount_minor != null && detail?.recovery_probability != null && detail.recovery_probability > 0
-      ? Math.round(detail.amount_minor * detail.recovery_probability)
-      : null) ??
-    0;
+  // Expected recovery ONLY from backend — never calculated on the frontend
+  const expectedRecovery = trace?.expected_recovery_minor ?? null;
 
-  const verifiedRecovery =
-    trace?.verified_recovery_minor ??
-    (detail?.actual_recovery_value != null && detail.actual_recovery_value > 0
-      ? detail.actual_recovery_value
-      : null) ??
-    0;
+  // Verified recovery ONLY from settlement_evidence.verified === true
+  const settlement = trace?.settlement_evidence as Record<string, any> | null | undefined;
+  const settlementVerified = settlement?.verified === true;
+  const verifiedRecovery: number | null = settlementVerified
+    ? (settlement?.verified_amount_minor ?? null)
+    : null;
 
-  const cost = trace?.intervention_cost_minor ?? (detail?.intervention_cost ?? 0);
+  // Cost from execution record only — never a fallback default
+  const cost =
+    (trace?.execution as Record<string, any> | null)?.cost_minor ?? null;
 
   const status = trace?.status ?? detail?.status ?? "unknown";
   const rootCause =
     trace?.context_snapshot?.failure_category ??
     detail?.root_cause ??
-    "payment_failure";
+    null;
 
   return { amountAtRisk, expectedRecovery, verifiedRecovery, cost, status, rootCause };
 }
 
 const fmtRupee = (minor: number | null | undefined) => {
-  if (minor == null) return "₹0.00";
+  if (minor == null) return "—";
   return "₹" + (minor / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
@@ -125,6 +124,22 @@ function AccordionSection({
   );
 }
 
+function EmptyEvidenceNote({ message }: { message: string }) {
+  return (
+    <div style={{
+      padding: "0.625rem 0.875rem",
+      background: "var(--bg-secondary)",
+      borderRadius: 6,
+      border: "1px solid var(--border)",
+      fontSize: "0.75rem",
+      color: "var(--text-muted)",
+      fontStyle: "italic",
+    }}>
+      {message}
+    </div>
+  );
+}
+
 export default function DecisionTraceView({ trace, detail, itemId, caseData: propCaseData }: DecisionTraceViewProps) {
   if (!trace && !detail) {
     return (
@@ -156,42 +171,70 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
 
   const { amountAtRisk, expectedRecovery, verifiedRecovery, cost, status, rootCause } = resolved;
 
-  const isRecovered = verifiedRecovery > 0 || status === "recovered" || status === "RECOVERED";
+  // Settlement is verified ONLY when backend says so
+  const settlement = trace?.settlement_evidence as Record<string, any> | null | undefined;
+  const settlementVerified = settlement?.verified === true;
+  const isVerifiedRecovered = settlementVerified && (verifiedRecovery ?? 0) > 0;
 
-  // Prediction error color semantics: only green when <10%, orange 10-30%, red >30%
-  const errorPct = expectedRecovery > 0
-    ? Math.abs(Math.round(((verifiedRecovery - expectedRecovery) / expectedRecovery) * 100))
-    : 0;
-  const errorColor = errorPct < 10 ? "#10b981" : errorPct < 30 ? "#f59e0b" : "#ef4444";
-  const errorBg = errorPct < 10 ? "rgba(16,185,129,0.1)" : errorPct < 30 ? "rgba(245,158,11,0.1)" : "rgba(239,68,68,0.1)";
+  // Execution evidence from backend only
+  const execution = trace?.execution as Record<string, any> | null | undefined;
+  const executionRecorded = execution?.executed === true;
+  const executionStatus = execution?.status ?? null;
+  const actionExecuted: string | null = execution?.action ?? (detail as any)?.action_taken ?? null;
 
-  const stopReason = (detail as any)?.stopped_reason || (
-    status === "recovered" ? "Payment verified. Recovery completed." :
-    status === "stopped" ? "Stopped by policy guard." : "In progress"
-  );
-
-  // Candidates from trace only — never fabricate candidates
+  // Candidates from trace only — never fabricated
   const candidates = trace?.candidate_actions?.length ? trace.candidate_actions : [];
+  // selectedCandidate must be explicitly marked by backend — NEVER pick candidates[0] as fallback
+  const selectedCandidate = candidates.find((c) => c.selected) ?? null;
 
-  const selectedCandidate = candidates.find((c) => c.selected) || (candidates.length > 0 ? candidates[0] : null);
+  // Classification method from backend
+  const classificationMethod: string = (detail as any)?.classification_method ?? trace?.classification_method ?? null;
+  const classMethodLabel =
+    classificationMethod === "LLM_PRIMARY" ? "🤖 AI-assisted" :
+    classificationMethod === "LLM_FALLBACK" ? "⚡ AI fallback" :
+    classificationMethod === "RULES" ? "⚙️ Deterministic" :
+    "—";
+  const classMethodColor =
+    classificationMethod === "LLM_PRIMARY" ? "#a78bfa" :
+    classificationMethod === "LLM_FALLBACK" ? "#fbbf24" :
+    classificationMethod === "RULES" ? "#38bdf8" :
+    "var(--text-muted)";
 
-  // Pipeline stages
+  // Canonical product decision from backend
+  const productDecision = trace?.product_decision;
+  const canonicalDecision = productDecision?.decision ?? null;
+
+  // AI recommendation from backend — no fallbacks to invented values
+  const aiRec = trace?.ai_recommendation as Record<string, any> | null | undefined;
+  const aiModel: string | null = aiRec?.model && aiRec.model !== "null" ? aiRec.model : null;
+  const aiLatencyMs: number | null = aiRec?.latency_ms ?? null;
+  const aiConfidence: number | null = aiRec?.confidence ?? null;
+  const aiSelectedAction: string | null = aiRec?.selected_action ?? null;
+  const aiRationale: string | null = aiRec?.user_safe_reasoning ?? null;
+  const aiEvidence: string[] = Array.isArray(aiRec?.evidence) ? aiRec.evidence : [];
+  const aiFallbackUsed = aiRec?.fallback_used === true;
+
+  // Pipeline stage completion — ONLY from actual backend evidence
+  const diagnosisRecorded = !!(trace?.diagnosis && Object.keys(trace.diagnosis).length > 0);
+  const policyEvaluated = trace?.policy_evaluations != null && Object.keys(trace.policy_evaluations as any).length > 0;
+  const policyAllowed = (trace?.safety_decision as any)?.allowed ?? null;
+
   const pipelineStages = [
-    { label: "DETECTED", done: true },
-    { label: "DIAGNOSED", done: true },
-    { label: "CANDIDATES", done: true },
-    { label: "AI DECISION", done: true },
-    { label: "POLICY CHECK", done: true },
-    { label: "EXECUTION", done: status !== "detected" },
-    { label: "OBSERVATION", done: status !== "detected" },
-    { label: "RE-PLAN", done: status === "recovered" || status === "stopped" || status === "escalated" },
-    { label: "OUTCOME", done: true },
+    { label: "DETECTED", done: !!(amountAtRisk) },
+    { label: "DIAGNOSED", done: diagnosisRecorded },
+    { label: "CANDIDATES", done: candidates.length > 0 },
+    { label: "AI DECISION", done: !!aiSelectedAction },
+    { label: "POLICY CHECK", done: policyEvaluated },
+    { label: "EXECUTION", done: executionRecorded },
+    { label: "SETTLE", done: settlementVerified },
+    { label: "ATTRIBUTED", done: !!(attribution?.attribution_type) },
   ];
 
-  const actionExecuted = (detail as any)?.action_taken || trace?.ai_recommendation?.selected_action || "send_payment_link";
-  const classificationMethod: string = (detail as any)?.classification_method || trace?.classification_method || "RULES";
-  const classMethodLabel = classificationMethod === "LLM_PRIMARY" ? "🤖 LLM" : classificationMethod === "LLM_FALLBACK" ? "⚡ LLM FALLBACK" : "⚙️ RULES";
-  const classMethodColor = classificationMethod === "LLM_PRIMARY" ? "#a78bfa" : classificationMethod === "LLM_FALLBACK" ? "#fbbf24" : "#38bdf8";
+  // Net recovery — only when both verified and cost are known
+  const netRecovery =
+    verifiedRecovery != null && cost != null
+      ? verifiedRecovery - cost
+      : null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -228,17 +271,17 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
       {/* ── DECISION REASONING: AI vs DETERMINISTIC ───────────────── */}
       <div style={{ padding: "0.875rem 1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
         <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-          Decision Reasoning
+          Architectural Responsibility Boundary
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
           <div>
-            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#60a5fa", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>AI</div>
+            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#60a5fa", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>AI Handles</div>
             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "grid", gap: "0.35rem" }}>
               {[
                 "Contextual diagnosis",
-                "Interpreting ambiguous failure information",
+                "Interpreting ambiguous failure signals",
                 "Generating candidate recovery actions",
-                "Contextual reasoning",
+                "Intervention ranking & selection",
               ].map((item) => (
                 <div key={item} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <span style={{ color: "#60a5fa", fontSize: "0.875rem" }}>•</span>
@@ -248,18 +291,14 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
             </div>
           </div>
           <div>
-            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>Deterministic</div>
+            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>Deterministic Controls</div>
             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "grid", gap: "0.35rem" }}>
               {[
-                "Eligibility",
-                "Expected-value calculation",
-                "Safety policy",
-                "Retry budgets",
-                "Consent",
-                "Authorization",
-                "Stopping rules",
+                "Safety policy enforcement",
+                "Retry budget & consent checks",
+                "Financial arithmetic",
                 "Settlement verification",
-                "Financial truth",
+                "Financial truth boundaries",
               ].map((item) => (
                 <div key={item} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <span style={{ color: "#10b981", fontSize: "0.875rem" }}>■</span>
@@ -279,47 +318,46 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem", fontSize: "0.75rem" }}>
           <div>
             <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Root Cause</div>
-            <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>{rootCause.replace(/_/g, " ")}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Policy</div>
-            <div style={{ fontWeight: 700, color: "#10b981" }}>
-              {(trace?.safety_decision?.allowed ?? (detail as any)?.policy_allowed ?? true) ? "ALLOWED" : "BLOCKED"}
+            <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>
+              {rootCause ? rootCause.replace(/_/g, " ") : "—"}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Economic Gate</div>
-            <div style={{ fontWeight: 700, color: (expectedRecovery - cost) > 0 ? "#10b981" : "var(--text-muted)" }}>
-              {(expectedRecovery - cost) > 0 ? "Positive expected net value" : "Negative or zero EV"}
+            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Policy</div>
+            <div style={{ fontWeight: 700, color: policyAllowed === true ? "#10b981" : policyAllowed === false ? "#ef4444" : "var(--text-muted)" }}>
+              {policyAllowed === true ? "ALLOWED" : policyAllowed === false ? "BLOCKED" : "Not evaluated"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Decision Method</div>
+            <div style={{ fontWeight: 700, color: classMethodColor }}>
+              {classMethodLabel}
             </div>
           </div>
           <div>
             <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Selected Action</div>
-            <div style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "monospace" }}>
-               {selectedCandidate?.action?.replace(/_/g, " ").toUpperCase() || "—"}
+            <div style={{ fontWeight: 700, color: aiSelectedAction ? "var(--accent)" : "var(--text-muted)", fontFamily: aiSelectedAction ? "monospace" : undefined }}>
+              {aiSelectedAction ? aiSelectedAction.replace(/_/g, " ").toUpperCase() : "Not available"}
             </div>
           </div>
           <div>
             <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Reason</div>
             <div style={{ fontWeight: 600, color: "var(--text-secondary)", fontSize: "0.6875rem" }}>
-               {selectedCandidate?.policy_status === "BLOCKED"
-                 ? "Blocked by policy"
-                 : (expectedRecovery - cost) <= 0
-                   ? "Negative expected net value"
-                   : "Highest safe expected net value"}
+              {productDecision?.reason_code
+                ? productDecision.reason_code.replace(/_/g, " ")
+                : "—"}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Outcome</div>
-            <div style={{ fontWeight: 700, color: isRecovered ? "#10b981" : status === "stopped" ? "#ef4444" : "var(--text-muted)" }}>
-              {isRecovered ? `VERIFIED: ${fmtRupee(verifiedRecovery)}` : status === "stopped" ? "STOPPED" : "PENDING"}
+            <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>Settlement</div>
+            <div style={{ fontWeight: 700, color: isVerifiedRecovered ? "#10b981" : "var(--text-muted)" }}>
+              {isVerifiedRecovered ? `VERIFIED: ${fmtRupee(verifiedRecovery)}` : "Not verified"}
             </div>
           </div>
         </div>
       </div>
 
       {/* ── COMPACT SECONDARY STRIP ────────────────────────────────── */}
-      {/* Prediction Error, Action Executed, Final Outcome — NOT competing with hero numbers */}
       <div style={{
         display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap",
         padding: "0.625rem 0.875rem",
@@ -328,44 +366,65 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
         border: "1px solid var(--border)",
         fontSize: "0.75rem",
       }}>
-        {/* Prediction Error */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-          <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>Prediction Error:</span>
-          <span style={{
-            fontWeight: 700, fontFamily: "monospace",
-            background: errorBg, color: errorColor,
-            padding: "2px 7px", borderRadius: 4,
-            border: `1px solid ${errorColor}55`,
-          }}>
-            {errorPct}%
+        {/* Recovery Variance — replaces fabricated "Prediction Error" */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+          <span style={{ color: "var(--text-muted)", fontWeight: 600, fontSize: "0.6875rem" }}>Revenue at Risk</span>
+          <span style={{ fontWeight: 700, fontFamily: "monospace", color: "#ef4444" }}>
+            {fmtRupee(amountAtRisk)}
           </span>
         </div>
 
         <span style={{ color: "var(--border)" }}>|</span>
 
-        {/* Action Executed */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+          <span style={{ color: "var(--text-muted)", fontWeight: 600, fontSize: "0.6875rem" }}>
+            Expected Recovery <span style={{ fontWeight: 400 }}>(projected)</span>
+          </span>
+          <span style={{ fontWeight: 700, fontFamily: "monospace", color: expectedRecovery != null ? "#6366f1" : "var(--text-muted)" }}>
+            {fmtRupee(expectedRecovery)}
+          </span>
+        </div>
+
+        <span style={{ color: "var(--border)" }}>|</span>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+          <span style={{ color: "var(--text-muted)", fontWeight: 600, fontSize: "0.6875rem" }}>
+            Verified Recovered <span style={{ fontWeight: 400 }}>(settlement)</span>
+          </span>
+          <span style={{ fontWeight: 700, fontFamily: "monospace", color: isVerifiedRecovered ? "#10b981" : "var(--text-muted)" }}>
+            {isVerifiedRecovered ? fmtRupee(verifiedRecovery) : "Settlement not verified"}
+          </span>
+        </div>
+
+        <span style={{ color: "var(--border)" }}>|</span>
+
+        {/* Action Executed — only from real execution record */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
           <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>Action:</span>
-          <span style={{
-            fontFamily: "monospace", fontWeight: 700, color: "var(--text-primary)",
-            background: "rgba(99,102,241,0.1)", padding: "2px 7px", borderRadius: 4,
-          }}>
-            {actionExecuted}
-          </span>
+          {actionExecuted ? (
+            <span style={{
+              fontFamily: "monospace", fontWeight: 700, color: "var(--text-primary)",
+              background: "rgba(99,102,241,0.1)", padding: "2px 7px", borderRadius: 4,
+            }}>
+              {actionExecuted}
+            </span>
+          ) : (
+            <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>Not available</span>
+          )}
         </div>
 
         <span style={{ color: "var(--border)" }}>|</span>
 
-        {/* Final Outcome */}
+        {/* Outcome */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
           <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>Outcome:</span>
           <span style={{
             fontWeight: 700,
-            color: isRecovered ? "#10b981" : status === "stopped" ? "#ef4444" : "#f59e0b",
-            background: isRecovered ? "rgba(16,185,129,0.1)" : status === "stopped" ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)",
+            color: isVerifiedRecovered ? "#10b981" : status === "stopped" ? "#ef4444" : "#f59e0b",
+            background: isVerifiedRecovered ? "rgba(16,185,129,0.1)" : status === "stopped" ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)",
             padding: "2px 7px", borderRadius: 4,
           }}>
-            {status.toUpperCase()}
+            {canonicalDecision ?? status.toUpperCase()}
           </span>
         </div>
 
@@ -373,20 +432,19 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
 
         {/* Classification Method */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-          <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>Classified by:</span>
+          <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>Method:</span>
           <span style={{ fontWeight: 700, color: classMethodColor, fontSize: "0.6875rem" }}>
             {classMethodLabel}
           </span>
         </div>
 
-        {/* Stop reason inline if stopped */}
-        {status === "stopped" && (
+        {/* AI Fallback indicator */}
+        {aiFallbackUsed && (
           <>
             <span style={{ color: "var(--border)" }}>|</span>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-              <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>Stop reason:</span>
-              <span style={{ color: "#ef4444", fontWeight: 600 }}>{stopReason}</span>
-            </div>
+            <span style={{ fontWeight: 700, color: "#fbbf24", fontSize: "0.6875rem", background: "rgba(245,158,11,0.1)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(245,158,11,0.25)" }}>
+              ⚡ AI fallback used
+            </span>
           </>
         )}
       </div>
@@ -394,319 +452,247 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
       {/* ── CASE DETAILS ACCORDION ─────────────────────────────────── */}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
 
-        {/* 1. Customer Context */}
-        <AccordionSection title="Customer Context & Historical Signals" icon="👤" badge="HISTORICAL SIGNALS">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem", fontSize: "0.75rem" }}>
-            {[
-              { label: "RECOVERY PREFERENCE", value: "Payment links recovered 3 of 4 previous failures", color: "#10b981" },
-              { label: "CONTACT BUDGET", value: "2 contacts in trailing 24h — outreach bounded", color: "var(--text-primary)" },
-              { label: "RETRY CONVERSION", value: "Retry success rate: 18%", color: "var(--text-primary)" },
-              { label: "TENURE & LTV", value: "14 months tenure • ₹48,500 LTV", color: "var(--text-primary)" },
-            ].map((item) => (
-              <div key={item.label} style={{ background: "var(--bg-secondary)", padding: "0.65rem", borderRadius: 6, border: "1px solid var(--border)" }}>
-                <div style={{ color: "var(--text-muted)", fontWeight: 600, marginBottom: 3 }}>{item.label}</div>
-                <div style={{ color: item.color, fontWeight: 700 }}>{item.value}</div>
+        {/* 1. Detection Context — from backend context_snapshot only */}
+        <AccordionSection title="Detection Context" icon="🔍" badge="BACKEND EVIDENCE">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem", fontSize: "0.75rem" }}>
+            <div style={{ background: "var(--bg-secondary)", padding: "0.65rem", borderRadius: 6, border: "1px solid var(--border)" }}>
+              <div style={{ color: "var(--text-muted)", fontWeight: 600, marginBottom: 3, fontSize: "0.625rem", textTransform: "uppercase" }}>Opportunity ID</div>
+              <div style={{ color: "var(--text-primary)", fontWeight: 700, fontFamily: "monospace", fontSize: "0.6875rem" }}>
+                {trace?.context_snapshot?.item_id ?? itemId ?? "—"}
               </div>
-            ))}
-          </div>
-        </AccordionSection>
-
-        {/* 2. Subscription Recovery Horizon */}
-        <AccordionSection title="Subscription Recovery Horizon" icon="📆">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", fontSize: "0.8125rem" }}>
-            <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Current Invoice</div>
-              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "monospace" }}>
+            </div>
+            <div style={{ background: "var(--bg-secondary)", padding: "0.65rem", borderRadius: 6, border: "1px solid var(--border)" }}>
+              <div style={{ color: "var(--text-muted)", fontWeight: 600, marginBottom: 3, fontSize: "0.625rem", textTransform: "uppercase" }}>Amount at Risk</div>
+              <div style={{ color: amountAtRisk != null ? "#ef4444" : "var(--text-muted)", fontWeight: 700, fontFamily: "monospace" }}>
                 {fmtRupee(amountAtRisk)}
               </div>
             </div>
-            <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Subscription Value Protected (90-Day)</div>
-              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#10b981", fontFamily: "monospace" }}>
-                {fmtRupee(amountAtRisk * 3)}
+            <div style={{ background: "var(--bg-secondary)", padding: "0.65rem", borderRadius: 6, border: "1px solid var(--border)" }}>
+              <div style={{ color: "var(--text-muted)", fontWeight: 600, marginBottom: 3, fontSize: "0.625rem", textTransform: "uppercase" }}>Failure Category</div>
+              <div style={{ color: rootCause ? "var(--text-primary)" : "var(--text-muted)", fontWeight: 700 }}>
+                {rootCause ? rootCause.replace(/_/g, " ") : "—"}
               </div>
             </div>
-            <div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Recovery Status</div>
-              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: isRecovered ? "#10b981" : "var(--accent)" }}>
-                {isRecovered ? "Recovered + retained" : "Subscription At Risk (Active Playbook)"}
+            <div style={{ background: "var(--bg-secondary)", padding: "0.65rem", borderRadius: 6, border: "1px solid var(--border)" }}>
+              <div style={{ color: "var(--text-muted)", fontWeight: 600, marginBottom: 3, fontSize: "0.625rem", textTransform: "uppercase" }}>Attempt Count</div>
+              <div style={{ color: "var(--text-primary)", fontWeight: 700 }}>
+                {trace?.context_snapshot?.attempt_count != null ? String(trace.context_snapshot.attempt_count) : "—"}
               </div>
             </div>
-          </div>
-        </AccordionSection>
-
-        {/* 3. Waiting Intelligently */}
-        <AccordionSection title="Waiting Intelligently — Time-Optimal Recovery" icon="⏰" badge="SCHEDULED: Tomorrow 10:30 AM">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: "1rem", fontSize: "0.8125rem" }}>
-            <div>
-              <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginBottom: 3 }}>Next Action</div>
-              <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>Retry payment</div>
+            <div style={{ background: "var(--bg-secondary)", padding: "0.65rem", borderRadius: 6, border: "1px solid var(--border)" }}>
+              <div style={{ color: "var(--text-muted)", fontWeight: 600, marginBottom: 3, fontSize: "0.625rem", textTransform: "uppercase" }}>Context Hash</div>
+              <div style={{ color: "var(--text-muted)", fontWeight: 600, fontFamily: "monospace", fontSize: "0.6875rem" }}>
+                {trace?.context_snapshot?.hash ?? "—"}
+              </div>
             </div>
-            <div>
-              <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginBottom: 3 }}>Expected Net Recovery</div>
-              <div style={{ fontWeight: 700, color: "#10b981", fontFamily: "monospace" }}>₹1,180</div>
-            </div>
-            <div>
-              <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginBottom: 3 }}>Reason</div>
-              <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
-                Customer historically completes payments between 10:00–11:30 AM. Current gateway failure appears transient.
+            <div style={{ background: "var(--bg-secondary)", padding: "0.65rem", borderRadius: 6, border: "1px solid var(--border)" }}>
+              <div style={{ color: "var(--text-muted)", fontWeight: 600, marginBottom: 3, fontSize: "0.625rem", textTransform: "uppercase" }}>Decision Method</div>
+              <div style={{ color: classMethodColor, fontWeight: 700 }}>
+                {classMethodLabel}
               </div>
             </div>
           </div>
         </AccordionSection>
 
-        {/* 4. Recovery Playbook */}
-        {(() => {
-          const pb = (detail as any)?.playbook || {
-            strategy_name: rootCause.includes("auth") ? "Authentication Requirement Pivot Playbook" : "Bounded Recovery Playbook",
-            current_step_index: 2,
-            budget_remaining_minor: 150000,
-            expected_remaining_recovery_minor: expectedRecovery,
-            stop_conditions: ["Hard bank decline", "Fraud flag active", "Customer opt-out", "Retry budget (3)"],
-            steps: [
-              { step_number: 1, name: "Diagnose root cause", action: "diagnose", status: "COMPLETED", result_summary: null },
-              { step_number: 2, name: "Retry payment", action: "retry_payment", status: "FAILED", result_summary: "Failed: authentication_required" },
-              { step_number: 3, name: "Send payment link", action: "send_payment_link", status: "CURRENT", result_summary: null },
-              { step_number: 4, name: "Wait for customer response", action: "wait", status: "PENDING", result_summary: null },
-              { step_number: 5, name: "Send reminder", action: "send_reminder", status: "PENDING", result_summary: null },
-              { step_number: 6, name: "Escalate if unresolved", action: "escalate_human", status: "PENDING", result_summary: null },
-            ],
-          };
-          const stepsRem = pb.steps.length - pb.current_step_index;
-          return (
-            <AccordionSection title={`Recovery Playbook — ${pb.strategy_name}`} icon="📋" badge="BOUNDED PLAYBOOK">
-              <div style={{ display: "flex", gap: "1.5rem", fontSize: "0.75rem", fontFamily: "monospace", marginBottom: "0.75rem" }}>
-                <span style={{ color: "var(--text-muted)" }}>Steps remaining: <strong style={{ color: "var(--accent)" }}>{stepsRem}</strong></span>
-                <span style={{ color: "var(--text-muted)" }}>Budget remaining: <strong style={{ color: "#10b981" }}>{fmtRupee(pb.budget_remaining_minor)}</strong></span>
-                <span style={{ color: "var(--text-muted)" }}>Expected recovery: <strong style={{ color: "#10b981" }}>{fmtRupee(pb.expected_remaining_recovery_minor)}</strong></span>
+        {/* 2. Decision Trace — Candidates, Reasoning, Architecture, Audit Matrix */}
+        <AccordionSection
+          title="Decision Trace — Candidate Evaluation & Architecture"
+          icon="🧠"
+          badge={candidates.length > 0 ? `${candidates.length} candidates` : "No candidates recorded"}
+        >
+          {/* LLM Inference metadata — only if available from backend */}
+          {(aiModel || aiLatencyMs != null) && (
+            <div style={{ padding: "0.6rem 0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <div style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}>
+                <span style={{ fontSize: "0.625rem", background: "#3b82f6", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>REASONING LAYER</span>
+                {aiModel && (
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-primary)", fontWeight: 600, fontFamily: "monospace" }}>
+                    {aiModel}
+                  </span>
+                )}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "0.75rem" }}>
-                {pb.steps.map((st: any) => {
-                  const isCompleted = st.status === "COMPLETED";
-                  const isCurrent = st.status === "CURRENT";
-                  const isFailed = st.status === "FAILED";
-                  return (
-                    <div
-                      key={st.step_number}
-                      style={{
-                        padding: "0.6rem 0.875rem", borderRadius: 6,
-                        background: isCurrent ? "rgba(37, 99, 235, 0.12)" : isCompleted ? "rgba(16, 185, 129, 0.06)" : isFailed ? "rgba(239, 68, 68, 0.06)" : "var(--bg-secondary)",
-                        border: `1px solid ${isCurrent ? "#2563eb" : isFailed ? "#ef4444" : isCompleted ? "#10b981" : "var(--border)"}`,
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                        <span style={{
-                          width: 20, height: 20, borderRadius: "50%",
-                          background: isCompleted ? "#10b981" : isFailed ? "#ef4444" : isCurrent ? "#2563eb" : "#374151",
-                          color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.5625rem", fontWeight: 700,
-                          flexShrink: 0,
-                        }}>
-                          {isCompleted ? "✓" : isFailed ? "✕" : st.step_number}
-                        </span>
-                        <span style={{ fontSize: "0.8125rem", fontWeight: isCurrent ? 700 : 500, color: "var(--text-primary)" }}>
-                          {st.step_number}. {st.name}
-                        </span>
-                        {isCurrent && (
-                          <span style={{ fontSize: "0.5625rem", background: "#2563eb", color: "#fff", padding: "1px 5px", borderRadius: 3, fontWeight: 700 }}>
-                            → CURRENT
-                          </span>
-                        )}
-                      </div>
-                      {st.result_summary && (
-                        <span style={{ fontSize: "0.6875rem", color: isFailed ? "#ef4444" : "#10b981", fontStyle: "italic" }}>
-                          {st.result_summary}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", background: "var(--bg-secondary)", padding: "0.5rem 0.75rem", borderRadius: 6, border: "1px solid var(--border)" }}>
-                <strong>Active Stop Conditions:</strong> {pb.stop_conditions ? pb.stop_conditions.join(" • ") : "Hard bank decline • Fraud flag • Opt-out • Retry budget (3)"}
-              </div>
-            </AccordionSection>
-          );
-        })()}
-
-        {/* 5. Decision Trace — Candidates, Why/Why Not, Architecture, Audit Matrix */}
-        <AccordionSection title="Decision Trace — Candidate Evaluation & Architecture" icon="🧠" badge={`${candidates.length} candidates scored`}>
-          {/* LLM Inference metadata */}
-          <div style={{ padding: "0.6rem 0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-            <div style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}>
-              <span style={{ fontSize: "0.625rem", background: "#3b82f6", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>REASONING LAYER</span>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-primary)", fontWeight: 600, fontFamily: "monospace" }}>
-                LLM: {(trace?.ai_recommendation as any)?.model || (detail as any)?.ai_model || "Groq / llama-3.3-70b-versatile"}
-              </span>
-            </div>
-            <span style={{ fontSize: "0.6875rem", color: "#10b981", fontWeight: 700, fontFamily: "monospace" }}>
-              Latency: {(trace?.ai_recommendation as any)?.latency_ms || (detail as any)?.ai_latency_ms || 124}ms
-            </span>
-          </div>
-
-          {/* Candidate table */}
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
-            Candidate Interventions — EV Optimizer Ranking
-          </div>
-          <div style={{ overflowX: "auto", marginBottom: "1rem" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
-              <thead>
-                <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                  <th style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>Action</th>
-                  <th style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>Prob.</th>
-                  <th style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>Cost</th>
-                  <th style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>Net EV</th>
-                  <th style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>Policy</th>
-                </tr>
-              </thead>
-              <tbody>
-                {candidates.map((cand) => (
-                  <tr
-                    key={cand.action}
-                    style={{
-                      background: cand.selected ? "rgba(99, 102, 241, 0.1)" : "transparent",
-                      borderBottom: "1px solid var(--border)",
-                      fontWeight: cand.selected ? 700 : 400,
-                    }}
-                  >
-                    <td style={{ padding: "0.5rem 0.65rem", color: "var(--text-primary)", fontFamily: "monospace" }}>
-                      {cand.action} {cand.selected && <span style={{ color: "var(--accent)", fontSize: "0.6875rem" }}>★</span>}
-                    </td>
-                    <td style={{ padding: "0.5rem 0.65rem", color: "#10b981" }}>
-                      {((cand as any).recovery_probability ? (cand as any).recovery_probability * 100 : 75).toFixed(0)}%
-                    </td>
-                    <td style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)" }}>{fmtRupee(cand.cost)}</td>
-                    <td style={{ padding: "0.5rem 0.65rem", fontFamily: "monospace", color: (cand.expected_recovery - cand.cost) > 0 ? "#10b981" : "var(--text-muted)" }}>
-                      {fmtRupee(cand.expected_recovery - cand.cost)}
-                    </td>
-                    <td style={{ padding: "0.5rem 0.65rem" }}>
-                      <span style={{ fontWeight: 700, fontSize: "0.6875rem", color: cand.policy_status === "ALLOWED" ? "#10b981" : "#ef4444" }}>
-                        {cand.policy_status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Why this / Why not */}
-           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-             <div style={{ padding: "0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--accent)" }}>
-               <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", marginBottom: "0.5rem" }}>
-                 ✓ WHY {selectedCandidate?.action?.toUpperCase() || "THIS ACTION"}?
-               </div>
-               <ul style={{ margin: 0, paddingLeft: "1.1rem", fontSize: "0.75rem", color: "var(--text-primary)", display: "flex", flexDirection: "column", gap: 4 }}>
-                 <li>Highest expected net recovery ({fmtRupee(selectedCandidate?.expected_recovery || 0)})</li>
-                 <li>Historical customer evidence supports payment link completion</li>
-                 <li>Permitted by policy engine (0 safety violations)</li>
-                 <li>Within maximum intervention budget threshold</li>
-               </ul>
-             </div>
-            <div style={{ padding: "0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)" }}>
-              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#ef4444", marginBottom: "0.5rem" }}>
-                × WHY NOT THE OTHERS?
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: 5 }}>
-                {candidates.filter(c => !c.selected).map((cand) => {
-                  const reason = cand.policy_status === "BLOCKED"
-                    ? `Blocked by policy (${(cand as any).policy_rule || "safety rule"})`
-                    : (cand.expected_recovery - cand.cost) <= 0
-                      ? "Negative expected net value"
-                      : cand.action === "escalate_human"
-                        ? "High manual cost; automated recovery still positive EV"
-                        : "Lower expected net recovery than selected action";
-                  const netEv = (cand.expected_recovery - cand.cost);
-                  return (
-                    <div key={cand.action}>
-                      <strong style={{ color: "var(--text-primary)" }}>× {cand.action.replace(/_/g, " ").toUpperCase()}:</strong>{" "}
-                      {reason}
-                      <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem", marginLeft: 4 }}>
-                        (Net EV: {fmtRupee(netEv)})
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Rejected Actions Table */}
-          {candidates.filter(c => !c.selected).length > 0 && (
-            <div style={{ marginBottom: "1rem" }}>
-              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
-                Rejected Actions — {candidates.filter(c => !c.selected).length} candidates not selected
-              </div>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }}>
-                  <thead>
-                    <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                      <th style={{ padding: "0.4rem 0.5rem", color: "var(--text-muted)", fontWeight: 700, fontSize: "0.625rem" }}>ACTION</th>
-                      <th style={{ padding: "0.4rem 0.5rem", color: "var(--text-muted)", fontWeight: 700, fontSize: "0.625rem" }}>NET EV</th>
-                      <th style={{ padding: "0.4rem 0.5rem", color: "var(--text-muted)", fontWeight: 700, fontSize: "0.625rem" }}>POLICY</th>
-                      <th style={{ padding: "0.4rem 0.5rem", color: "var(--text-muted)", fontWeight: 700, fontSize: "0.625rem" }}>REASON</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {candidates.filter(c => !c.selected).map((cand) => {
-                      const netEv = (cand.expected_recovery - cand.cost);
-                      const reason = cand.policy_status === "BLOCKED"
-                        ? `Blocked by policy (${(cand as any).policy_rule || "safety rule"})`
-                        : (cand.expected_recovery - cand.cost) <= 0
-                          ? "Negative expected net value"
-                          : cand.action === "escalate_human"
-                            ? "High manual cost; automated recovery still positive EV"
-                            : "Lower expected net recovery than selected action";
-                      return (
-                        <tr key={cand.action} style={{ borderBottom: "1px solid var(--border)" }}>
-                          <td style={{ padding: "0.4rem 0.5rem", fontFamily: "monospace", color: "var(--text-muted)" }}>{cand.action}</td>
-                          <td style={{ padding: "0.4rem 0.5rem", fontFamily: "monospace", color: netEv > 0 ? "var(--text-muted)" : "#ef4444" }}>{fmtRupee(netEv)}</td>
-                          <td style={{ padding: "0.4rem 0.5rem" }}>
-                            <span style={{ fontWeight: 700, fontSize: "0.625rem", color: cand.policy_status === "ALLOWED" ? "#10b981" : "#ef4444" }}>
-                              {cand.policy_status}
-                            </span>
-                          </td>
-                          <td style={{ padding: "0.4rem 0.5rem", color: "var(--text-muted)", fontSize: "0.6875rem" }}>{reason}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              {aiLatencyMs != null && (
+                <span style={{ fontSize: "0.6875rem", color: "#10b981", fontWeight: 700, fontFamily: "monospace" }}>
+                  Latency: {aiLatencyMs}ms
+                </span>
+              )}
             </div>
           )}
 
-          {/* Architecture: AI → Policy → Executor */}
-          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
-            Architecture Bounds: AI Proposal → Policy Engine → Executor
+          {/* AI rationale — only from backend user_safe_reasoning */}
+          {aiRationale && (
+            <div style={{ marginBottom: "1rem", padding: "0.75rem", background: "rgba(99,102,241,0.05)", borderRadius: 6, border: "1px solid rgba(99,102,241,0.2)" }}>
+              <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", marginBottom: "0.4rem" }}>AI Rationale (evidence-backed)</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", lineHeight: 1.55 }}>{aiRationale}</div>
+              {aiEvidence.length > 0 && (
+                <ul style={{ margin: "0.5rem 0 0 0", paddingLeft: "1rem", fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: 3 }}>
+                  {aiEvidence.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* Candidate table */}
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
+            Candidate Interventions
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr auto 1fr", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
+
+          {candidates.length === 0 ? (
+            <EmptyEvidenceNote message="No candidate evidence recorded. The decision may have been made deterministically without generating candidates." />
+          ) : (
+            <>
+              <div style={{ overflowX: "auto", marginBottom: "1rem" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
+                  <thead>
+                    <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
+                      <th style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>Action</th>
+                      <th style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>Prob.</th>
+                      <th style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>Cost</th>
+                      <th style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>Net EV</th>
+                      <th style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>Policy</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {candidates.map((cand) => (
+                      <tr
+                        key={cand.action}
+                        style={{
+                          background: cand.selected ? "rgba(99, 102, 241, 0.1)" : "transparent",
+                          borderBottom: "1px solid var(--border)",
+                          fontWeight: cand.selected ? 700 : 400,
+                        }}
+                      >
+                        <td style={{ padding: "0.5rem 0.65rem", color: "var(--text-primary)", fontFamily: "monospace" }}>
+                          {cand.action} {cand.selected && <span style={{ color: "var(--accent)", fontSize: "0.6875rem" }}>★ selected</span>}
+                        </td>
+                        <td style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)" }}>
+                          {/* Show — if probability not recorded — never default to 75% */}
+                          {(cand as any).recovery_probability != null
+                            ? `${((cand as any).recovery_probability * 100).toFixed(0)}%`
+                            : "—"}
+                        </td>
+                        <td style={{ padding: "0.5rem 0.65rem", color: "var(--text-muted)" }}>
+                          {cand.cost != null ? fmtRupee(cand.cost) : "—"}
+                        </td>
+                        <td style={{ padding: "0.5rem 0.65rem", fontFamily: "monospace", color: cand.expected_recovery != null && cand.cost != null && (cand.expected_recovery - cand.cost) > 0 ? "#10b981" : "var(--text-muted)" }}>
+                          {cand.expected_recovery != null && cand.cost != null
+                            ? fmtRupee(cand.expected_recovery - cand.cost)
+                            : "—"}
+                        </td>
+                        <td style={{ padding: "0.5rem 0.65rem" }}>
+                          {cand.policy_status ? (
+                            <span style={{ fontWeight: 700, fontSize: "0.6875rem", color: cand.policy_status === "ALLOWED" ? "#10b981" : "#ef4444" }}>
+                              {cand.policy_status}
+                            </span>
+                          ) : (
+                            <span style={{ color: "var(--text-muted)", fontSize: "0.6875rem" }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Selected / not-selected — backed by candidate.selected flag only */}
+              {selectedCandidate ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+                  <div style={{ padding: "0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--accent)" }}>
+                    <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", marginBottom: "0.5rem" }}>
+                      ✓ SELECTED: {selectedCandidate.action?.toUpperCase()}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                      {selectedCandidate.policy_status === "BLOCKED"
+                        ? "Note: this candidate was marked selected but also marked BLOCKED by policy."
+                        : aiRationale
+                          ? aiRationale
+                          : "Selected by the decision system based on expected value and policy eligibility."}
+                    </div>
+                  </div>
+                  {candidates.filter(c => !c.selected).length > 0 && (
+                    <div style={{ padding: "0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)" }}>
+                      <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#ef4444", marginBottom: "0.5rem" }}>
+                        × NOT SELECTED — {candidates.filter(c => !c.selected).length} candidates
+                      </div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: 5 }}>
+                        {candidates.filter(c => !c.selected).map((cand) => {
+                          const reason = cand.policy_status === "BLOCKED"
+                            ? `Blocked by policy${(cand as any).policy_rule ? ` (${(cand as any).policy_rule})` : ""}`
+                            : (cand.expected_recovery != null && cand.cost != null && (cand.expected_recovery - cand.cost) <= 0)
+                              ? "Negative expected net value"
+                              : "Lower expected net recovery than selected action";
+                          return (
+                            <div key={cand.action}>
+                              <strong style={{ color: "var(--text-primary)" }}>× {cand.action.replace(/_/g, " ").toUpperCase()}:</strong>{" "}
+                              {reason}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <EmptyEvidenceNote message="No candidate is marked as selected. The system may have used a deterministic decision path." />
+              )}
+            </>
+          )}
+
+          {/* Architecture: AI → Policy → Executor */}
+          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem", marginTop: "1rem" }}>
+            Architecture Bounds: AI Proposes → Policy Controls → Execution Acts → Settlement Proves
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+            {/* AI Agent box */}
             <div style={{ padding: "0.75rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)" }}>
               <div style={{ fontSize: "0.5625rem", color: "#60a5fa", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>1. AI Agent</div>
-               <div className="font-mono" style={{ fontSize: "0.875rem", fontWeight: 700 }}>{selectedCandidate?.action || "—"}</div>
-               <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>EV: {fmtRupee(selectedCandidate?.expected_recovery || 0)}</div>
-            </div>
-            <div style={{ fontSize: "1.125rem", color: "var(--text-muted)" }}>→</div>
-            <div style={{ padding: "0.75rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid #10b981" }}>
-              <div style={{ fontSize: "0.5625rem", color: "#10b981", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>2. Policy Engine</div>
-               <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#10b981" }}>{selectedCandidate?.policy_status || "—"}</div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>0 violations</div>
-            </div>
-            <div style={{ fontSize: "1.125rem", color: "var(--text-muted)" }}>→</div>
-            <div style={{ padding: "0.75rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)" }}>
-              <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>3. Executor</div>
-              <div style={{ fontSize: "0.875rem", fontWeight: 700, color: isRecovered ? "#10b981" : "var(--text-primary)" }}>
-                {isRecovered ? "EXECUTED & VERIFIED" : status === "stopped" ? "HALTED BY POLICY" : "EXECUTED"}
+              <div className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 700 }}>
+                {aiSelectedAction ?? "—"}
               </div>
               <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
-                {isRecovered ? "HMAC Verified" : "Executor boundary enforced"}
+                {aiConfidence != null ? `Confidence: ${(aiConfidence * 100).toFixed(0)}%` : "Confidence: —"}
+              </div>
+            </div>
+            <div style={{ fontSize: "1.125rem", color: "var(--text-muted)" }}>→</div>
+            {/* Policy Engine box */}
+            <div style={{ padding: "0.75rem", background: "var(--bg-secondary)", borderRadius: 6, border: `1px solid ${policyAllowed === true ? "#10b981" : policyAllowed === false ? "#ef4444" : "var(--border)"}` }}>
+              <div style={{ fontSize: "0.5625rem", color: policyAllowed === true ? "#10b981" : policyAllowed === false ? "#ef4444" : "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>2. Policy Engine</div>
+              <div style={{ fontSize: "0.875rem", fontWeight: 700, color: policyAllowed === true ? "#10b981" : policyAllowed === false ? "#ef4444" : "var(--text-muted)" }}>
+                {policyAllowed === true ? "ALLOWED" : policyAllowed === false ? "BLOCKED" : "Not evaluated"}
+              </div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                {(trace?.safety_decision as any)?.reason_code ?? "—"}
+              </div>
+            </div>
+            <div style={{ fontSize: "1.125rem", color: "var(--text-muted)" }}>→</div>
+            {/* Executor box */}
+            <div style={{ padding: "0.75rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>3. Executor</div>
+              <div style={{ fontSize: "0.875rem", fontWeight: 700, color: executionRecorded ? "var(--text-primary)" : "var(--text-muted)" }}>
+                {executionRecorded
+                  ? (executionStatus === "EXECUTED" ? "EXECUTED" : executionStatus ?? "EXECUTED")
+                  : "No execution recorded"}
+              </div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                {executionRecorded ? (execution?.action ?? "—") : "—"}
+              </div>
+            </div>
+            <div style={{ fontSize: "1.125rem", color: "var(--text-muted)" }}>→</div>
+            {/* Settlement box */}
+            <div style={{ padding: "0.75rem", background: settlementVerified ? "rgba(16,185,129,0.06)" : "var(--bg-secondary)", borderRadius: 6, border: `1px solid ${settlementVerified ? "rgba(16,185,129,0.3)" : "var(--border)"}` }}>
+              <div style={{ fontSize: "0.5625rem", color: settlementVerified ? "#10b981" : "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>4. Settlement</div>
+              <div style={{ fontSize: "0.875rem", fontWeight: 700, color: settlementVerified ? "#10b981" : "var(--text-muted)" }}>
+                {settlementVerified ? "VERIFIED" : "Not verified"}
+              </div>
+              <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                {settlementVerified ? fmtRupee(verifiedRecovery) : "Settlement not verified"}
               </div>
             </div>
           </div>
 
           {/* Agent vs Policy matrix */}
           <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
-            Agent vs Policy Execution Matrix
+            Evidence Audit Matrix
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }}>
             <thead>
@@ -714,62 +700,100 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
                 <th style={{ padding: "0.4rem" }}>Layer</th>
                 <th style={{ padding: "0.4rem" }}>Decision / Action</th>
                 <th style={{ padding: "0.4rem" }}>Expected / Cost</th>
-                <th style={{ padding: "0.4rem" }}>Policy Status</th>
-                <th style={{ padding: "0.4rem" }}>Actual Outcome</th>
+                <th style={{ padding: "0.4rem" }}>Status</th>
+                <th style={{ padding: "0.4rem" }}>Evidence Source</th>
               </tr>
             </thead>
             <tbody>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 <td style={{ padding: "0.4rem", fontWeight: 700, color: "#60a5fa" }}>AI Agent</td>
-                <td style={{ padding: "0.4rem" }} className="font-mono">{selectedCandidate?.action || "—"}</td>
-                <td style={{ padding: "0.4rem" }}>{fmtRupee(selectedCandidate?.expected_recovery || 0)}</td>
-                <td style={{ padding: "0.4rem", color: "#10b981", fontWeight: 600 }}>PROPOSED</td>
-                <td style={{ padding: "0.4rem" }}>Stage 3 Recommendation</td>
+                <td style={{ padding: "0.4rem" }} className="font-mono">{aiSelectedAction ?? "—"}</td>
+                <td style={{ padding: "0.4rem" }}>{selectedCandidate?.expected_recovery != null ? fmtRupee(selectedCandidate.expected_recovery) : "—"}</td>
+                <td style={{ padding: "0.4rem", color: "#f59e0b", fontWeight: 600 }}>PROPOSED</td>
+                <td style={{ padding: "0.4rem", color: "var(--text-muted)" }}>
+                  {aiModel ? `${aiModel}` : classMethodLabel}
+                </td>
               </tr>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 <td style={{ padding: "0.4rem", fontWeight: 700, color: "#10b981" }}>Policy Engine</td>
-                <td style={{ padding: "0.4rem" }}>Guard Check</td>
+                <td style={{ padding: "0.4rem" }}>Guard check</td>
+                <td style={{ padding: "0.4rem", color: "var(--text-muted)" }}>Cost: {fmtRupee(cost)}</td>
+                <td style={{ padding: "0.4rem", fontWeight: 600, color: policyAllowed === true ? "#10b981" : policyAllowed === false ? "#ef4444" : "var(--text-muted)" }}>
+                  {policyAllowed === true ? "ALLOWED" : policyAllowed === false ? "BLOCKED" : "—"}
+                </td>
+                <td style={{ padding: "0.4rem", color: "var(--text-muted)" }}>
+                  {policyEvaluated ? "policy_evaluations" : "Not evaluated"}
+                </td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                <td style={{ padding: "0.4rem", fontWeight: 700 }}>Executor</td>
+                <td style={{ padding: "0.4rem", fontFamily: "monospace" }}>{actionExecuted ?? "—"}</td>
                 <td style={{ padding: "0.4rem" }}>Cost: {fmtRupee(cost)}</td>
-                <td style={{ padding: "0.4rem", color: "#10b981", fontWeight: 600 }}>ALLOWED</td>
-                <td style={{ padding: "0.4rem" }}>0 Policy Violations</td>
+                <td style={{ padding: "0.4rem", fontWeight: 600, color: executionRecorded ? "var(--text-primary)" : "var(--text-muted)" }}>
+                  {executionRecorded ? (executionStatus ?? "EXECUTED") : "No execution recorded"}
+                </td>
+                <td style={{ padding: "0.4rem", color: "var(--text-muted)" }}>
+                  {executionRecorded ? "execution record" : "None"}
+                </td>
               </tr>
               <tr>
-                <td style={{ padding: "0.4rem", fontWeight: 700 }}>Executor</td>
-                <td style={{ padding: "0.4rem" }}>Dispatch & Verify</td>
-                <td style={{ padding: "0.4rem" }}>Actual: <strong style={{ color: isRecovered ? "#10b981" : "var(--text-primary)" }}>{fmtRupee(verifiedRecovery)}</strong></td>
-                <td style={{ padding: "0.4rem", color: isRecovered ? "#10b981" : "#f59e0b", fontWeight: 600 }}>{status.toUpperCase()}</td>
-                <td style={{ padding: "0.4rem", color: isRecovered ? "#10b981" : "var(--text-muted)" }}>{isRecovered ? "Settlement HMAC Verified" : "Halted"}</td>
+                <td style={{ padding: "0.4rem", fontWeight: 700 }}>Settlement</td>
+                <td style={{ padding: "0.4rem" }}>Verify & attribute</td>
+                <td style={{ padding: "0.4rem", fontFamily: "monospace", color: isVerifiedRecovered ? "#10b981" : "var(--text-muted)" }}>
+                  {isVerifiedRecovered ? fmtRupee(verifiedRecovery) : "₹0"}
+                </td>
+                <td style={{ padding: "0.4rem", color: isVerifiedRecovered ? "#10b981" : "var(--text-muted)", fontWeight: 600 }}>
+                  {settlementVerified ? "SETTLEMENT VERIFIED" : "Not verified"}
+                </td>
+                <td style={{ padding: "0.4rem", color: "var(--text-muted)" }}>
+                  {settlementVerified ? "settlement_evidence" : "None"}
+                </td>
               </tr>
             </tbody>
           </table>
         </AccordionSection>
 
-        {/* 6. Attribution */}
-        {isRecovered && (
-          <AccordionSection title="Recovery Attribution" icon="🏷" badge="FINANCIAL ATTRIBUTION" defaultOpen>
+        {/* 3. Attribution — only if settlement verified */}
+        <AccordionSection title="Recovery Attribution" icon="🏷" badge={isVerifiedRecovered ? "SETTLEMENT VERIFIED" : "NOT ATTRIBUTED"} defaultOpen={isVerifiedRecovered}>
+          {isVerifiedRecovered ? (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", fontSize: "0.8125rem" }}>
               <div>
                 <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Verified Recovery</div>
                 <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#10b981", fontFamily: "monospace" }}>
                   {fmtRupee(verifiedRecovery)}
                 </div>
-                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>Settlement HMAC verified</div>
+                {netRecovery != null && (
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                    Net (after cost): {fmtRupee(netRecovery)}
+                  </div>
+                )}
               </div>
               <div>
                 <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: 3 }}>Attribution Type</div>
                 <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--accent)", fontFamily: "monospace" }}>
-                  {attributionLoading ? "Loading..." : attribution?.attribution_type || "DIRECT_AGENT"}
+                  {attributionLoading
+                    ? "Loading..."
+                    : attribution?.attribution_type ?? "Not attributed"}
                 </div>
                 <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
-                  {attribution?.attribution_reason || "Recovery directly linked to agent intervention"}
+                  {attribution?.attribution_reason ?? "Attribution not yet determined."}
                 </div>
               </div>
+              <div style={{ gridColumn: "1 / -1", marginTop: "0.25rem", padding: "0.625rem 0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                Attribution rules: DIRECT_AGENT = recovery via agent-executed action. AGENT_ASSISTED = recovery following agent communication. ORGANIC = recovery without agent intervention. UNKNOWN = attribution not determinable. Agent recovery is never claimed for organic or unverified money.
+              </div>
             </div>
-            <div style={{ marginTop: "0.75rem", padding: "0.625rem 0.875rem", background: "var(--bg-secondary)", borderRadius: 6, border: "1px solid var(--border)", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-              Attribution rules: DIRECT_AGENT = recovery via agent-sent payment link or action. AGENT_ASSISTED = recovery after agent reminder. ORGANIC = recovery without agent intervention. UNKNOWN = attribution not determinable. Agent recovery is never claimed for organic money.
+          ) : (
+            <div>
+              <EmptyEvidenceNote message="Settlement not verified — no verified money to attribute. Attribution is only recorded when settlement evidence confirms realized recovery." />
+              {settlement && !settlementVerified && (
+                <div style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  Settlement evidence exists but is not yet verified.
+                </div>
+              )}
             </div>
-          </AccordionSection>
-        )}
+          )}
+        </AccordionSection>
 
       </div>
     </div>

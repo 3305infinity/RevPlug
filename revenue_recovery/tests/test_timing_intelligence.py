@@ -37,7 +37,8 @@ class TestTimingEvaluator:
         """Fresh item with no history should have no active timing signals."""
         item = make_item("test-item-1")
         evaluator = TimingEvaluator()
-        result = evaluator.evaluate(item, wait_count=0)
+        now_in_window = datetime(2026, 9, 2, 11, 0, 0, tzinfo=timezone.utc)
+        result = evaluator.evaluate(item, wait_count=0, now=now_in_window)
 
         assert result.timing_decision == "RECOVER"
         assert result.reason_code == "no_timing_constraint"

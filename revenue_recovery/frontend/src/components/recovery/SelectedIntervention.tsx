@@ -44,8 +44,16 @@ export default function SelectedIntervention({ trace, detail }: Props) {
   if (decision && decision !== "RECOVER") {
     // For STOP/WAIT/ESCALATE — show a different panel
     if (decision === "STOP") {
-      const reason = productDecision?.reason || (detail as any)?.stopped_reason || trace?.safety_decision?.reason || "No further automated recovery will be attempted.";
-      const ruleCode = productDecision?.reason_code || (detail as any)?.stopped_rule || null;
+      // Show only backend-provided reason — never a hardcoded fallback
+      const reason: string | null =
+        productDecision?.reason ??
+        (detail as any)?.stopped_reason ??
+        (trace?.safety_decision as any)?.reason ??
+        null;
+      const ruleCode: string | null =
+        productDecision?.reason_code ??
+        (detail as any)?.stopped_rule ??
+        null;
       return (
         <div
           style={{
@@ -71,8 +79,8 @@ export default function SelectedIntervention({ trace, detail }: Props) {
           <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.5rem" }}>
             No further automated recovery will be attempted.
           </div>
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.55, marginBottom: ruleCode ? "0.625rem" : 0 }}>
-            {reason}
+          <div style={{ fontSize: "0.8125rem", color: reason ? "var(--text-secondary)" : "var(--text-muted)", lineHeight: 1.55, marginBottom: ruleCode ? "0.625rem" : 0, fontStyle: reason ? undefined : "italic" }}>
+            {reason ?? "Reason not recorded."}
           </div>
           {ruleCode && (
             <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
@@ -84,8 +92,9 @@ export default function SelectedIntervention({ trace, detail }: Props) {
     }
 
     if (decision === "WAIT") {
-      const reason = productDecision?.reason || "Waiting preserves recovery value — the current moment is not optimal for intervention.";
-      const scheduled = productDecision?.scheduled_for;
+      // Reason must come from backend only
+      const reason: string | null = productDecision?.reason ?? null;
+      const scheduled = productDecision?.scheduled_for ?? null;
       return (
         <div
           style={{
@@ -109,11 +118,17 @@ export default function SelectedIntervention({ trace, detail }: Props) {
             ◷ Waiting is the decision
           </div>
           <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.5rem" }}>
-            Recovery is paused — acting now would reduce expected value.
+            Recovery is paused — no intervention scheduled at this time.
           </div>
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.55 }}>
-            {reason}
-          </div>
+          {reason ? (
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.55 }}>
+              {reason}
+            </div>
+          ) : (
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+              Reason not recorded.
+            </div>
+          )}
           {scheduled && (
             <div style={{ marginTop: "0.625rem", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
               Reassess after:{" "}
@@ -125,7 +140,9 @@ export default function SelectedIntervention({ trace, detail }: Props) {
     }
 
     if (decision === "ESCALATE") {
-      const reason = productDecision?.reason || "This case requires human judgment before recovery can continue.";
+      // Reason must come from backend only
+      const reason: string | null = productDecision?.reason ?? null;
+      const ruleCode: string | null = productDecision?.reason_code ?? null;
       return (
         <div
           style={{
@@ -151,9 +168,20 @@ export default function SelectedIntervention({ trace, detail }: Props) {
           <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.5rem" }}>
             A human operator must review this case before recovery continues.
           </div>
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.55 }}>
-            {reason}
-          </div>
+          {reason ? (
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.55 }}>
+              {reason}
+            </div>
+          ) : (
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+              Reason not recorded.
+            </div>
+          )}
+          {ruleCode && (
+            <div style={{ marginTop: "0.5rem", fontSize: "0.6875rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
+              Rule: {ruleCode}
+            </div>
+          )}
         </div>
       );
     }

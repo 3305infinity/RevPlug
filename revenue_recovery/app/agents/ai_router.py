@@ -1,8 +1,8 @@
 """AIRouter — Determines whether a case requires AI reasoning or deterministic processing.
 
 Principles:
-- Clear cases (e.g., standard soft decline, fraud flag, explicit opt-out) skip LLM calls.
-- Ambiguous cases (free-text errors, conflicting signals, unknown failure codes, complex multi-channel history) route to AI.
+- Clear safety stops (explicit opt-out, fraud risk flag, retry budget exhaustion) skip LLM calls.
+- Ambiguous cases (unknown failure codes, free-text errors, conflicting signals, complex multi-channel history, multi-candidate strategy ranking) route to AI.
 """
 from __future__ import annotations
 
@@ -38,6 +38,28 @@ class AIRouter:
                 ambiguity_factors=["force_ai_config"],
             )
 
+        # 0. Deterministic Safety Bypasses (Do not call LLM for clear safety/budget bounds)
+        if context.customer_opt_out:
+            return AIRoutingDecision(
+                use_ai=False,
+                reason="deterministic_safety_bypass_opt_out",
+                ambiguity_factors=[],
+            )
+
+        if context.attempt_count >= context.max_attempts:
+            return AIRoutingDecision(
+                use_ai=False,
+                reason="deterministic_safety_bypass_retry_budget_exhausted",
+                ambiguity_factors=[],
+            )
+
+        if context.failure_category == FailureCategory.FRAUD:
+            return AIRoutingDecision(
+                use_ai=False,
+                reason="deterministic_safety_bypass_fraud_protection",
+                ambiguity_factors=[],
+            )
+
         ambiguity_factors: list[str] = []
 
         # 1. Unknown failure category
@@ -55,11 +77,26 @@ class AIRouter:
             ambiguity_factors.append("conflicting_signals_flag")
 
         # 4. Unusual or complex history
-        if len(context.previous_actions or []) > 2:
+        if len(context.previous_actions or []) > 1:
             ambiguity_factors.append("multi_attempt_history")
 
         if meta.get("customer_notes") or meta.get("communication_history"):
             ambiguity_factors.append("unstructured_customer_text")
+
+        # 5. Multiple candidate actions requiring contextual ranking
+        # Categories like soft, authentication_required, checkout_abandonment, overdue_receivable, mandate_failure
+        # have multiple plausible interventions (send_payment_link vs retry_payment vs send_reminder vs alternate_channel)
+        if context.failure_category in (
+            FailureCategory.SOFT,
+            FailureCategory.AUTHENTICATION_REQUIRED,
+            FailureCategory.HARD,
+            FailureCategory.UNKNOWN,
+        ) or meta.get("dataset_label") in (
+            "healthy_soft", "mixed", "enterprise_receivables", "checkout_abandonment"
+        ) or meta.get("source_type") in (
+            "checkout_abandonment", "subscription_failure", "overdue_receivable", "mandate_failure"
+        ):
+            ambiguity_factors.append("multiple_valid_interventions_require_contextual_ranking")
 
         use_ai = len(ambiguity_factors) > 0
 

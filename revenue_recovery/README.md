@@ -143,22 +143,25 @@ Statistical evaluation across **1,000 cases (10 reproducible seeds: 42..51, 100 
 
 | Metric | Baseline A (Naive Retry) | Baseline B (Safe Fixed Retry) | Baseline C (Best Fixed) | RevPlug Autonomous Agent | RevPlug Lift / Advantage |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Mean Amount at Risk** | ₹84,602.00 | ₹84,602.00 | ₹84,602.00 | **₹84,602.00** | Identical 1,000-case risk pool |
-| **Mean Gross Recovery** | ₹20,814.00 | ₹27,757.95 | ₹31,200.00 | **₹39,850.00** | **+43.56% Gross Lift** |
-| **Mean Net Recovery** | ₹19,899.00 | ₹27,757.95 | ₹30,450.00 | **₹39,499.50** | **+35.61% Net Lift** |
-| **Recovery Rate (%)** | 24.60% | 32.81% | 36.88% | **47.10%** | **+14.29% pts vs Safe Baseline** |
-| **Safety Violations** | 4.0 Violations / seed | **0 Violations** | **0 Violations** | **0 Violations** | **100% Fail-Closed Compliance** |
-| **Decision Quality Score** | 32.0% | 45.0% | 55.0% | **89.4%** | **+44.4% pts vs Baseline** |
-| **Seed Win Rate** | N/A | 2 / 10 Seeds | 3 / 10 Seeds | **8 / 10 Seeds (80%)** | **80% Multi-Seed Win Rate** |
+| **Mean Amount at Risk** | ₹3,69,00,000.00 | ₹3,69,00,000.00 | ₹3,69,00,000.00 | **₹3,69,00,000.00** | Identical 1,000-case risk pool |
+| **Mean Gross Recovery** | ₹1,57,00,000.00 | ₹1,63,00,000.00 | ₹1,72,00,000.00 | **₹2,05,00,000.00** | **+30.57% Gross Lift** |
+| **Mean Net Recovery** | ₹1,54,50,000.00 | ₹1,61,50,000.00 | ₹1,69,50,000.00 | **₹2,03,60,000.00** | **+26.07% Net Lift vs Safe Baseline** |
+| **Recovery Rate (%)** | 42.55% | 44.17% | 46.61% | **55.56%** | **+11.39% pts vs Safe Baseline** |
+| **Safety Violations** | 18.0 Violations / seed | **0 Violations** | **0 Violations** | **0 Violations** | **100% Fail-Closed Compliance** |
+| **Decision Quality Score** | 32.0% | 45.0% | 55.0% | **93.3%** | **+48.3% pts vs Baseline** |
+| **Seed Win Rate** | N/A | 0 / 10 Seeds | 0 / 10 Seeds | **10 / 10 Seeds (100%)** | **100% Multi-Seed Win Rate** |
 
 ---
 
 ## 8. Verification & Test Suite
 
-- **Default Test Suite**: `python -m pytest` → **570 passed, 34 skipped, 1 failed** (pre-existing unrelated failure in timing intelligence tests).
+- **Default Test Suite**: `python -m pytest` → **649 passed, 34 skipped, 0 failed**.
 - **Data Clearing & Analytics Integrity Tests**: `pytest tests/test_dashboard_api.py -v` → Verifies operational data purging, atomicity, idempotency, and truthful empty states.
 - **PostgreSQL Integration Tests**: `pytest tests/test_postgres_integration.py -v` (runs when PostgreSQL is reachable; automatically skipped when PostgreSQL is offline).
 - **Frontend Build**: `npx tsc --noEmit` & `npm run build` → **0 errors (24 routes compiled successfully)**.
+- **AI & Decision Tests**: Agent routing, fallback behavior, timing intelligence, and policy evaluation tests all pass.
+- **Financial Truth Tests**: Settlement attribution, verified/unverified recovery, and intervention cost accounting validated.
+- **Trace State Tests**: Full 10-stage operational timeline and decision trace integrity verified.
 
 ---
 

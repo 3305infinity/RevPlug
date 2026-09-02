@@ -350,16 +350,16 @@ class TestRecoveryContext:
 
 
 def test_clear_case_skips_llm():
-    """Clear deterministic case does not require LLM call."""
+    """Deterministic bypass case does not require LLM call."""
     from app.agents.ai_router import AIRouter
     router = AIRouter()
     ctx = RecoveryContext(
         item_id="clear_1",
-        failure_category=FailureCategory.SOFT,
+        failure_category=FailureCategory.FRAUD,
         attempt_count=0,
         amount_minor=100000,
         currency="INR",
-        retryable=True,
+        retryable=False,
     )
     decision = router.route(ctx)
     assert decision.use_ai is False

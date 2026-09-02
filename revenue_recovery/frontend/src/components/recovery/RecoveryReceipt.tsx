@@ -17,65 +17,60 @@ export default function RecoveryReceipt({ trace, detail }: Props) {
   const isVerified = settlement?.verified === true;
 
   if (!isVerified) {
-    // Check if detail outcome has settlement
-    const outcome = detail?.outcome as Record<string, any> | null | undefined;
-    const outcomeVerified = outcome?.verified === true || detail?.status === "recovered";
-    
-    if (!outcomeVerified) {
-      return (
+    // Settlement is ONLY confirmed by settlement_evidence.verified — never inferred from item status
+    return (
+      <div
+        style={{
+          padding: "1.25rem 1.5rem",
+          background: "var(--bg-secondary)",
+          borderRadius: 8,
+          border: "1px solid var(--border)",
+          marginBottom: "1rem",
+        }}
+      >
         <div
           style={{
-            padding: "1.25rem 1.5rem",
-            background: "var(--bg-secondary)",
-            borderRadius: 8,
-            border: "1px solid var(--border)",
-            marginBottom: "1rem",
+            fontSize: "0.6875rem",
+            fontWeight: 700,
+            color: "var(--text-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.07em",
+            marginBottom: "0.5rem",
           }}
         >
-          <div
-            style={{
-              fontSize: "0.6875rem",
-              fontWeight: 700,
-              color: "var(--text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.07em",
-              marginBottom: "0.5rem",
-            }}
-          >
-            Recovery receipt
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              fontSize: "0.875rem",
-              color: "var(--text-secondary)",
-              fontWeight: 600,
-            }}
-          >
-            <span style={{ color: "#f59e0b" }}>⏳</span>
-            <span>Settlement pending</span>
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
-            Settlement verification has not been confirmed for this opportunity yet.
-          </div>
+          Recovery receipt
         </div>
-      );
-    }
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            fontSize: "0.875rem",
+            color: "var(--text-secondary)",
+            fontWeight: 600,
+          }}
+        >
+          <span style={{ color: "#64748b" }}>⊘</span>
+          <span>Settlement not verified</span>
+        </div>
+        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
+          No authoritative settlement evidence has been recorded for this opportunity. Verified recovered amount: ₹0.
+        </div>
+      </div>
+    );
   }
 
   const verifiedAmountMinor =
     settlement?.verified_amount_minor ??
-    (detail as any)?.actual_recovery_value ??
     trace?.verified_recovery_minor ??
-    0;
+    null;
 
-  const paymentId = settlement?.payment_id || (detail as any)?.metadata?.razorpay_payment_id || "N/A";
-  const eventId = settlement?.provider_event_id || (detail as any)?.metadata?.provider_event_id || "N/A";
-  const timestamp = settlement?.settlement_timestamp || trace?.timeline?.find(t => t.event_type === "SETTLEMENT_RECEIVED")?.timestamp || null;
-  const provider = settlement?.provider || "Razorpay";
-  const method = settlement?.method || "webhook_hmac";
+  const paymentId = settlement?.payment_id ?? null;
+  const eventId = settlement?.provider_event_id ?? null;
+  const timestamp = settlement?.settlement_timestamp ?? trace?.timeline?.find((t: any) => t.event_type === "SETTLEMENT_RECEIVED")?.timestamp ?? null;
+  // Provider and method come from settlement evidence only — never hardcoded defaults
+  const provider = settlement?.provider ?? null;
+  const method = settlement?.method ?? null;
 
   return (
     <div
@@ -110,7 +105,7 @@ export default function RecoveryReceipt({ trace, detail }: Props) {
             ✓ RECOVERY RECEIPT & SETTLEMENT PROOF
           </div>
           <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#10b981", marginTop: 2 }}>
-            Recovered {fmtINR(verifiedAmountMinor)}
+            Verified Recovered {verifiedAmountMinor != null ? fmtINR(verifiedAmountMinor) : "—"}
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
@@ -136,8 +131,8 @@ export default function RecoveryReceipt({ trace, detail }: Props) {
           <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase" }}>
             Payment / Reference ID
           </div>
-          <div className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)" }}>
-            {paymentId}
+          <div className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 600, color: paymentId ? "var(--text-primary)" : "var(--text-muted)" }}>
+            {paymentId ?? "—"}
           </div>
         </div>
 
@@ -145,8 +140,8 @@ export default function RecoveryReceipt({ trace, detail }: Props) {
           <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", textTransform: "uppercase" }}>
             Provider Event Reference
           </div>
-          <div className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)" }}>
-            {eventId}
+          <div className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 600, color: eventId ? "var(--text-primary)" : "var(--text-muted)" }}>
+            {eventId ?? "—"}
           </div>
         </div>
 
@@ -155,7 +150,7 @@ export default function RecoveryReceipt({ trace, detail }: Props) {
             Verification Provider & Method
           </div>
           <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)" }}>
-            {provider} ({method})
+            {provider && method ? `${provider} (${method})` : provider ?? method ?? "—"}
           </div>
         </div>
 

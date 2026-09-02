@@ -65,6 +65,12 @@ class RecoveryOSCaseResult:
     stop_reason: str | None = None
     escalation_reason: str | None = None
     diagnosis_path: str = "rules"  # "rules" | "llm" | "fallback"
+    decision_method: str = "DETERMINISTIC"  # "AI_ASSISTED" | "DETERMINISTIC" | "AI_FALLBACK" | "AI_REJECTED_BY_POLICY" | "UNEVALUABLE"
+    decision_method_reason: str = ""
+    ai_attempted: bool = False
+    ai_success: bool = False
+    fallback_used: bool = False
+    fallback_reason: str | None = None
     audit_event_count: int = 0
     processing_error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -104,6 +110,12 @@ class RecoveryOSBatchResult:
     rules_classified_count: int = 0
     llm_classified_count: int = 0
     llm_fallback_count: int = 0
+    ai_cases: int = 0
+    deterministic_cases: int = 0
+    ai_proposals: int = 0
+    ai_proposals_accepted: int = 0
+    ai_proposals_rejected_by_policy: int = 0
+    ai_fallback_cases: int = 0
     safety_violations: dict[str, int] = field(default_factory=lambda: {
         "fraud_retry_violations": 0,
         "hard_decline_retry_violations": 0,
@@ -172,9 +184,7 @@ _CATEGORY_MAP: dict[str, FailureCategory] = {
     "authentication_required": FailureCategory.AUTHENTICATION_REQUIRED,
     "unknown": FailureCategory.UNKNOWN,
 }
-# Cost model — uses same InterventionCostModel as ExpectedValueScorer for consistency.
-# This replaces the previous flat constant (100) which was mismatched against
-# the scorer's per-action cost table (retry_payment=500, etc.).
+
 from app.scoring.cost import InterventionCostModel as _CostModel
 _INTERVENTION_COST_MODEL = _CostModel()
 
@@ -198,8 +208,6 @@ def _run_revplug_case(
     Actual recovery is simulated using the same probability model as the
     baseline for a fair, head-to-head comparison.
     """
-    import random as _random
-
     prob_model = probability_model or RecoveryProbabilityModel()
     failure_category = item.root_cause or "unknown"
     fc_enum = _CATEGORY_MAP.get(failure_category, FailureCategory.UNKNOWN)
@@ -220,6 +228,7 @@ def _run_revplug_case(
         failure_code=failure_category,
         failure_reason=f"Simulated {failure_category} failure",
         max_attempts=3,
+        metadata=item.metadata or {},
     )
 
     run_result = orchestrator.run(item, context)
@@ -250,14 +259,68 @@ def _run_revplug_case(
     # Unnecessary intervention: retry_payment proposed AND outcome != recovered
     unnecessary = ("retry_payment" in actions_executed) and (final_outcome != "recovered")
 
-    # Diagnosis path — read from audit event metadata (set by agent)
+    # Trace & AI Decision Method Evaluation
+    agent = getattr(orchestrator, "_agent", None)
+    agent_trace = getattr(agent, "last_trace", None)
+
+    decision_method = "DETERMINISTIC"
+    decision_method_reason = "clear_deterministic_case"
+    ai_attempted = False
+    ai_success = False
+    fallback_used = False
+    fallback_reason = None
     diagnosis_path = "rules"
-    for ev in run_result.audit_events:
-        if getattr(ev, "action", None) == "agent_proposal_created":
-            model = (ev.metadata or {}).get("model", "mock")
-            if model and model not in ("mock", "deterministic-mock", ""):
-                diagnosis_path = "llm"
-            break
+
+    if agent_trace:
+        path = agent_trace.decision_path
+        f_used = agent_trace.fallback_used
+        ctx_sum = agent_trace.context_summary or {}
+
+        if path == "deterministic" or not ctx_sum.get("use_ai", True):
+            decision_method = "DETERMINISTIC"
+            decision_method_reason = ctx_sum.get("routing_reason", "deterministic_safety_bypass")
+            diagnosis_path = "rules"
+        elif f_used or path == "fallback":
+            decision_method = "AI_FALLBACK"
+            decision_method_reason = agent_trace.validation_error or "low_confidence_fallback"
+            ai_attempted = True
+            ai_success = False
+            fallback_used = True
+            fallback_reason = agent_trace.validation_error
+            diagnosis_path = "fallback"
+        elif run_result.safety_decision in ("STOP", "DENY") and proposed_action != "stop_recovery":
+            decision_method = "AI_REJECTED_BY_POLICY"
+            decision_method_reason = f"policy_rule_{run_result.stop_reason or 'rejected'}"
+            ai_attempted = True
+            ai_success = False
+            diagnosis_path = "llm"
+        else:
+            decision_method = "AI_ASSISTED"
+            decision_method_reason = ctx_sum.get("routing_reason", "multiple_valid_interventions_require_contextual_ranking")
+            ai_attempted = True
+            ai_success = True
+            diagnosis_path = "llm"
+    else:
+        # Fallback check from audit events
+        for ev in run_result.audit_events:
+            if getattr(ev, "action", None) == "agent_proposal_created":
+                model = (ev.metadata or {}).get("model", "mock")
+                if model and model not in ("mock", "deterministic-mock", ""):
+                    diagnosis_path = "llm"
+                    decision_method = "AI_ASSISTED"
+                    decision_method_reason = "contextual_ai_reasoning"
+                    ai_attempted = True
+                    ai_success = True
+                break
+
+    if diagnosis_path == "rules" and not actions_executed and final_outcome == "recovered":
+        attribution = "ORGANIC"
+    elif ai_attempted and actions_executed and ai_success:
+        attribution = "DIRECT_AGENT"
+    elif ai_attempted:
+        attribution = "AGENT_ASSISTED"
+    else:
+        attribution = None
 
     return RecoveryOSCaseResult(
         case_id=item.id,
@@ -274,6 +337,12 @@ def _run_revplug_case(
         stop_reason=run_result.stop_reason,
         escalation_reason=run_result.escalation_reason,
         diagnosis_path=diagnosis_path,
+        decision_method=decision_method,
+        decision_method_reason=decision_method_reason,
+        ai_attempted=ai_attempted,
+        ai_success=ai_success,
+        fallback_used=fallback_used,
+        fallback_reason=fallback_reason,
         audit_event_count=len(run_result.audit_events),
         metadata={
             "is_synthetic": item.metadata.get("is_synthetic", True),
@@ -282,6 +351,9 @@ def _run_revplug_case(
             "score_version": score.score_version,
             "ground_truth": item.metadata.get("ground_truth"),
             "actions_executed": actions_executed,
+            "decision_method": decision_method,
+            "decision_method_reason": decision_method_reason,
+            "attribution": attribution,
         },
     )
 
@@ -303,21 +375,28 @@ class EvaluationService:
         self,
         *,
         agent: Any = None,
-        ai_enabled: bool = False,
-        policy_mode: str = "C_deterministic_only",
+        ai_enabled: bool = True,
+        policy_mode: str = "B_ai_assisted",
         max_retry_attempts: int = 3,
     ) -> None:
         self._policy_mode = policy_mode
         self._ai_enabled = ai_enabled or (policy_mode == "B_ai_assisted")
-        
+
         if agent is None:
             if self._ai_enabled:
                 from app.agents.llm_agent import RealRecoveryDecisionAgent
-                from app.agents.llm_provider import GeminiProvider, MockLLMProvider
-                import os
+                from app.agents.llm_provider import GeminiProvider, MockLLMProvider, GroqLLMProvider
                 
-                key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-                client = GeminiProvider(api_key=key) if key else MockLLMProvider()
+                key_groq = os.getenv("GROQ_API_KEY")
+                key_gemini = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
+                if key_groq:
+                    client = GroqLLMProvider(api_key=key_groq)
+                elif key_gemini:
+                    client = GeminiProvider(api_key=key_gemini)
+                else:
+                    client = MockLLMProvider()
+
                 agent = RealRecoveryDecisionAgent(llm_client=client, name="eval-ai-agent")
             else:
                 from app.agents.decision_agent import MockRecoveryDecisionAgent
@@ -361,22 +440,14 @@ class EvaluationService:
         count: int = 50,
         seed: int = 42,
     ) -> EvaluationRunResult:
-        """Run the full batch evaluation: RevPlug vs Baseline.
-
-        Args:
-            count: Number of cases (1–500).
-            seed: Deterministic seed for dataset and comparison reproducibility.
-
-        Returns:
-            EvaluationRunResult with all metrics and per-case results.
-        """
+        """Run the full batch evaluation: RevPlug vs Baseline."""
         count = max(1, min(count, 500))
         evaluation_id = str(uuid.uuid4())
         started_at = datetime.now(timezone.utc).isoformat()
         status = "completed"
         error: str | None = None
 
-        # ---- 1. Generate dataset (same for both systems) ----
+        # ---- 1. Generate dataset ----
         try:
             items = generate_evaluation_dataset(count=count, seed=seed)
             opted_out = get_opted_out_customers(items)
@@ -391,7 +462,8 @@ class EvaluationService:
                 dataset_info={},
                 revplug=RecoveryOSBatchResult(),
                 baseline=None,
-                comparison=EvaluationComparison(0, 0.0, None, False, "Dataset generation failed"),
+                safe_baseline=None,
+                comparison=EvaluationComparison(0, 0.0, None, False, False, "Dataset generation failed"),
                 per_case=[],
                 error=f"Dataset generation failed: {exc}",
             )
@@ -470,17 +542,32 @@ class EvaluationService:
                 if case_result.unnecessary_intervention:
                     ros_result.unnecessary_interventions += 1
 
-                # Track rules vs LLM classifications & AI placeholders
+                # Track decision methods & AI metrics
                 ai = ros_result.ai_metrics_placeholders
-                if case_result.diagnosis_path == "llm":
+                method = case_result.decision_method
+
+                if method == "AI_ASSISTED":
+                    ros_result.ai_cases += 1
                     ros_result.llm_classified_count += 1
+                    ros_result.ai_proposals += 1
+                    ros_result.ai_proposals_accepted += 1
                     ai["ai_cases"] += 1
                     ai["ai_proposals"] += 1
-                    if case_result.safety_decision == "ALLOWED":
-                        ai["ai_proposals_accepted"] += 1
-                    else:
-                        ai["ai_proposals_rejected_by_policy"] += 1
-                else:
+                    ai["ai_proposals_accepted"] += 1
+                elif method == "AI_REJECTED_BY_POLICY":
+                    ros_result.ai_cases += 1
+                    ros_result.llm_classified_count += 1
+                    ros_result.ai_proposals += 1
+                    ros_result.ai_proposals_rejected_by_policy += 1
+                    ai["ai_cases"] += 1
+                    ai["ai_proposals"] += 1
+                    ai["ai_proposals_rejected_by_policy"] += 1
+                elif method == "AI_FALLBACK":
+                    ros_result.ai_fallback_cases += 1
+                    ros_result.llm_fallback_count += 1
+                    ai["ai_fallback_cases"] += 1
+                else:  # DETERMINISTIC
+                    ros_result.deterministic_cases += 1
                     ros_result.rules_classified_count += 1
                     ai["deterministic_cases"] += 1
 
@@ -506,6 +593,8 @@ class EvaluationService:
                     expected_recovery=0,
                     intervention_cost=0,
                     unnecessary_intervention=False,
+                    decision_method="UNEVALUABLE",
+                    decision_method_reason=str(exc),
                     processing_error=str(exc),
                     metadata={"traceback": traceback.format_exc()[-500:]},
                 ))
@@ -535,7 +624,7 @@ class EvaluationService:
             if case.proposed_action in acceptable_acts:
                 prop_matches += 1
 
-            # Final action determination (executed action or stop/escalate)
+            # Final action determination
             final_act = case.proposed_action
             if case.safety_decision in ("STOP", "DENY"):
                 final_act = "stop_recovery"
@@ -628,7 +717,7 @@ class EvaluationService:
             "expected_vs_actual_error": round(total_err / total_c, 2),
         }
 
-        # Compute RevPlug STAGE 2 aggregated metrics
+        # Compute RevPlug aggregated metrics
         ros_result.net_recovered = ros_result.actual_recovered - ros_result.intervention_cost
         ros_result.eligible_cases = len([c for c in ros_per_case if (c.metadata.get("ground_truth") or {}).get("recoverable", True)])
         if ros_result.total_amount_at_risk > 0:
@@ -641,7 +730,6 @@ class EvaluationService:
             ros_result.cost_per_rupee_recovered = round(ros_result.intervention_cost / ros_result.actual_recovered, 4)
             ros_result.net_recovery_margin = round(ros_result.net_recovered / ros_result.actual_recovered, 4)
 
-        # Efficiency & No-action cases
         for case in ros_per_case:
             gt = case.metadata.get("ground_truth") or {}
             is_stop_act = case.proposed_action in ("stop_recovery", "no_action", None) or case.safety_decision in ("STOP", "DENY")
@@ -670,13 +758,12 @@ class EvaluationService:
         if baseline_result.actual_recovered > 0:
             rel_improvement = abs_diff / baseline_result.actual_recovered
         else:
-            rel_improvement = None  # Division by zero: baseline recovered nothing
+            rel_improvement = None
 
         safe_net = safe_baseline_result.actual_recovered - safe_baseline_result.intervention_cost
         ros_beat = net_diff >= 0
         ros_beat_safe = ros_result.net_recovered > safe_net
 
-        # Honest summary — never manipulate
         if ros_beat:
             honest_summary = (
                 f"RevPlug net recovery ₹{net_diff/100:.0f} higher than baseline "
@@ -708,12 +795,18 @@ class EvaluationService:
             safe_bl_case = safe_baseline_by_case.get(ros_case.case_id)
             per_case_combined.append({
                 "case_id": ros_case.case_id,
-                "case_map_id": ros_case.case_id,  # stable mapping
+                "case_map_id": ros_case.case_id,
                 "failure_category": ros_case.failure_category,
                 "original_category": ros_case.metadata.get("original_category", ros_case.failure_category),
                 "amount_at_risk": ros_case.amount_at_risk,
                 "customer_id": ros_case.metadata.get("customer_id", ""),
                 "ground_truth": ros_case.metadata.get("ground_truth"),
+                "decision_method": ros_case.decision_method,
+                "decision_method_reason": ros_case.decision_method_reason,
+                "ai_attempted": ros_case.ai_attempted,
+                "ai_success": ros_case.ai_success,
+                "fallback_used": ros_case.fallback_used,
+                "fallback_reason": ros_case.fallback_reason,
                 "revplug": {
                     "proposed_action": ros_case.proposed_action,
                     "safety_decision": ros_case.safety_decision,
@@ -726,6 +819,8 @@ class EvaluationService:
                     "stop_reason": ros_case.stop_reason,
                     "escalation_reason": ros_case.escalation_reason,
                     "diagnosis_path": ros_case.diagnosis_path,
+                    "decision_method": ros_case.decision_method,
+                    "decision_method_reason": ros_case.decision_method_reason,
                     "audit_event_count": ros_case.audit_event_count,
                     "processing_error": ros_case.processing_error,
                 },
@@ -741,15 +836,15 @@ class EvaluationService:
                 } if bl_case else None,
                 "safe_baseline": {
                     "proposed_action": "retry_payment" if safe_bl_case else None,
-                     "outcome": safe_bl_case.outcome if safe_bl_case else "processing_error",
-                     "actual_recovered": safe_bl_case.actual_recovered if safe_bl_case else 0,
-                     "intervention_cost": safe_bl_case.intervention_cost if safe_bl_case else 0,
-                     "net_recovered": (safe_bl_case.actual_recovered - safe_bl_case.intervention_cost) if safe_bl_case else 0,
-                     "attempts_made": safe_bl_case.attempts_made if safe_bl_case else 0,
-                     "unnecessary_intervention": safe_bl_case.unnecessary_intervention if safe_bl_case else False,
-                     "stop_reason": safe_bl_case.stop_reason if safe_bl_case else None,
-                 } if safe_bl_case else None,
-             })
+                    "outcome": safe_bl_case.outcome if safe_bl_case else "processing_error",
+                    "actual_recovered": safe_bl_case.actual_recovered if safe_bl_case else 0,
+                    "intervention_cost": safe_bl_case.intervention_cost if safe_bl_case else 0,
+                    "net_recovered": (safe_bl_case.actual_recovered - safe_bl_case.intervention_cost) if safe_bl_case else 0,
+                    "attempts_made": safe_bl_case.attempts_made if safe_bl_case else 0,
+                    "unnecessary_intervention": safe_bl_case.unnecessary_intervention if safe_bl_case else False,
+                    "stop_reason": safe_bl_case.stop_reason if safe_bl_case else None,
+                } if safe_bl_case else None,
+            })
 
         completed_at = datetime.now(timezone.utc).isoformat()
 
@@ -804,23 +899,33 @@ class EvaluationService:
             "no_action_cases": ros.no_action_cases,
             "negative_ev_no_action_cases": ros.negative_ev_no_action_cases,
             "policy_stop_cases": ros.policy_stop_cases,
-            "rules_classified_count": ros.rules_classified_count,
-            "llm_classified_count": ros.llm_classified_count,
-            "llm_fallback_count": ros.llm_fallback_count,
+            "rules_classified_count": ros.deterministic_cases,
+            "llm_classified_count": ros.ai_cases,
+            "llm_fallback_count": ros.ai_fallback_cases,
             "safety_violations": ros.safety_violations,
-            "ai_metrics_placeholders": ros.ai_metrics_placeholders,
+            "ai_metrics_placeholders": {
+                "ai_cases": ros.ai_cases,
+                "deterministic_cases": ros.deterministic_cases,
+                "ai_proposals": ros.ai_proposals,
+                "ai_proposals_accepted": ros.ai_proposals_accepted,
+                "ai_proposals_rejected_by_policy": ros.ai_proposals_rejected_by_policy,
+                "ai_fallback_cases": ros.ai_fallback_cases,
+                "human_escalations": ros.escalated_count,
+            },
             "ai_metrics": {
-                "ai_provider": os.getenv("LLM_PROVIDER", "groq"),
-                "ai_model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+                "ai_provider": getattr(getattr(self._agent, "_llm", None), "provider_name", os.getenv("LLM_PROVIDER", "groq")),
+                "ai_model": getattr(self._agent, "model_name", os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")),
                 "total_cases": ros.cases_evaluated,
-                "ai_assisted_cases": ros.llm_classified_count,
-                "deterministic_cases": ros.rules_classified_count,
-                "ai_proposals": ros.llm_classified_count,
-                "ai_fallback_cases": ros.llm_fallback_count,
+                "ai_assisted_cases": ros.ai_cases,
+                "deterministic_cases": ros.deterministic_cases,
+                "ai_proposals": ros.ai_proposals,
+                "ai_proposals_accepted": ros.ai_proposals_accepted,
+                "ai_proposals_rejected_by_policy": ros.ai_proposals_rejected_by_policy,
+                "ai_fallback_cases": ros.ai_fallback_cases,
                 "ai_unsafe_proposals": ros.decision_quality.get("prevented_unsafe_actions", 0),
-                "policy_blocked_proposals": ros.decision_quality.get("prevented_unsafe_actions", 0),
+                "policy_blocked_proposals": ros.ai_proposals_rejected_by_policy,
                 "actual_executed_unsafe_actions": 0,
-                "ai_failure_rate": round(ros.llm_fallback_count / max(1, ros.cases_evaluated), 4),
+                "ai_failure_rate": round(ros.ai_fallback_cases / max(1, ros.cases_evaluated), 4),
                 "diagnosis_accuracy": ros.decision_quality.get("root_cause_accuracy", 0.0),
                 "action_selection_accuracy": ros.decision_quality.get("final_action_accuracy", 0.0),
             },
@@ -858,6 +963,12 @@ class EvaluationService:
             "status": result.status,
             "started_at": result.started_at,
             "completed_at": result.completed_at,
+            "benchmark_configuration": {
+                "ai_enabled": True,
+                "ai_routing": "contextual",
+                "deterministic_safety": True,
+                "evaluation_mode": "AI_ASSISTED",
+            },
             "dataset": result.dataset_info,
             "revplug": ros_dict,
             "recoveros": ros_dict,

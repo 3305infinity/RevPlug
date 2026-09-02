@@ -845,6 +845,7 @@ export interface CaseTrace {
     item_id: string;
     failure_category: string;
     amount_minor: number;
+    attempt_count?: number;
   };
   diagnosis: Record<string, unknown>;
   ai_recommendation: {

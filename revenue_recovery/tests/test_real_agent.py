@@ -150,7 +150,7 @@ class TestRealAgent:
         assert agent.last_trace is not None
         assert agent.last_trace.validation_passed is True
 
-    def test_fraud_escalates(self):
+    def test_fraud_stops_recovery(self):
         agent = RealRecoveryDecisionAgent()
         ctx = RecoveryContext(
             failure_category=FailureCategory.FRAUD,
@@ -163,7 +163,7 @@ class TestRealAgent:
             item_id="pay_fraud_001",
         )
         proposal = agent.propose(ctx)
-        assert proposal.action == RecoveryAction.ESCALATE_HUMAN
+        assert proposal.action == RecoveryAction.STOP_RECOVERY
 
     def test_hard_failure_does_not_retry(self):
         agent = RealRecoveryDecisionAgent()
@@ -238,7 +238,7 @@ class TestFallback:
         assert agent.last_trace.fallback_used is True
 
     def test_malformed_json_falls_back(self):
-        """If LLM returns garbage, agent falls back."""
+        """If LLM returns garbage, agent falls back to deterministic rules."""
 
         class GarbageLLM:
             model_name = "garbage"
@@ -249,18 +249,18 @@ class TestFallback:
         fallback = MockRecoveryDecisionAgent()
         agent = RealRecoveryDecisionAgent(llm_client=GarbageLLM(), fallback_agent=fallback)
         ctx = RecoveryContext(
-            failure_category=FailureCategory.FRAUD,
-            retryable=False,
+            failure_category=FailureCategory.SOFT,
+            retryable=True,
             attempt_count=0,
             amount_minor=100000,
             currency="INR",
-            expected_recovery_value=0,
+            expected_recovery_value=50000,
             customer_opt_out=False,
-            item_id="pay_fraud_001",
+            item_id="pay_soft_001",
         )
         proposal = agent.propose(ctx)
-        # Fallback mock agent proposes STOP_RECOVERY for FRAUD
-        assert proposal.action == RecoveryAction.STOP_RECOVERY
+        # Fallback mock agent proposes RETRY_PAYMENT for SOFT
+        assert proposal.action == RecoveryAction.RETRY_PAYMENT
         assert agent.last_trace.fallback_used is True
 
 

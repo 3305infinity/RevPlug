@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { api, RecoveryItem } from "@/lib/api";
+import { api, RecoveryItem, DashboardSummary } from "@/lib/api";
 import { getCustomerDisplayName } from "@/lib/customerDisplay";
 import CreateCaseModal from "@/components/recovery/CreateCaseModal";
 import CapitalProtectedPanel from "@/components/dashboard/CapitalProtectedPanel";
@@ -11,6 +11,7 @@ type StatusFilter = "all" | "at_risk" | "recovering" | "awaiting_customer" | "re
 
 export default function RecoveryInboxPage() {
   const [items, setItems] = useState<RecoveryItem[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -20,8 +21,12 @@ export default function RecoveryInboxPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.items();
-      setItems(Array.isArray(data) ? data : []);
+      const [itemsData, summaryData] = await Promise.all([
+        api.items(),
+        api.summary().catch(() => null),
+      ]);
+      setItems(Array.isArray(itemsData) ? itemsData : []);
+      setSummary(summaryData);
       setErrorMsg("");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Failed to load recovery inbox");
@@ -81,13 +86,13 @@ export default function RecoveryInboxPage() {
     "₹" + (minor / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   const totalAtRisk = useMemo(
-    () => items.filter((i) => i.status !== "recovered").reduce((acc, i) => acc + i.amount_minor, 0),
+    () => items.filter((i) => i.status !== "recovered" && i.status !== "stopped").reduce((acc, i) => acc + i.amount_minor, 0),
     [items]
   );
 
   const totalRecovered = useMemo(
-    () => items.reduce((acc, i) => acc + (i.actual_recovery_value || (i.status === "recovered" ? i.amount_minor : 0)), 0),
-    [items]
+    () => summary?.actually_recovered ?? items.reduce((acc, i) => acc + (i.actual_recovery_value || 0), 0),
+    [summary, items]
   );
 
   const expectedRecoverable = useMemo(
@@ -157,7 +162,7 @@ export default function RecoveryInboxPage() {
         <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>REVENUE AT RISK</div>
           <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#ef4444", marginTop: 4, fontFamily: "monospace" }}>{fmt(totalAtRisk)}</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>{items.filter((i) => i.status !== "recovered").length} active cases</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>{items.filter((i) => i.status !== "recovered" && i.status !== "stopped").length} active cases</div>
         </div>
 
         <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>

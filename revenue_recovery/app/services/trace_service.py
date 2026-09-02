@@ -95,21 +95,18 @@ def build_case_trace(item_id: str, container: Any) -> dict[str, Any]:
         "actor": "ai",
         "source": "deterministic_fallback",
         "selected_action": None,
-        "confidence": 0.0,
+        "confidence": None,
         "fallback_used": False,
-        "model": "mock",
-        "prompt_version": "v1-stage3",
+        "model": None,
+        "prompt_version": None,
     }
     candidate_actions: list[dict[str, Any]] = []
     policy_evaluations: dict[str, Any] = {}
     safety_decision: dict[str, Any] = {"decision": "UNKNOWN", "allowed": False, "reason": "No evaluation recorded"}
-    execution: dict[str, Any] = {"status": "NOT_EXECUTED", "executed": False, "is_simulated": True}
+    execution: dict[str, Any] = {"status": "NOT_EXECUTED", "executed": False}
     settlement_evidence: dict[str, Any] = {
         "verified": False,
         "verified_amount_minor": 0,
-        "method": "none",
-        "provider": "razorpay",
-        "is_simulated": False,
     }
     expected_recovery = 0
     verified_recovery = 0
@@ -225,15 +222,17 @@ def build_case_trace(item_id: str, container: Any) -> dict[str, Any]:
             }
 
         if e_type in (EventType.EXECUTION_STARTED, EventType.EXECUTION_ACCEPTED, "intervention_executed"):
+            exec_cost = m.get("cost_minor")  # Never default — cost must come from backend
+            exec_action = m.get("action") or ai_recommendation.get("selected_action")
             execution.update({
                 "status": "EXECUTED",
                 "executed": True,
-                "action": m.get("action") or ai_recommendation.get("selected_action"),
+                "action": exec_action,
                 "dispatched_at": t_entry["timestamp"],
-                "is_simulated": bool(m.get("is_simulated", False)),
-                "cost_minor": m.get("cost_minor", 500),
+                "cost_minor": exec_cost,
             })
-            intervention_cost = m.get("cost_minor", 500)
+            if exec_cost is not None:
+                intervention_cost = exec_cost
 
         if e_type in (EventType.SETTLEMENT_RECEIVED, EventType.RECOVERY_CONFIRMED, "settlement_verified", "outcome_verified"):
             verified_amt = m.get("actual_recovery_minor") or m.get("verified_amount_minor") or m.get("actual_recovered") or 0
@@ -338,7 +337,7 @@ def build_case_trace(item_id: str, container: Any) -> dict[str, Any]:
     replay_summary = {
         "what_happened": f"Case {item_id} processed. Status: {status_str}.",
         "what_system_knew": f"Category: {context_snapshot.get('category', 'unknown')}, Amount at risk: ₹{amount_minor / 100:.2f}.",
-        "what_ai_inferred": f"AI recommended '{sel_action}' (confidence: {ai_recommendation.get('confidence', 0.0):.2f}).",
+        "what_ai_inferred": f"AI recommended '{sel_action}' (confidence: {(ai_recommendation.get('confidence') or 0.0):.2f}).",
         "what_policy_allowed": f"Policy decision: {'ALLOWED' if pol_allowed else 'BLOCKED'} ({safety_decision.get('reason_code', 'N/A')}).",
         "what_executed": f"Execution status: {exec_status}.",
         "what_was_recovered": f"Verified recovered revenue: ₹{verified_recovery / 100:.2f} ({'Verified Settlement' if rec_verified else 'Unverified/Pending'}).",

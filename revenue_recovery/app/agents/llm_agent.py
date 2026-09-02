@@ -44,7 +44,7 @@ class RealRecoveryDecisionAgent:
     """Real LLM-backed recovery decision agent with Groq primary, Gemini optional, candidate-ranking, and safe fallback.
 
     Architecture:
-        1. ROUTING          — AIRouter & Deterministic check (opt-out bypasses LLM completely)
+        1. ROUTING          — AIRouter & Deterministic check (opt-out, fraud, budget limit skip LLM)
         2. CANDIDATE GEN    — Deterministic generation of valid candidate actions
         3. LLM RANKING      — Call Groq/Gemini to rank candidate actions
         4. SCHEMA VALIDATION— Structured parsing and range validation (0..1 confidence)
@@ -67,7 +67,7 @@ class RealRecoveryDecisionAgent:
         self._llm = llm_client if llm_client is not None else get_llm_provider()
         self._prompt_builder = prompt_builder or RecoveryPromptBuilder()
         self._fallback = fallback_agent
-        self._router = router or AIRouter(force_ai=True)
+        self._router = router or AIRouter(force_ai=False)
         self._confidence_threshold = confidence_threshold
         self._name = name
         self._max_tokens = max_tokens
@@ -94,13 +94,17 @@ class RealRecoveryDecisionAgent:
         """Run the full multi-stage agent workflow."""
         start = time.monotonic()
 
-        # Check Deterministic Safety Bypass FIRST (Do not call LLM for opted-out users or budget exhaustion)
-        is_deterministic_bypass = context.customer_opt_out or (context.attempt_count >= context.max_attempts)
+        # Check Deterministic Safety Bypass FIRST (Do not call LLM for opted-out users or budget exhaustion or fraud)
+        is_deterministic_bypass = (
+            context.customer_opt_out
+            or (context.attempt_count >= context.max_attempts)
+            or (context.failure_category == FailureCategory.FRAUD)
+        )
 
         routing = self._router.route(context)
 
         context_summary = {
-            "category": context.failure_category.value,
+            "category": context.failure_category.value if hasattr(context.failure_category, "value") else str(context.failure_category),
             "retryable": context.retryable,
             "attempt": context.attempt_count,
             "amount": context.amount_minor,
@@ -109,7 +113,7 @@ class RealRecoveryDecisionAgent:
             "provider": self.provider_name,
         }
 
-        # If opted out or budget exhausted or routing says no AI -> skip LLM and use deterministic fallback agent
+        # If opted out or budget exhausted or fraud or routing says no AI -> skip LLM and use deterministic fallback agent
         if is_deterministic_bypass or not routing.use_ai:
             fallback = self._fallback or MockRecoveryDecisionAgent()
             proposal = fallback.propose(context)
@@ -157,7 +161,10 @@ class RealRecoveryDecisionAgent:
                 )
 
             selected_act_str = parsed.get("selected_action") or parsed.get("action")
-            conf_val = float(parsed.get("confidence", 0.0))
+            try:
+                conf_val = float(parsed.get("confidence", 0.0))
+            except (TypeError, ValueError):
+                conf_val = 0.0
 
             if not (0.0 <= conf_val <= 1.0):
                 return self._fallback_with_trace(
@@ -168,7 +175,7 @@ class RealRecoveryDecisionAgent:
             from app.domain.actions import ActionRegistry
 
             # Reject action if not in ActionRegistry or RecoveryAction enum (prevents hallucinated tools)
-            if not ActionRegistry.is_valid(selected_act_str) or selected_act_str not in [a.value for a in RecoveryAction]:
+            if not selected_act_str or not ActionRegistry.is_valid(selected_act_str) or selected_act_str not in [a.value for a in RecoveryAction]:
                 return self._fallback_with_trace(
                     context, context_summary, response.content, parsed,
                     f"Action contract violation / Hallucinated action rejected: {selected_act_str!r}", latency,
@@ -260,31 +267,42 @@ class RealRecoveryDecisionAgent:
             model_name=self.model_name,
             prompt_version=RecoveryPromptBuilder.PROMPT_VERSION,
             context_summary=context_summary,
-            raw_response=raw_response,
+            raw_response=raw_response[:1000] if raw_response else None,
             parsed_proposal=parsed,
             validation_passed=False,
             validation_error=error,
             fallback_used=True,
-            decision_path="deterministic_fallback",
+            decision_path="fallback",
             latency_ms=latency,
         )
         return proposal
 
-    def _extract_json(self, text: str) -> dict | None:
-        """Extract JSON from LLM output with robust fallback."""
+    def _extract_json(self, text: str) -> dict[str, Any] | None:
+        """Extract and parse JSON object from LLM output text."""
         if not text:
             return None
         text = text.strip()
-        m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if m:
+
+        # Check direct JSON parse
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # Regex search for ```json ... ``` code blocks
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+        if match:
             try:
-                return json.loads(m.group(1))
+                return json.loads(match.group(1))
             except json.JSONDecodeError:
                 pass
-        m = re.search(r"\{.*\}", text, re.DOTALL)
-        if m:
+
+        # Regex search for first outer {...}
+        match = re.search(r"(\{.*\})", text, re.DOTALL)
+        if match:
             try:
-                return json.loads(m.group(0))
+                return json.loads(match.group(1))
             except json.JSONDecodeError:
                 pass
+
         return None
