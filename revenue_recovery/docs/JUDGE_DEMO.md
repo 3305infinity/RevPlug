@@ -39,7 +39,7 @@ VERIFIED SETTLEMENT (Authoritative Provider Evidence)
 
 3. **Step 3: Inspect Benchmark Proof (`http://localhost:3000/batch-recovery`)**
    - Show the reproducible **Counterfactual Benchmark** (`count=50`, `seed=42`).
-   - Highlight **+₹2.8L Incremental Revenue Gain (+25.7% Uplift)** over standard fixed retry baseline with **0 safety violations**.
+   - Highlight **+₹5,191.50 Incremental Revenue Gain (+41.4% Net Lift)** over safe fixed-retry baseline with **0 safety violations**.
 
 ---
 
@@ -54,4 +54,4 @@ VERIFIED SETTLEMENT (Authoritative Provider Evidence)
 | **5. What prevents duplicate retries?** | Action execution uses unique idempotency keys (`item_id:action:attempt_number`) and reconciles `UNKNOWN` provider states. |
 | **6. Is this real money?** | Payment events in simulation mode are clearly tagged with `● SIMULATION MODE ACTIVE` for complete transparency. |
 | **7. How did you measure improvement?** | We ran a seeded counterfactual benchmark (`count=50`, `seed=42`) comparing RevPlug directly against a fixed retry baseline. |
-| **8. What is the financial ROI?** | RevPlug delivered +25.7% incremental recovery uplift and reduced unnecessary intervention costs by 20%. |
+| **8. What is the financial ROI?** | RevPlug delivered +41.4% net recovery lift over safe baseline, recovering ₹18,800 vs ₹13,608 baseline with 0 safety violations. |

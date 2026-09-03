@@ -139,7 +139,7 @@ Businesses lose millions across failed payments, expired cards, abandoned checko
 
 ## 7. Benchmark Evaluation Results
 
-Statistical evaluation across **50 cases (seed 42) + 1,000 cases (10 reproducible seeds: 42..51, 100 cases per seed)**:
+Canonical counterfactual evaluation: **50 cases | Seed 42** against naive and safe fixed-retry baselines.
 
 | Metric | Baseline A (Naive Retry) | Baseline B (Safe Fixed Retry) | RevPlug Bounded AI Agent | RevPlug Lift / Advantage |
 | :--- | :--- | :--- | :--- | :--- |
@@ -147,9 +147,11 @@ Statistical evaluation across **50 cases (seed 42) + 1,000 cases (10 reproducibl
 | **Verified Recovery Rate** | 31.9% | 31.9% | **44.1%** | **+12.2% pts vs Baseline** |
 | **Verified Recovered Revenue** | ₹13,608.50 | ₹13,608.50 | **₹18,800.00** | **+₹5,191.50** |
 | **Net Recovered Revenue** | ₹13,153.50 | ₹13,213.50 | **₹18,688.00** | **+₹5,474.50 (+41.4%)** |
-| **AI Proposals Blocked by Policy** | 0 | 0 | **22** | **100% Policy Shield** |
+| **AI Proposals (of 50 cases)** | — | — | **30 AI proposals; 8 accepted; 22 rejected by policy; 9 fallbacks** | — |
 | **Safety Policy Violations** | **17** | **0** | **0** | **-100% Policy Violations** |
-| **Seed Win Rate (10 seeds)** | N/A | 0 / 10 Seeds | **7 / 10 Seeds (70%)** | **Multi-Seed Robustness** |
+| **Decision Quality: Root Cause Accuracy** | — | — | **1.0** | — |
+| **Decision Quality: Proposal Action Accuracy** | — | — | **0.9** | — |
+| **Decision Quality: Stopping Rule Compliance** | — | — | **0.8182** | — |
 
 For the complete 50-case detailed trace and attribution breakdown, see [docs/EVALUATION_REPORT.md](docs/EVALUATION_REPORT.md).
 

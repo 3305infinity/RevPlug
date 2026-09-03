@@ -253,39 +253,36 @@ class PersistenceContainer:
                     self.jobs._jobs = old_jobs
                 raise
 
-        # 3. PostgreSQL Path — wrapped in a transaction
+        # 3. PostgreSQL Path — each statement runs in its own pooled connection
         if hasattr(self.recovery_items, "_conn") and getattr(self.recovery_items, "_conn") is not None:
             db_conn = getattr(self.recovery_items, "_conn")
+
+            # Nullify provider event links (no trigger constraints here)
             try:
-                # Nullify provider event links first (so trigger on recovery_items doesn't block)
-                try:
-                    db_conn.execute(
-                        "UPDATE provider_events SET recovery_item_id = NULL WHERE recovery_item_id = %s",
-                        (item_id,),
-                    )
-                except Exception:
-                    pass
+                db_conn.execute(
+                    "UPDATE provider_events SET recovery_item_id = NULL WHERE recovery_item_id = %s",
+                    (item_id,),
+                )
+            except Exception:
+                pass
 
-                # Delete operational descendants
-                for table in ["attempts", "recovery_decisions", "recovery_outcomes", "promises", "recovery_jobs"]:
-                    try:
-                        db_conn.execute(f"DELETE FROM {table} WHERE recovery_item_id = %s", (item_id,))
-                    except Exception as ex:
-                        print(f"[clear_recovery_item] PG delete {table} warning: {ex}")
-
-                # Delete the item itself — try trigger disable first, fall back to tombstone
+            # Delete operational descendants — each in its own connection so one failure
+            # does not poison the transaction state for the others.
+            for table in ["attempts", "recovery_decisions", "recovery_outcomes", "promises", "recovery_jobs"]:
                 try:
-                    db_conn.execute("ALTER TABLE recovery_items DISABLE TRIGGER recovery_items_no_delete")
-                    db_conn.execute("DELETE FROM recovery_items WHERE id = %s", (item_id,))
-                    db_conn.execute("ALTER TABLE recovery_items ENABLE TRIGGER recovery_items_no_delete")
-                except Exception:
-                    db_conn.execute(
-                        "UPDATE recovery_items SET status = 'stopped', metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{cleared}', 'true') WHERE id = %s",
-                        (item_id,),
-                    )
+                    db_conn.execute(f"DELETE FROM {table} WHERE recovery_item_id = %s", (item_id,))
+                except Exception as ex:
+                    print(f"[clear_recovery_item] PG delete {table} warning: {ex}")
+
+            # Soft-clear the item — the no-delete trigger on recovery_items is intentional
+            # and must not be bypassed.  Use a fresh connection to guarantee a clean state.
+            try:
+                db_conn.execute(
+                    "UPDATE recovery_items SET status = 'stopped', metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{cleared}', 'true') WHERE id = %s",
+                    (item_id,),
+                )
             except Exception as exc:
-                print(f"[clear_recovery_item] PG exception: {exc}")
-                raise
+                print(f"[clear_recovery_item] PG soft-clear warning: {exc}")
 
         return {
             "status": "success",

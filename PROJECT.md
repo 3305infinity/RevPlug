@@ -108,16 +108,18 @@ Categorizes unrecovered revenue by failure cause and recommends specific policy 
 
 ---
 
-# 4. Scientifically Defensible 10-Seed Benchmark Results
+# 4. Benchmark Evaluation Results
 
-Statistical evaluation across **1,000 cases (10 reproducible seeds: 42..51, 100 cases per seed)**:
+Canonical counterfactual evaluation: **50 cases | Seed 42** against naive and safe fixed-retry baselines.
 
-| Metric | Baseline A (Naive Retry) | Baseline B (Safe Fixed Retry) | RevPlug Autonomous Agent | RevPlug Lift / Advantage |
+| Metric | Baseline A (Naive Retry) | Baseline B (Safe Fixed Retry) | RevPlug Bounded AI Agent | RevPlug Lift / Advantage |
 | :--- | :--- | :--- | :--- | :--- |
-| **Mean Amount at Risk** | ₹84,602.00 | ₹84,602.00 | **₹84,602.00** | Identical 1,000-case risk pool |
-| **Mean Gross Recovery** | ₹20,814.00 | ₹27,757.95 | **₹39,850.00** | **+43.56% Gross Lift** |
-| **Mean Net Recovery** | ₹19,899.00 | ₹27,757.95 | **₹39,499.50** | **+35.61% Net Lift** |
-| **Recovery Rate (%)** | 24.60% | 32.81% | **47.10%** | **+14.29% pts vs Safe Baseline** |
-| **Safety Violations** | 4.0 Violations / seed | **0 Violations** | **0 Violations** | **100% Fail-Closed Compliance** |
-| **Decision Quality Score** | 32.0% | 45.0% | **89.4%** | **+44.4% pts vs Baseline** |
-| **Seed Win Rate** | N/A | 2 / 10 Seeds | **8 / 10 Seeds (80%)** | **80% Multi-Seed Win Rate** |
+| **Total Revenue at Risk** | ₹42,674.00 | ₹42,674.00 | **₹42,674.00** | Identical risk pool |
+| **Verified Recovery Rate** | 31.9% | 31.9% | **44.1%** | **+12.2% pts vs Baseline** |
+| **Verified Recovered Revenue** | ₹13,608.50 | ₹13,608.50 | **₹18,800.00** | **+₹5,191.50** |
+| **Net Recovered Revenue** | ₹13,153.50 | ₹13,213.50 | **₹18,688.00** | **+₹5,474.50 (+41.4%)** |
+| **AI Proposals (of 50 cases)** | — | — | **30 AI proposals; 8 accepted; 22 rejected by policy; 9 fallbacks** | — |
+| **Safety Policy Violations** | **17** | **0** | **0** | **-100% Policy Violations** |
+| **Decision Quality: Root Cause Accuracy** | — | — | **1.0** | — |
+| **Decision Quality: Proposal Action Accuracy** | — | — | **0.9** | — |
+| **Decision Quality: Stopping Rule Compliance** | — | — | **0.8182** | — |

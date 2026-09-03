@@ -48,8 +48,8 @@
 
 ## 3. Financial Proof & Incremental Value Summary
 
-- **Total Revenue at Risk:** ₹4,820,000 (across 50 benchmark cases)
-- **Deterministic Baseline Recovery:** ₹1,090,000 (22.6% recovery rate, 8 safety violations)
-- **RevPlug AI Agent Recovery:** ₹1,370,000 (28.4% recovery rate, **0 safety violations**)
-- **Incremental Revenue Gain:** **+₹280,000 (+25.7% uplift over baseline)**
-- **Net Recovery (after intervention costs):** ₹1,330,000
+- **Total Revenue at Risk:** ₹42,674.00 (across 50 benchmark cases, Seed 42)
+- **Baseline Recovery:** ₹13,608.50 (31.9% recovery rate, 17 safety violations)
+- **RevPlug Bounded AI Agent Recovery:** ₹18,800.00 (44.1% recovery rate, **0 safety violations**)
+- **Net Recovered Revenue:** ₹18,688.00 (+₹5,474.50 / +41.4% vs Safe Baseline)
+- **AI Proposals:** 30 of 50 cases; 8 accepted, 22 rejected by policy, 9 fallbacks
