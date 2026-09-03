@@ -173,10 +173,13 @@ class RecoveryWorker:
 
         # 3. Build context for agent
         failure_category_str = item.root_cause or "unknown"
-        try:
-            failure_category = FailureCategory(failure_category_str)
-        except ValueError:
-            failure_category = FailureCategory.UNKNOWN
+        if failure_category_str == "mandate_failed":
+            failure_category = FailureCategory.MANDATE_FAILURE
+        else:
+            try:
+                failure_category = FailureCategory(failure_category_str)
+            except ValueError:
+                failure_category = FailureCategory.UNKNOWN
 
         obs_list = list(item.metadata.get("observations", []))
         prev_acts = [o.get("action") for o in obs_list if o.get("action")]

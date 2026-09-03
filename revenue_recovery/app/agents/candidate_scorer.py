@@ -1,11 +1,13 @@
 """Candidate generation and EV-based ranking for recovery proposals."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from app.domain.actions import ActionRegistry
 from app.domain.context import RecoveryContext
 from app.domain.failures import FailureCategory
+from app.domain.models import RecoveryItem, SourceType
 from app.domain.proposals import CandidateScore, RecoveryAction, RecoveryProposal
 from app.scoring.expected_value import ExpectedValueScorer
 from app.scoring.memory import RecoveryMemoryStore
@@ -66,6 +68,43 @@ def _eligible_candidates(context: RecoveryContext) -> list[str]:
         ]
         if context.attempt_count >= 2:
             eligible = [RecoveryAction.ESCALATE_HUMAN.value]
+    elif (
+        context.failure_category == FailureCategory.MANDATE_FAILURE
+        or context.metadata.get("source_type") == SourceType.MANDATE_FAILURE.value
+    ):
+        rep_count = int(context.metadata.get("representation_count", 0))
+        max_reps = int(context.metadata.get("max_representations", 3))
+        next_rep_str = context.metadata.get("next_representation_date")
+        next_rep_dt = None
+        if next_rep_str:
+            try:
+                next_rep_dt = datetime.fromisoformat(next_rep_str)
+            except (ValueError, TypeError):
+                next_rep_dt = None
+
+        if rep_count >= max_reps:
+            eligible = [
+                RecoveryAction.SEND_CUSTOMER_MESSAGE.value,
+                RecoveryAction.SEND_PAYMENT_LINK.value,
+                RecoveryAction.ALTERNATE_CHANNEL.value,
+                RecoveryAction.ESCALATE_HUMAN.value,
+            ]
+        elif next_rep_dt and datetime.now(timezone.utc) < next_rep_dt:
+            eligible = [
+                RecoveryAction.SEND_CUSTOMER_MESSAGE.value,
+                RecoveryAction.SEND_PAYMENT_LINK.value,
+                RecoveryAction.ALTERNATE_CHANNEL.value,
+                RecoveryAction.WAIT.value,
+            ]
+        else:
+            eligible = [
+                RecoveryAction.RETRY_PAYMENT.value,
+                RecoveryAction.SEND_PAYMENT_LINK.value,
+                RecoveryAction.SEND_REMINDER.value,
+                RecoveryAction.ALTERNATE_CHANNEL.value,
+                RecoveryAction.SEND_CUSTOMER_MESSAGE.value,
+                RecoveryAction.WAIT.value,
+            ]
     else:
         eligible = [
             RecoveryAction.SEND_PAYMENT_LINK.value,

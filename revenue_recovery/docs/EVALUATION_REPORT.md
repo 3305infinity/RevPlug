@@ -1,6 +1,6 @@
 # RevPlug Benchmark & Counterfactual ROI Report
 
-**Generated At:** 2026-09-03 19:17:22 UTC
+**Generated At:** 2026-09-03 20:33:46 UTC
 **Canonical Benchmark Scale:** 10 seeds (100 cases/seed, 1000 total) | Version `2.0-canonical`
 **Evaluation Mode:** AI_ASSISTED (AI Contextual Routing + Deterministic Safety Shield)
 
@@ -19,7 +19,7 @@ In this multi-seed benchmark of **10 seeds (100 cases/seed, 1000 total)**:
 - **9 AI Fallbacks Triggered** (single-seed)
 - **0 Safety Policy Violations** (single-seed)
 
-Across 10 seeds, RevPlug won 4/10 seeds (40%) against the Safe Baseline. Mean Net Recovery: **₹25,971.20** vs Safe Baseline mean **₹32,971.65**.
+Across 10 seeds, RevPlug won 1/10 seeds (10%) against the Safe Baseline. Mean Net Recovery: **₹20,905.50** vs Safe Baseline mean **₹28,678.40**.
 
 ---
 
@@ -56,17 +56,17 @@ Across 10 seeds, RevPlug won 4/10 seeds (40%) against the Safe Baseline. Mean Ne
 
 | Metric | Baseline A (Naive Retry) | Baseline B (Safe Retry) | RevPlug Autonomous Agent | RevPlug vs Safe |
 | :--- | :--- | :--- | :--- | :--- |
-| **Mean Gross Recovery** | ₹33,799.15 | ₹33,799.15 | **₹26,272.00** | -22.3% |
-| **Mean Net Recovery** | ₹32,865.65 | ₹32,971.65 | **₹25,971.20** | -21.2% |
-| **Mean Recovery Rate** | 31.0% | 31.0% | **24.1%** | -6.9% pts |
-| **Mean Safety Violations** | 38.2 | 27.6 | **0.0** | — |
-| **Mean Decision Quality** | — | — | **39.0%** | — |
+| **Mean Gross Recovery** | ₹29,499.40 | ₹29,499.40 | **₹21,162.00** | -28.3% |
+| **Mean Net Recovery** | ₹28,569.40 | ₹28,678.40 | **₹20,905.50** | -27.1% |
+| **Mean Recovery Rate** | 28.5% | 28.5% | **20.5%** | -8.1% pts |
+| **Mean Safety Violations** | 39.3 | 28.4 | **0.0** | — |
+| **Mean Decision Quality** | — | — | **37.9%** | — |
 
-- **RevPlug Win Count vs Safe Baseline:** 4/10 seeds (40%)
-- **95% Confidence Interval (Net Lift):** [-1,991,695.28%, +591,605.28%]
-- **Mean Net Recovery per Seed:** ₹25,971.20
-- **Safe Baseline Mean Net per Seed:** ₹32,971.65
-- **Net Difference (RevPlug − Safe):** ₹-7,000.45
+- **RevPlug Win Count vs Safe Baseline:** 1/10 seeds (10%)
+- **95% Confidence Interval (Net Lift):** [-1,189,180.49%, -365,399.51%]
+- **Mean Net Recovery per Seed:** ₹20,905.50
+- **Safe Baseline Mean Net per Seed:** ₹28,678.40
+- **Net Difference (RevPlug − Safe):** ₹-7,772.90
 
 ---
 

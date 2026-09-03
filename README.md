@@ -4,13 +4,38 @@ Built for the **Razorpay AI Buildathon — AI Revenue Recovery Track**.
 
 ---
 
+## Table of Contents
+
+1. [Executive Summary](#1-executive-summary)
+2. [The Four Canonical Decisions](#2-the-four-canonical-decisions)
+3. [Problem Statement](#3-problem-statement)
+4. [Core Architectural Principles & Product Integrity](#4-core-architectural-principles--product-integrity)
+5. [Key Operating Features](#5-key-operating-features)
+6. [Product Operating Experience](#6-product-operating-experience)
+7. [System Architecture](#7-system-architecture)
+8. [AI / Deterministic Boundary](#8-ai--deterministic-architectural-boundary)
+9. [Safety Model & Compliance Invariants](#9-safety-model--compliance-invariants)
+10. [Benchmark Evaluation Results](#10-benchmark-evaluation-results)
+11. [Data Classification Contract (LIVE vs BENCHMARK)](#11-data-classification-contract-live-vs-benchmark)
+12. [Local Setup & Configuration](#12-local-setup--configuration)
+13. [Verification & Test Suite](#13-verification--test-suite)
+14. [Available Surfaces](#14-available-surfaces)
+15. [Technology Stack](#15-technology-stack)
+16. [Repository Structure](#16-repository-structure)
+17. [Development & Contributing](#17-development--contributing)
+18. [License](#18-license)
+
+---
+
 ## 1. Executive Summary
 
 Businesses lose millions across failed payments, expired cards, abandoned checkouts, failed subscription renewals, and overdue B2B invoices because traditional automated retry scripts blindly retry unsafe fraud cases, inflate payment gateway costs, and harass opted-out customers.
 
 **RevPlug** is an autonomous, AI-driven revenue recovery control plane. It detects revenue at risk, diagnoses failure causes, evaluates bounded interventions, and produces one of four canonical decisions — **RECOVER, WAIT, ESCALATE, or STOP** — counting money only after settlement is verified.
 
-### The Four Decisions
+---
+
+## 2. The Four Canonical Decisions
 
 | Decision | Meaning | When Applied |
 |----------|---------|--------------|
@@ -21,7 +46,7 @@ Businesses lose millions across failed payments, expired cards, abandoned checko
 
 ---
 
-## 2. Problem Statement
+## 3. Problem Statement
 
 Revenue leakage is a silent, multi-causal failure. A payment fails due to authorization timeout. A subscription renewal bounces. An invoice goes overdue. A checkout is abandoned mid-flow. A dispute is filed.
 
@@ -31,13 +56,13 @@ RevPlug replaces blind retry logic with a **closed-loop bounded recovery agent**
 
 ---
 
-## 3. Core Architectural Principles & Product Integrity
+## 4. Core Architectural Principles & Product Integrity
 
-1. **Financial Truth Guarantee**:
+1. **Financial Truth Guarantee**
    - Measured money recovered is strictly calculated from verified settlement evidence (`recovery_outcomes`), never derived from AI confidence, estimated EV, or planned interventions.
    - Clear distinction maintained across all surfaces: `At Risk`, `Expected Recovery`, `Attempted`, `Verified Recovered`.
 
-2. **Data Provenance & Classification Contract** (LIVE vs BENCHMARK):
+2. **Data Provenance & Classification Contract (LIVE vs BENCHMARK)**
    - Every persisted recovery item carries an **explicit canonical classification** in its metadata:
      - `LIVE_OPERATIONAL` — real merchant data, included in all operational surfaces
      - `BENCHMARK_SYNTHETIC` — evaluation/synthetic data, included only in Proof Lab and benchmark surfaces
@@ -46,24 +71,24 @@ RevPlug replaces blind retry logic with a **closed-loop bounded recovery agent**
    - A single chokepoint (`_get_items()` in `app/dashboard_api.py`) enforces the contract for every financial aggregation. No benchmark or unknown record can silently enter operational dashboards, customers, reviews, analytics, or financial totals.
    - Production analytics contain **zero fabricated/dummy metrics**. Empty states are honestly presented when insufficient data exists.
 
-3. **Transactional Data Clearing Facility**:
+3. **Transactional Data Clearing Facility**
    - Full-stack capability (`DELETE /api/recovery-items/{id}`) to clear any specific recovery case and all corresponding derived operational data (`attempts`, `decisions`, `outcomes`, `promises`, `jobs`, `provider_events`).
    - Includes backend dependency graph preview (`GET /api/recovery-items/{id}/clear-preview`) and an append-only compliance audit tombstone (`action="case_cleared"`).
 
-4. **Deterministic Policy Shield**:
+4. **Deterministic Policy Shield**
    - Strict server-side policy engine (`v1.0`, `v1.1`) enforcing 7 hard constraints (`retry_limit`, `block_hard_failure`, `opt_out_block`, `contact_frequency_limit`, `terminal_state_block`, `incident_suppression`, `expired_case_block`). AI agents are strictly forbidden from altering or bypassing policy rules.
    - Human overrides pass through policy validation; hard blocks return `HTTP 400 Policy Violation`.
 
-5. **Strict Causal Attribution**:
+5. **Strict Causal Attribution**
    - Every settlement is attributed to exactly one cause: `DIRECT_AGENT` (automated retry/alternate channel), `AGENT_ASSISTED` (payment link/reminder/promise workflow), `ORGANIC` (self-service payment without qualifying agent action), or `UNKNOWN` (ambiguous provenance).
    - Organic payments contribute ₹0 to agent-attributed recovery.
 
-6. **Closed-Loop Learning**:
+6. **Closed-Loop Learning**
    - Every outcome (success, failure, pivot) is persisted with structured features. Strategy analytics surfaces `LEARNING SIGNAL` badges inside Decision Cards based on N similar historical recoveries.
 
 ---
 
-## 4. Key Operating Features
+## 5. Key Operating Features
 
 - **Event-Driven Revenue-at-Risk Opportunity Detection Engine**: Automatically ingests normalized revenue telemetry (`payment_failed`, `subscription_payment_failed`, `invoice_overdue`, `checkout_abandoned`, `payment_requires_action`, `dispute_created`, `fraud_flagged`), determines recoverability, and updates cases idempotently.
 - **Ranked Opportunity Inbox API (`GET /api/opportunity-inbox`)**: Ranks active revenue opportunities strictly by Expected Net Recovery ($EV_{\text{net}}$) and business priority.
@@ -91,10 +116,10 @@ RevPlug replaces blind retry logic with a **closed-loop bounded recovery agent**
 
 ---
 
-## 5. Product Operating Experience
+## 6. Product Operating Experience
 
 1. Launch the web interface at `http://localhost:3000/dashboard`.
-2. View **REVENUE OPERATIONS CONTROL PLANE** pre-sorted by Expected Net Recovery ($EV_{\text{net}}$).
+2. View the **Executive Dashboard** pre-sorted by Expected Net Recovery ($EV_{\text{net}}$).
 3. Open **Customers** (`/customers`) to see customer-level recovery intelligence: revenue at risk, expected recovery, verified recovered, open opportunities, and posture distribution.
 4. Click any customer to open the **Customer Recovery Profile** (`/customers/[id]`) showing financial summary, active opportunities, recovery history, what has worked, promises, incidents, and timing context.
 5. Click any opportunity to open the **Recovery Case** (`/recovery/[id]`) to inspect the full 10-Stage Operational Timeline, Decision Card centerpiece, Policy Shield checks, and HMAC settlement verifier.
@@ -107,7 +132,7 @@ RevPlug replaces blind retry logic with a **closed-loop bounded recovery agent**
 
 ---
 
-## 6. System Architecture
+## 7. System Architecture
 
 ```text
                                 1. TELEMETRY & WEBHOOK INGESTION
@@ -154,7 +179,9 @@ RevPlug replaces blind retry logic with a **closed-loop bounded recovery agent**
                                 (Causal Attribution & Outcome Learning)
 ```
 
-### AI / Deterministic Architectural Boundary
+---
+
+## 8. AI / Deterministic Architectural Boundary
 
 RevPlug maintains a strict, uncompromised boundary between AI reasoning and deterministic controls:
 
@@ -172,7 +199,7 @@ RevPlug maintains a strict, uncompromised boundary between AI reasoning and dete
 
 ---
 
-## 7. Safety Model & Compliance Invariants
+## 9. Safety Model & Compliance Invariants
 
 - **Deterministic Policy Engine**: Enforces hard safety constraints (`retry_limit`, `block_hard_failure`, `opt_out_block`, `contact_frequency_limit`, `terminal_state_block`, `incident_suppression`, `expired_case_block`).
 - **Human Override Protection**: Human review decisions pass through `PolicyEngine` validation (`HTTP 400 Policy Violation` on hard blocks).
@@ -183,7 +210,7 @@ RevPlug maintains a strict, uncompromised boundary between AI reasoning and dete
 
 ---
 
-## 8. Benchmark Evaluation Results
+## 10. Benchmark Evaluation Results
 
 Canonical counterfactual evaluation against naive and safe fixed-retry baselines.
 
@@ -229,7 +256,7 @@ For the complete benchmark report, see `revenue_recovery/docs/EVALUATION_REPORT.
 
 ---
 
-## 9. Data Classification Contract (LIVE vs BENCHMARK)
+## 11. Data Classification Contract (LIVE vs BENCHMARK)
 
 RevPlug maintains an **explicit, fail-closed data classification boundary** between live operational data and benchmark/synthetic data. Every persisted `RecoveryItem` carries a canonical classification in its `metadata`:
 
@@ -252,15 +279,17 @@ RevPlug maintains an **explicit, fail-closed data classification boundary** betw
 
 ---
 
-## 10. Local Setup & Configuration
+## 12. Local Setup & Configuration
 
 RevPlug runs out-of-the-box in lightweight **In-Memory mode** for unit testing and local development, or in **PostgreSQL mode** for persistent production operation.
 
 ### Option A: In-Memory / Zero-Infrastructure Mode (Default)
 
+From the inner project directory `revenue_recovery/`:
+
 ```bash
 # 1. Clone repository & set up environment
-cd revenue_recovery
+cd revenue_recovery/revenue_recovery
 python -m venv .venv
 .venv\Scripts\activate  # Windows (.venv/bin/activate on Linux/macOS)
 pip install -e ".[dev]"
@@ -276,6 +305,8 @@ cd frontend
 npm install
 npm run dev
 ```
+
+Open `http://localhost:3000` for the dashboard.
 
 ### Option B: PostgreSQL Production Database Mode
 
@@ -305,7 +336,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ---
 
-## 11. Verification & Test Suite
+## 13. Verification & Test Suite
 
 - **Full Test Suite**: `python -m pytest` → **649 passed, 34 skipped** — zero failures.
 - **Data Classification Contract**: `pytest tests/test_batch_isolation_regression.py -v` → 6 focused regression assertions guard the LIVE vs BENCHMARK boundary.
@@ -319,7 +350,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ---
 
-## 12. Available Surfaces
+## 14. Available Surfaces
 
 | Surface | Path | Data Source | Label |
 | :--- | :--- | :--- | :--- |
@@ -328,6 +359,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 | Activity | `/activity` | LIVE_OPERATIONAL | Live data |
 | Opportunity Inbox | `/recovery` | LIVE_OPERATIONAL | Live data |
 | Recovery Case Detail | `/recovery/[id]` | LIVE_OPERATIONAL | Live data |
+| AI Collections Voice Call | `/recovery/[id]/voice-call` | LIVE_OPERATIONAL | Live data |
 | Batch Recovery | `/batch-recovery` | Evaluation results | Live / Benchmark per badge |
 | Customers | `/customers` | LIVE_OPERATIONAL | Live data |
 | Customer Recovery Profile | `/customers/[id]` | LIVE_OPERATIONAL | Live data |
@@ -340,10 +372,14 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 | Policy Simulator | `/policy-simulator` | Evaluation | Preview |
 | Safety Controls | `/controls` | LIVE_OPERATIONAL | Live data |
 | Policy Config | `/policy-config` | LIVE_OPERATIONAL | Live data |
+| Reliability | `/reliability` | LIVE_OPERATIONAL | Live data |
+| Programs | `/programs` | LIVE_OPERATIONAL | Live data |
+| Login | `/login` | Static | Auth |
+| Signup | `/signup` | Static | Auth |
 
 ---
 
-## 13. Technology Stack
+## 15. Technology Stack
 
 | Layer | Technology |
 | :--- | :--- |
@@ -355,18 +391,36 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 | **Payments (Production)** | Razorpay |
 | **Payments (Test/Sim)** | Simulated Razorpay adapter |
 | **Testing** | pytest + faker + httpx |
-| **Frontend Styling** | CSS Modules with CSS custom properties |
+| **Frontend Styling** | Tailwind CSS |
 
 ---
 
-## 14. Repository Structure
+## 16. Repository Structure
 
 ```
 revenue_recovery/
-├── app/
-│   ├── main.py                  # FastAPI application entrypoint
-│   ├── config.py                # Environment & settings
-│   ├── services/
+├── app/                              # FastAPI backend application
+│   ├── main.py                       # FastAPI entrypoint
+│   ├── dashboard.py                  # Dashboard routes
+│   ├── dashboard_api.py              # Single chokepoint for data classification
+│   ├── config.py                     # Environment & settings
+│   ├── agents/                       # AI reasoning agents
+│   ├── api/                          # HTTP API routers
+│   ├── audit/                        # Append-only audit ledger
+│   ├── adapters/                     # Razorpay & provider adapters
+│   ├── datasets/                     # Benchmark datasets
+│   ├── db/                           # Persistence layer
+│   ├── domain/                       # Core domain types
+│   ├── eval/                         # Evaluation runners
+│   ├── evaluation/                   # Counterfactual evaluation logic
+│   ├── idempotency/                  # Webhook dedup
+│   ├── interventions/                # Intervention execution
+│   ├── ledger/                       # Financial ledgers
+│   ├── policies/                     # Policy engine & stopping rules
+│   ├── revenue_recovery.egg-info/    # Editable install metadata
+│   ├── scoring/                      # EV & timing scorers
+│   ├── security/                     # HMAC & auth helpers
+│   ├── services/                     # Business services
 │   │   ├── opportunity_detector.py
 │   │   ├── recovery_orchestrator.py
 │   │   ├── recovery_playbook.py
@@ -382,47 +436,72 @@ revenue_recovery/
 │   │   ├── customer_recovery_profile.py
 │   │   ├── recovery_timing.py
 │   │   └── ...
-│   ├── policies/
-│   │   ├── policy_engine.py
-│   │   ├── stopping_rules.py
-│   │   └── policy_config_service.py
-│   ├── memory/
-│   │   └── store.py
-│   ├── adapters/
-│   │   └── razorpay_adapter.py
-│   ├── dashboard_api.py         # Single chokepoint for data classification
-│   └── ...
-├── frontend/
-│   └── src/
-│       ├── app/
-│       │   ├── dashboard/page.tsx
-│       │   ├── recovery/[id]/page.tsx
-│       │   ├── customers/[id]/page.tsx
-│       │   ├── strategy-analytics/page.tsx
-│       │   ├── proof-lab/page.tsx
-│       │   └── ...
-│       └── lib/
-│           └── api.ts
-├── tests/
+│   └── worker/                       # Background job worker
+├── frontend/                         # Next.js 14 dashboard
+│   ├── src/
+│   │   ├── app/                      # App Router pages
+│   │   │   ├── dashboard/
+│   │   │   ├── recovery/[id]/ (with voice-call)
+│   │   │   ├── customers/[id]/
+│   │   │   ├── incidents/[id]/
+│   │   │   ├── strategy-analytics/
+│   │   │   ├── proof-lab/
+│   │   │   ├── allocation/
+│   │   │   ├── batch-recovery/
+│   │   │   ├── checkout-recovery/
+│   │   │   ├── customer-view/
+│   │   │   ├── controls/
+│   │   │   ├── leakage/
+│   │   │   ├── login/
+│   │   │   ├── policy-config/
+│   │   │   ├── policy-simulator/
+│   │   │   ├── programs/
+│   │   │   ├── reliability/
+│   │   │   ├── review/
+│   │   │   ├── run-recovery/
+│   │   │   ├── signup/
+│   │   │   ├── activity/
+│   │   │   └── ...
+│   │   ├── components/
+│   │   │   ├── dashboard/
+│   │   │   ├── home/
+│   │   │   ├── landing/
+│   │   │   ├── recovery/
+│   │   │   └── shared/
+│   │   └── lib/api.ts
+│   ├── tailwind.config.js
+│   ├── next.config.js
+│   ├── tsconfig.json
+│   └── package.json
+├── tests/                            # pytest suite
 │   ├── test_benchmark_financial_performance.py
 │   ├── test_batch_isolation_regression.py
 │   ├── test_stopping_rules.py
 │   ├── test_end_to_end_runtime_flows.py
+│   ├── test_opportunity_detection_engine.py
+│   ├── test_postgres_integration.py
 │   └── ...
-├── docs/
+├── docs/                             # Human-readable reports
 │   └── EVALUATION_REPORT.md
-├── scripts/
+├── scripts/                          # Operational scripts
 │   └── init_db.py
-├── evaluation_report.json
+├── artifacts/                        # Generated artifacts
+├── db/                               # Local SQLite/PG dumps
+├── results/                          # Eval & benchmark outputs
+├── scratch/                          # Throwaway experiments
+├── evaluation_report.json            # Canonical benchmark results
 ├── pyproject.toml
 ├── Dockerfile
 ├── docker-compose.yml
+├── conftest.py
+├── run_live_eval.py
+├── run_tests.py
 └── README.md
 ```
 
 ---
 
-## 15. Development & Contributing
+## 17. Development & Contributing
 
 ### Running Tests
 
@@ -445,7 +524,7 @@ python -m pytest tests/ --cov=app --cov-report=term-missing
 # Backend (ruff)
 ruff check app/
 
-# Frontend (if ESLint installed)
+# Frontend
 cd frontend && npm run lint
 ```
 
@@ -468,6 +547,6 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ---
 
-## 16. License
+## 18. License
 
 Built for the Razorpay AI Buildathon — AI Revenue Recovery Track.

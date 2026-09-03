@@ -12,6 +12,7 @@ class FailureCategory(StrEnum):
     FRAUD = "fraud"
     AUTHENTICATION_REQUIRED = "authentication_required"
     UNKNOWN = "unknown"
+    MANDATE_FAILURE = "mandate_failure"
 
 
 @dataclass(frozen=True, slots=True)

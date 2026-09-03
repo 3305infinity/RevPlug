@@ -105,10 +105,13 @@ class RecoveryPlanner:
         from app.domain.context import RecoveryContext
         from app.domain.failures import FailureCategory
         cat_str = getattr(item, "root_cause", "soft") or "soft"
-        try:
-            cat = FailureCategory(cat_str)
-        except ValueError:
-            cat = FailureCategory.SOFT
+        if cat_str == "mandate_failed":
+            cat = FailureCategory.MANDATE_FAILURE
+        else:
+            try:
+                cat = FailureCategory(cat_str)
+            except ValueError:
+                cat = FailureCategory.SOFT
         ctx = RecoveryContext(item_id=getattr(item, "id", "item_1"), failure_category=cat, max_attempts=max_attempts)
         return self.create_plan(ctx, candidate_actions=[primary_action, "send_payment_link", "stop_recovery"])
 

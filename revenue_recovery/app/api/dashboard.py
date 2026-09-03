@@ -77,13 +77,15 @@ async def api_evaluate_and_recover_item(
     cat = FailureCategory.SOFT
     rc = str(item.root_cause or "").upper()
     if "AUTH" in rc:
-        cat = FailureCategory.AUTHENTICATION
+        cat = FailureCategory.AUTHENTICATION_REQUIRED
     elif "HARD" in rc or "EXPIRED" in rc:
         cat = FailureCategory.HARD
     elif "FRAUD" in rc:
         cat = FailureCategory.FRAUD
     elif "CONSENT" in rc:
-        cat = FailureCategory.CONSENT
+        cat = FailureCategory.SOFT
+    elif "MANDATE" in rc:
+        cat = FailureCategory.MANDATE_FAILURE
 
     context = RecoveryContext(
         failure_category=cat,

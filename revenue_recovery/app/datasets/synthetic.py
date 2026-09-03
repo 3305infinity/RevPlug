@@ -19,7 +19,7 @@ from __future__ import annotations
 import hashlib
 import random
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
@@ -469,12 +469,10 @@ def generate_evaluation_dataset(count: int = 50, seed: int = 42) -> list[Recover
         if root_cause == "soft_optout":
             extra["customer_opted_out"] = True
         if root_cause == "soft_promise_active":
-            from datetime import date, timedelta
             promise_date = date.today() + timedelta(days=rng.randint(1, 7))
             extra["promise_date"] = promise_date.isoformat()
             extra["promise_status"] = "promised"
         if root_cause == "soft_promise_expired":
-            from datetime import date, timedelta
             promise_date = date.today() - timedelta(days=rng.randint(1, 14))
             extra["promise_date"] = promise_date.isoformat()
             extra["promise_status"] = "expired"
@@ -489,6 +487,13 @@ def generate_evaluation_dataset(count: int = 50, seed: int = 42) -> list[Recover
         if source_type == SourceType.MANDATE_FAILURE:
             extra["mandate_id"] = f"man_{100 + i}"
             extra["retry_eligible"] = rng.choice([True, False])
+            extra["mandate_frequency"] = rng.choice(["monthly", "quarterly"])
+            extra["max_representations"] = 3
+            extra["representation_count"] = rng.choice([0, 1, 2, 3])
+            last_rep_days_ago = rng.choice([0, 5, 10, 20, 35])
+            extra["last_representation_date"] = _utc(days_ago=last_rep_days_ago).date().isoformat()
+            next_rep_date = _utc(days_ago=last_rep_days_ago - 30).date().isoformat() if last_rep_days_ago > 30 else (_utc(days_ago=0).date() + timedelta(days=5)).isoformat()
+            extra["next_representation_date"] = next_rep_date
 
         # Determine ground-truth labels deterministically according to recovery policy
         gt_true_root_cause = actual_root_cause
@@ -547,9 +552,16 @@ def generate_evaluation_dataset(count: int = 50, seed: int = 42) -> list[Recover
                 gt_acceptable_actions = ["escalate_human"]
                 gt_should_escalate = True
         elif root_cause == "mandate_failure":
-            if extra.get("retry_eligible", True) and attempt_count < 3:
+            rep_count = extra.get("representation_count", 0)
+            max_reps = extra.get("max_representations", 3)
+            if rep_count >= max_reps:
+                gt_correct_action = "escalate_human"
+                gt_acceptable_actions = ["escalate_human", "send_payment_link"]
+                gt_should_escalate = True
+                gt_should_stop = False
+            elif extra.get("retry_eligible", True):
                 gt_correct_action = "retry_payment"
-                gt_acceptable_actions = ["retry_payment"]
+                gt_acceptable_actions = ["retry_payment", "send_payment_link"]
             else:
                 gt_correct_action = "send_payment_link"
                 gt_acceptable_actions = ["send_payment_link"]
@@ -633,8 +645,10 @@ def _generate_counterfactual_outcomes(
     # Retry success probabilities by root cause
     if not is_safe:
         r1_p, r2_p, r3_p = 0.0, 0.0, 0.0
-    elif root_cause in ("soft", "insufficient_funds", "soft_decline", "mandate_failure"):
+    elif root_cause in ("soft", "insufficient_funds", "soft_decline"):
         r1_p, r2_p, r3_p = 0.25, 0.40, 0.20
+    elif root_cause == "mandate_failure":
+        r1_p, r2_p, r3_p = 0.35, 0.30, 0.15
     elif root_cause in ("authentication_required", "3ds_failed"):
         r1_p, r2_p, r3_p = 0.05, 0.05, 0.00
     elif root_cause in ("expired_card", "card_update_required", "hard_decline", "hard"):
@@ -655,6 +669,8 @@ def _generate_counterfactual_outcomes(
         link_p = 0.85
     elif root_cause in ("soft", "insufficient_funds", "soft_decline", "hard", "checkout_abandonment"):
         link_p = 0.80
+    elif root_cause == "mandate_failure":
+        link_p = 0.70
     elif root_cause == "overdue_receivable":
         link_p = 0.70
     else:
@@ -667,6 +683,8 @@ def _generate_counterfactual_outcomes(
         rem_p = 0.75
     elif root_cause in ("checkout_abandonment", "soft"):
         rem_p = 0.50
+    elif root_cause == "mandate_failure":
+        rem_p = 0.55
     else:
         rem_p = 0.30
 

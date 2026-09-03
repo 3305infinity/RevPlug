@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Protocol
 
 from app.agents.candidate_scorer import _data_driven_confidence, _eligible_candidates, _score_candidates, build_ranked_proposal
@@ -144,6 +145,26 @@ class MockRecoveryDecisionAgent:
             if RecoveryAction.STOP_RECOVERY.value in eligible:
                 return RecoveryAction.STOP_RECOVERY
 
+        if category == FailureCategory.MANDATE_FAILURE:
+            rep_count = int(context.metadata.get("representation_count", 0))
+            max_reps = int(context.metadata.get("max_representations", 3))
+            if rep_count >= max_reps:
+                if RecoveryAction.ESCALATE_HUMAN.value in eligible:
+                    return RecoveryAction.ESCALATE_HUMAN
+                if RecoveryAction.SEND_PAYMENT_LINK.value in eligible:
+                    return RecoveryAction.SEND_PAYMENT_LINK
+            next_rep_str = context.metadata.get("next_representation_date")
+            if next_rep_str:
+                try:
+                    next_rep_dt = datetime.fromisoformat(next_rep_str)
+                    if datetime.now(timezone.utc) < next_rep_dt:
+                        if RecoveryAction.SEND_PAYMENT_LINK.value in eligible:
+                            return RecoveryAction.SEND_PAYMENT_LINK
+                except (ValueError, TypeError):
+                    pass
+            if RecoveryAction.RETRY_PAYMENT.value in eligible:
+                return RecoveryAction.RETRY_PAYMENT
+
         if category == FailureCategory.SOFT:
             if context.customer_opt_out:
                 if RecoveryAction.STOP_RECOVERY.value in eligible:
@@ -178,6 +199,21 @@ class MockRecoveryDecisionAgent:
 
         if category == FailureCategory.FRAUD or context.customer_opt_out:
             return "Domain rules route to Stop Recovery for fraud or opt-out"
+
+        if category == FailureCategory.MANDATE_FAILURE:
+            rep_count = int(context.metadata.get("representation_count", 0))
+            max_reps = int(context.metadata.get("max_representations", 3))
+            if rep_count >= max_reps:
+                return f"Domain rules route to Escalate Human for exhausted mandate representations ({rep_count}/{max_reps})"
+            next_rep_str = context.metadata.get("next_representation_date")
+            if next_rep_str:
+                try:
+                    next_rep_dt = datetime.fromisoformat(next_rep_str)
+                    if datetime.now(timezone.utc) < next_rep_dt:
+                        return f"Domain rules route to Send Payment Link for mandate failure before representation window opens ({next_rep_str})"
+                except (ValueError, TypeError):
+                    pass
+            return "Domain rules route to Retry Payment for available mandate representation window"
 
         if category == FailureCategory.SOFT:
             if context.customer_opt_out:

@@ -91,6 +91,7 @@ class AIRouter:
             FailureCategory.AUTHENTICATION_REQUIRED,
             FailureCategory.HARD,
             FailureCategory.UNKNOWN,
+            FailureCategory.MANDATE_FAILURE,
         ) or meta.get("dataset_label") in (
             "healthy_soft", "mixed", "enterprise_receivables", "checkout_abandonment"
         ) or meta.get("source_type") in (

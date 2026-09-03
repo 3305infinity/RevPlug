@@ -130,6 +130,7 @@ class InterventionPolicy:
             )
 
         root_cause = (item.root_cause or "").lower()
+        source_type = (item.metadata.get("source_type") or "").lower()
         blocked_causes = {"hard", "hard_decline", "fraud", "authentication_required", "security_or_fraud"}
         if root_cause in blocked_causes:
             return PolicyDecision(
@@ -140,6 +141,19 @@ class InterventionPolicy:
                 action="retry_payment",
                 reason_code="fraud_detected" if root_cause in {"fraud", "security_or_fraud"} else "policy_blocked",
             )
+
+        if source_type == "mandate_failure" or root_cause == "mandate_failed":
+            rep_count = int(item.metadata.get("representation_count", 0))
+            max_reps = int(item.metadata.get("max_representations", 3))
+            if rep_count >= max_reps:
+                return PolicyDecision(
+                    allowed=False,
+                    requires_human_approval=True,
+                    reason=f"Mandate representation budget exhausted ({rep_count}/{max_reps}). Re-registration required.",
+                    policy_rule="mandate_representation_limit",
+                    action="retry_payment",
+                    reason_code="mandate_exhausted",
+                )
 
         return PolicyDecision(
             allowed=True,
