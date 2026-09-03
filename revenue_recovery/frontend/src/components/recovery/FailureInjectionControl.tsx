@@ -39,9 +39,7 @@ export default function FailureInjectionControl() {
             Simulate real failure conditions to verify RevPlug safe boundary handling
           </div>
         </div>
-        <span style={{ fontSize: "0.6875rem", background: "#ef4444", color: "#fff", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>
-          DEV DEMO MODE ONLY
-        </span>
+
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>

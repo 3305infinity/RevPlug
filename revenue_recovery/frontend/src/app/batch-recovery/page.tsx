@@ -107,7 +107,7 @@ export default function BatchRecovery() {
 
   const totalAtRisk = ros.total_amount_at_risk || 0;
   const totalCases = ds.count || 50;
-  const eligibleCases = totalCases - (ros.no_action_cases || 0) - (ros.policy_stop_cases || 0);
+  const eligibleCases = totalCases - (ros.no_action_cases || 0);
   const actionableOpportunity = eligibleCases * (totalAtRisk / Math.max(1, totalCases));
 
   const verifiedRecovered = ros.actual_recovered || 0;
