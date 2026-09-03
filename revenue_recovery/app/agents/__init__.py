@@ -8,9 +8,32 @@ from app.agents.evaluation import (
 )
 from app.agents.llm_agent import AgentTrace, RealRecoveryDecisionAgent
 from app.agents.llm_client import DeterministicLLMClient, LLMClient, LLMResponse
+from app.agents.llm_provider import get_llm_provider
 from app.agents.orchestrator import RecoveryAgentOrchestrator
 from app.agents.prompt_builder import RecoveryPromptBuilder
-from app.agents.validator import ProposalValidationError, ProposalValidator
+from app.agents.validator import ProposalValidator, ProposalValidationError
+
+
+def build_agent():
+    """Build the recovery decision agent based on RECOVERY_AGENT_MODE env var.
+
+    Modes:
+        mock (default): deterministic mock agent, no API key needed
+        llm: real LLM-backed agent with fallback to mock
+    """
+    import os
+    mode = os.environ.get("RECOVERY_AGENT_MODE", "mock").lower()
+    if mode == "llm":
+        return RealRecoveryDecisionAgent(
+            llm_client=get_llm_provider(),
+            fallback_agent=MockRecoveryDecisionAgent(),
+            name="real-agent",
+        )
+    return MockRecoveryDecisionAgent(
+        name="sandbox-agent",
+        model_name="deterministic-mock",
+    )
+
 
 __all__ = [
     "RecoveryDecisionAgent",
@@ -29,4 +52,5 @@ __all__ = [
     "ScenarioResult",
     "evaluate_agent",
     "get_golden_scenarios",
+    "build_agent",
 ]

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import FailureInjectionControl from "@/components/recovery/FailureInjectionControl";
 
 type ControlItem = {
   name: string;
@@ -129,6 +130,11 @@ export default function ControlsPage() {
         <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 6, lineHeight: 1.5 }}>
           The AI decision layer proposes interventions based on expected net value, but the server-side Policy Engine retains absolute authority. Unsafe actions (retrying fraud, contacting opted-out users, or breaching attempt limits) are non-bypassable and blocked at execution.
         </p>
+      </div>
+
+      {/* FAILURE INJECTION SANDBOX */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <FailureInjectionControl />
       </div>
 
       {/* RAZORPAY INTEGRATION OPERATIONAL STATUS PANEL */}

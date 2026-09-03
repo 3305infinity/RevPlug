@@ -10,28 +10,28 @@ export default function MeasuredMoney({ summary }: { summary: DashboardSummary |
   const metrics = [
     {
       label: "Revenue at Risk",
-      value: summary ? fmt(summary.revenue_at_risk) : "₹500,000",
+      value: summary ? fmt(summary.revenue_at_risk) : "—",
       desc: "Total value of failed transactions & overdue items",
       color: "var(--danger)",
       isLive: !!summary,
     },
     {
       label: "Expected Recovery",
-      value: summary ? fmt(summary.expected_recovery) : "₹345,000",
+      value: summary ? fmt(summary.expected_recovery) : "—",
       desc: "EV projected deterministically prior to intervention",
       color: "var(--purple)",
       isLive: !!summary,
     },
     {
       label: "Actually Recovered",
-      value: summary ? fmt(summary.actually_recovered) : "₹345,000",
+      value: summary ? fmt(summary.actually_recovered) : "—",
       desc: "Financial settlement verified with gateway truth",
       color: "var(--success)",
       isLive: !!summary,
     },
     {
       label: "Recovery Rate",
-      value: summary ? `${(summary.recovery_rate * 100).toFixed(1)}%` : "69.0%",
+      value: summary ? `${(summary.recovery_rate * 100).toFixed(1)}%` : "—",
       desc: "Ratio of actually recovered vs revenue at risk",
       color: "var(--accent)",
       isLive: !!summary,
@@ -46,7 +46,7 @@ export default function MeasuredMoney({ summary }: { summary: DashboardSummary |
     {
       label: "Unnecessary Interventions",
       desc: "Retries prevented on fraud or unrecoverable cases",
-      value: summary ? `${summary.stopped_cases} blocked` : "0 prevented",
+      value: summary ? `${summary.stopped_cases} blocked` : "—",
       color: "var(--warning)",
       isLive: !!summary,
     },

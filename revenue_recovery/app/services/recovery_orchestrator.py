@@ -356,6 +356,10 @@ class RecoveryOrchestrator:
                     current_item = self._safe_transition(current_item, RecoveryStatus.PENDING_VERIFICATION)
                 break
 
+            if next_action_decision.selected_action == "verify_payment":
+                current_item = self._safe_transition(current_item, RecoveryStatus.PENDING_VERIFICATION)
+                break
+
             # If action execution failed, transition item state machine from INTERVENTION_EXECUTED to FAILED -> QUEUED for next iteration
             if execution_result and not execution_result.get("success"):
                 current_item = self._safe_transition(current_item, RecoveryStatus.FAILED)
@@ -883,25 +887,6 @@ class RecoveryOrchestrator:
         if self._outcomes is not None:
             try:
                 outcome = self._outcomes.get_for_item(item.id)
-                if outcome is None and execution_result.get("metadata", {}).get("simulated"):
-                    from app.domain.models import RecoveryOutcome
-                    import uuid
-                    outcome = RecoveryOutcome(
-                        id=str(uuid.uuid4()),
-                        recovery_item_id=item.id,
-                        outcome_type="recovered",
-                        expected_recovery_minor=rec_val,
-                        actual_recovery_minor=rec_val,
-                        recovery_cost_minor=item.intervention_cost or 0,
-                        net_recovery_minor=rec_val - (item.intervention_cost or 0),
-                        recovered_at=datetime.now(timezone.utc),
-                        created_at=datetime.now(timezone.utc),
-                        metadata={"source": "execution_verification"},
-                    )
-                    try:
-                        self._outcomes.save(outcome)
-                    except Exception:
-                        pass
                 if outcome is not None:
                     actual_value = getattr(outcome, "actual_recovery_minor", None) or rec_val
                     outcome_type = getattr(outcome, "outcome_type", "recovered")
@@ -925,22 +910,7 @@ class RecoveryOrchestrator:
             except Exception:
                 pass
 
-        if execution_result.get("metadata", {}).get("simulated") or execution_result.get("action") in ("retry_payment", "send_payment_link"):
-            events.append(self._audit_log.log(
-                recovery_item_id=item.id,
-                actor="system",
-                action="verification_complete",
-                reason="Execution succeeded; financial outcome verified",
-                metadata={"actual_recovery_value": rec_val},
-            ))
-            return {
-                "status": "recovered",
-                "actual_recovery_value": rec_val,
-                "expected_recovery_value": item.expected_recovery_value,
-                "note": "Verified simulated recovery",
-            }
-
-        # No outcome record yet — execution succeeded but financial recovery not confirmed
+        # No actual outcome evidence — execution succeeded but financial recovery not confirmed
         events.append(self._audit_log.log(
             recovery_item_id=item.id,
             actor="system",

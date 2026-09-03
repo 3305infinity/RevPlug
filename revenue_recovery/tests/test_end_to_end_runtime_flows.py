@@ -65,8 +65,14 @@ def test_3_evaluate_and_recover_canonical_endpoint():
     assert eval_resp.status_code == 200
     eval_data = eval_resp.json()
     assert eval_data["status"] == "success"
-    assert eval_data["final_status"] == "recovered"
+    assert eval_data["final_status"] == "pending_verification"
     assert eval_data["action_taken"] in ("retry_payment", "send_payment_link", "no_action")
+
+    # 3. Explicitly simulate settlement in sandbox mode
+    settle_resp = client.post(f"/api/recovery-items/{item_id}/simulate-settlement")
+    assert settle_resp.status_code == 200
+    settle_data = settle_resp.json()
+    assert settle_data["final_status"] == "recovered"
 
 
 def test_4_evaluate_missing_item_returns_404():

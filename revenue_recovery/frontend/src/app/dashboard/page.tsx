@@ -159,6 +159,8 @@ export default function OperationsDashboard() {
   const waitingValue = decisions?.WAIT?.total_at_risk || 0;
   const stoppedCount = decisions?.STOP?.count || 0;
   const stoppedValue = decisions?.STOP?.total_at_risk || 0;
+  const actionableOpportunities = items.filter((i) => !["recovered", "stopped"].includes(i.status)).length;
+  const protectedValue = items.filter((i) => i.status === "stopped" || i.status === "escalated").reduce((acc, i) => acc + i.amount_minor, 0);
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", paddingBottom: "3rem" }}>
@@ -180,6 +182,59 @@ export default function OperationsDashboard() {
           <Link href="/review" className="btn-primary" style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}>
             Review Queue {needsAttentionCount > 0 ? `(${needsAttentionCount})` : ""}
           </Link>
+        </div>
+      </div>
+
+      {/* ── PRIMARY FINANCIAL SUMMARY ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #ef4444" }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            Revenue at Risk
+          </div>
+          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#ef4444", letterSpacing: "-0.02em" }}>
+            {fmt(totalAtRisk)}
+          </div>
+          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
+            {actionableOpportunities} actionable opportunities
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #6366f1" }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            Expected Recovery
+          </div>
+          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#6366f1", letterSpacing: "-0.02em" }}>
+            {expectedRecovery > 0 ? fmt(expectedRecovery) : "—"}
+          </div>
+          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
+            Projected from Net EV scoring
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #10b981" }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            Verified Recovered
+          </div>
+          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#10b981", letterSpacing: "-0.02em" }}>
+            {verifiedRecovered > 0 ? fmt(verifiedRecovered) : "—"}
+          </div>
+          <div style={{ fontSize: "0.6875rem", color: "#10b981", marginTop: 4 }}>
+            {verifiedRecovered > 0
+              ? `${(summary.recovery_rate * 100).toFixed(1)}% recovery rate`
+              : "Settlement-verified funds only"}
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #f59e0b" }}>
+          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            Protected
+          </div>
+          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#f59e0b", letterSpacing: "-0.02em" }}>
+            {fmt(protectedValue)}
+          </div>
+          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
+            {stoppedCount} policy-blocked cases
+          </div>
         </div>
       </div>
 
@@ -244,59 +299,6 @@ export default function OperationsDashboard() {
           </Link>
         </div>
       )}
-
-      {/* ── PRIMARY FINANCIAL SUMMARY ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
-        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #ef4444" }}>
-          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Revenue at Risk
-          </div>
-          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#ef4444", letterSpacing: "-0.02em" }}>
-            {fmt(totalAtRisk)}
-          </div>
-          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
-            {summary.active_recoveries} active cases
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #6366f1" }}>
-          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Expected Recovery
-          </div>
-          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#6366f1", letterSpacing: "-0.02em" }}>
-            {expectedRecovery > 0 ? fmt(expectedRecovery) : "—"}
-          </div>
-          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
-            Projected from actionable opportunities
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #10b981" }}>
-          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Verified Recovered
-          </div>
-          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#10b981", letterSpacing: "-0.02em" }}>
-            {verifiedRecovered > 0 ? fmt(verifiedRecovered) : "—"}
-          </div>
-          <div style={{ fontSize: "0.6875rem", color: "#10b981", marginTop: 4 }}>
-            {verifiedRecovered > 0
-              ? `${(summary.recovery_rate * 100).toFixed(1)}% recovery rate`
-              : "Settlement-verified funds only"}
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: "1.25rem", borderLeft: `3px solid ${needsAttentionCount > 0 ? "#f59e0b" : "var(--border)"}` }}>
-          <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Needs Attention
-          </div>
-          <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: needsAttentionCount > 0 ? "#f59e0b" : "var(--text-muted)" }}>
-            {needsAttentionCount}
-          </div>
-          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
-            {needsAttentionCount > 0 ? "Requires human review" : "No escalated cases"}
-          </div>
-        </div>
-      </div>
 
       {/* ── STRATEGY INSIGHT ── */}
       {strategyReport && strategyReport.strategies.length > 0 && (

@@ -13,8 +13,7 @@ from app.adapters.razorpay import (
     RazorpaySignatureError,
     RazorpayWebhookService,
 )
-from app.agents.decision_agent import MockRecoveryDecisionAgent, RecoveryDecisionAgent
-from app.agents.llm_agent import RealRecoveryDecisionAgent
+from app.agents import build_agent
 from app.agents.orchestrator import RecoveryAgentOrchestrator
 from app.agents.validator import ProposalValidator
 from app.audit.models import InMemoryAuditLog
@@ -37,25 +36,6 @@ from app.scoring.expected_value import ExpectedValueScorer
 app = FastAPI(title="Recovery Engine", version="0.1.0")
 
 
-def _build_agent():
-    """Build the recovery decision agent based on RECOVERY_AGENT_MODE env var.
-
-    Modes:
-        mock (default): deterministic mock agent, no API key needed
-        llm: real LLM-backed agent with fallback to mock
-    """
-    mode = os.environ.get("RECOVERY_AGENT_MODE", "mock").lower()
-    if mode == "llm":
-        # Use DeterministicLLMClient as default; replace with real provider when configured
-        from app.agents.llm_client import DeterministicLLMClient
-        return RealRecoveryDecisionAgent(
-            llm_client=DeterministicLLMClient(),
-            fallback_agent=MockRecoveryDecisionAgent(),
-            name="real-agent",
-        )
-    return MockRecoveryDecisionAgent()
-
-
 def _build_webhook_service(
     secret: str,
     container: PersistenceContainer | None = None,
@@ -72,7 +52,7 @@ def _build_webhook_service(
             promises=_InMemoryPromiseRepository(),
             provider_events=_InMemoryProviderEventRepository(),
         )
-    agent = _build_agent()
+    agent = build_agent()
     stopping_rules = StoppingRules(max_attempts=3)
     orchestrator = RecoveryAgentOrchestrator(
         agent=agent,

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api, RecoveryItem, SimulationResult } from "@/lib/api";
 import { getCustomerDisplayName } from "@/lib/customerDisplay";
 import DecisionTraceView from "@/components/recovery/DecisionTraceView";
+import CreateCaseModal from "@/components/recovery/CreateCaseModal";
 
 type Phase = "idle" | "running" | "complete" | "error";
 
@@ -19,6 +20,7 @@ export default function SingleCaseRecoveryControlPlane() {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [showTrace, setShowTrace] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const apiHost = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -134,6 +136,38 @@ export default function SingleCaseRecoveryControlPlane() {
             <option value="gemini">Secondary (Google Gemini 1.5 Pro)</option>
             <option value="fallback">Safety Fallback (Deterministic)</option>
           </select>
+        </div>
+      </div>
+
+      {/* SANDBOX / DEVELOPER TOOLS */}
+      <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.5rem", borderLeft: "3px solid var(--border)", background: "var(--bg-secondary)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
+          <div>
+            <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
+              Sandbox / Developer Tools
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+              Inject synthetic failure events for judging and local simulation. Does not affect live operational data.
+            </div>
+          </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            style={{
+              background: "transparent",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border)",
+              padding: "0.4rem 0.9rem",
+              borderRadius: 6,
+              fontWeight: 600,
+              fontSize: "0.75rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+            }}
+          >
+            <span>+</span> Inject Test Event
+          </button>
         </div>
       </div>
 
@@ -351,6 +385,11 @@ export default function SingleCaseRecoveryControlPlane() {
           )}
         </div>
       )}
+      <CreateCaseModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={() => loadItems()}
+      />
     </div>
   );
 }

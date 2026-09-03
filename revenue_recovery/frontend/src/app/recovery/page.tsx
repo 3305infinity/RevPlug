@@ -120,40 +120,32 @@ export default function RecoveryInboxPage() {
         </div>
 
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            style={{
-              background: "#10b981",
-              color: "#fff",
-              border: "none",
-              padding: "0.6rem 1.25rem",
-              borderRadius: 6,
-              fontWeight: 700,
-              fontSize: "0.8125rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <span>+</span> Create Recovery Case
-          </button>
-
           <Link
             href="/run-recovery"
-            style={{
-              background: "var(--bg-secondary)",
-              color: "var(--text-primary)",
-              border: "1px solid var(--border)",
-              padding: "0.6rem 1.15rem",
-              borderRadius: 6,
-              fontWeight: 600,
-              fontSize: "0.8125rem",
-              textDecoration: "none",
-            }}
+            className="btn-primary"
+            style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}
           >
             Single Case Control Plane →
           </Link>
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            style={{
+              background: "transparent",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border)",
+              padding: "0.4rem 0.85rem",
+              borderRadius: 6,
+              fontWeight: 500,
+              fontSize: "0.75rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+            }}
+          >
+            <span>+</span> Inject Test Event
+          </button>
         </div>
       </div>
 

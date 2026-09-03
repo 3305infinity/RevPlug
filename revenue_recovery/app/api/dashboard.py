@@ -101,14 +101,14 @@ async def api_evaluate_and_recover_item(
     from app.policies.stopping_rules import StoppingRules
     from app.policies.guard import DefaultRecoveryGuard
     from app.services.action_executor import ActionExecutor
-    from app.agents.decision_agent import MockRecoveryDecisionAgent
+    from app.agents import build_agent
     from app.scoring.expected_value import ExpectedValueScorer
 
     policy_engine = InterventionPolicy()
     stopping_rules = StoppingRules()
     guard = DefaultRecoveryGuard(stopping_rules=stopping_rules, policy_engine=policy_engine)
     executor = ActionExecutor()
-    agent = MockRecoveryDecisionAgent(name="revplug-agent", model_name="production-model")
+    agent = build_agent()
     scorer = ExpectedValueScorer()
 
     orchestrator = RecoveryOrchestrator(
@@ -125,25 +125,22 @@ async def api_evaluate_and_recover_item(
 
     run_result = orchestrator.run(item, context)
 
-    # Process settlement verification if action executed
-    if run_result.execution_result and run_result.execution_result.get("success"):
-        verifier = SettlementVerifier(
-            recovery_items=container.recovery_items,
-            outcomes=container.outcomes,
-            audit_log=container.audit_log,
-        )
-        settlement_evt = SettlementEvent(
-            event_id=f"settle_{item.id}",
-            provider="system_simulated",
-            recovery_item_id=item.id,
-            success=True,
-            actual_amount_minor=item.amount_minor,
-            currency=item.currency,
-        )
-        verifier.process_settlement(settlement_evt)
-
-    # Fetch updated item state
-    updated_item = container.recovery_items.get(item.id) or item
+    # Persist the orchestrator's final item state back to the container
+    # so that subsequent endpoints (e.g. simulate-settlement) see the correct status.
+    from dataclasses import replace
+    from app.domain.models import RecoveryStatus
+    final_state_str = run_result.final_state or item.status.value if hasattr(item.status, "value") else str(item.status)
+    try:
+        final_status = RecoveryStatus(final_state_str)
+    except ValueError:
+        final_status = item.status
+    updated_item = replace(
+        item,
+        status=final_status,
+        actual_recovery_value=run_result.actual_recovery_value or item.actual_recovery_value,
+    )
+    container.recovery_items.save(updated_item)
+    updated_item = container.recovery_items.get(item.id) or updated_item
 
     return JSONResponse(
         status_code=200,
@@ -158,6 +155,65 @@ async def api_evaluate_and_recover_item(
             "ev_scoring": run_result.score if isinstance(run_result.score, dict) else (run_result.score.to_dict() if hasattr(run_result.score, "to_dict") else {}),
             "policy_result": run_result.safety_decision,
             "actual_recovery_value": updated_item.actual_recovery_value or (updated_item.amount_minor if updated_item.status == RecoveryStatus.RECOVERED else 0),
+        },
+    )
+
+
+@router.post("/api/recovery-items/{item_id}/simulate-settlement")
+def api_simulate_settlement(
+    item_id: str,
+    payload: dict[str, Any] | None = None,
+    container: PersistenceContainer = Depends(get_container),
+) -> JSONResponse:
+    """Sandbox-only explicit settlement trigger.
+
+    In mock / simulation mode, advance a pending-verification item to RECOVERED
+    via the real SettlementVerifier path. Rejects requests in live modes.
+    """
+    import os
+    from app.domain.models import RecoveryStatus
+    from app.services.settlement_verifier import SettlementEvent, SettlementVerifier
+
+    if os.environ.get("RECOVERY_AGENT_MODE", "mock").lower() != "mock":
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Simulated settlement is only available in sandbox/demo mode."},
+        )
+
+    item = container.recovery_items.get(str(item_id))
+    if item is None:
+        return JSONResponse(status_code=404, content={"detail": f"Recovery case {item_id} could not be found."})
+
+    if item.status not in {RecoveryStatus.INTERVENTION_EXECUTED, RecoveryStatus.PENDING_VERIFICATION}:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": f"Item {item_id} is in status {item.status.value}; simulated settlement requires intervention_executed or pending_verification."},
+        )
+
+    verifier = SettlementVerifier(
+        recovery_items=container.recovery_items,
+        outcomes=container.outcomes,
+        audit_log=container.audit_log,
+    )
+    settlement_evt = SettlementEvent(
+        event_id=f"sim_settle_{item.id}",
+        provider="sandbox_simulated",
+        recovery_item_id=item.id,
+        success=True,
+        actual_amount_minor=item.amount_minor,
+        currency=item.currency,
+    )
+    result = verifier.process_settlement(settlement_evt)
+
+    updated_item = container.recovery_items.get(item.id) or item
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "success",
+            "recovery_item_id": item.id,
+            "verification_result": result.status,
+            "actual_recovery_minor": result.actual_recovery_minor,
+            "final_status": updated_item.status,
         },
     )
 

@@ -272,7 +272,7 @@ class TestEndpointWithAgent:
         assert data["expected_recovery_value"] == 34500  # 50000 * 0.70 - 500
         assert data["proposed_action"] == "retry_payment"
         assert data["policy_allowed"] is True
-        assert data["agent_model"] == "mock"
+        assert data["agent_model"] == "deterministic-mock"
 
     def test_endpoint_duplicate_returns_duplicate(self):
         from app.main import create_app
