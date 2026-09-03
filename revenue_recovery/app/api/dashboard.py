@@ -689,6 +689,106 @@ def api_recovery_item_detail(item_id: str, container: PersistenceContainer = Dep
         return JSONResponse(status_code=404, content={"error": "Item not found"})
     return JSONResponse(status_code=200, content=detail)
 
+@router.post("/api/recovery-items/{item_id}/voice-promise")
+async def api_voice_promise(item_id: str, request: Request, container: PersistenceContainer = Depends(get_container)) -> Response:
+    """Extract a promise-to-pay from a real voice transcript and optionally create the promise record."""
+    import json
+    from datetime import date, datetime, timezone
+
+    body = await request.body()
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    transcript = (payload.get("transcript") or "").strip()
+    if not transcript:
+        return JSONResponse(status_code=400, content={"error": "Missing transcript"})
+
+    item = None
+    if hasattr(container.recovery_items, "get"):
+        item = container.recovery_items.get(item_id)
+    if item is None:
+        return JSONResponse(status_code=404, content={"error": "Recovery item not found"})
+
+    ref_date = None
+    ref_date_str = payload.get("reference_date")
+    if ref_date_str:
+        try:
+            ref_date = date.fromisoformat(ref_date_str)
+        except ValueError:
+            ref_date = datetime.now(timezone.utc).date()
+    else:
+        ref_date = datetime.now(timezone.utc).date()
+
+    from app.services.hinglish_promise import HinglishPromiseExtractor
+    extractor = HinglishPromiseExtractor()
+    extracted = extractor.extract(transcript, reference_date=ref_date)
+
+    promise_record = None
+    promise_created = False
+    if extracted.intent == "promise_to_pay" and extracted.amount_minor is not None and extracted.promised_date is not None:
+        try:
+            promised_date = date.fromisoformat(extracted.promised_date)
+        except ValueError:
+            promised_date = ref_date
+
+        from app.services.promise_service import PromiseService
+        from app.domain.models import Promise
+        import uuid
+
+        service = PromiseService()
+        promise = service.create_promise(
+            item_id=item.id,
+            customer_id=item.customer_id,
+            promised_amount_minor=extracted.amount_minor,
+            promised_date=promised_date,
+            metadata={
+                "source": "voice_call",
+                "transcript": transcript,
+                "extractor_confidence": extracted.confidence,
+            },
+        )
+        if hasattr(container.promises, "save"):
+            container.promises.save(promise)
+        promise_record = {
+            "id": promise.id,
+            "recovery_item_id": promise.recovery_item_id,
+            "customer_id": promise.customer_id,
+            "promised_amount_minor": promise.promised_amount_minor,
+            "promised_date": promise.promised_date.isoformat() if hasattr(promise.promised_date, "isoformat") else str(promise.promised_date),
+            "status": promise.status,
+            "created_at": promise.created_at.isoformat() if promise.created_at else None,
+            "metadata": promise.metadata,
+        }
+        promise_created = True
+
+        container.audit_log.log(
+            recovery_item_id=item_id,
+            actor="agent",
+            action="voice_promise_created",
+            reason=f"Voice transcript promise extracted (confidence={extracted.confidence})",
+            metadata={
+                "transcript": transcript,
+                "extracted": extracted.to_dict(),
+                "promise_id": promise.id,
+            },
+        )
+    else:
+        container.audit_log.log(
+            recovery_item_id=item_id,
+            actor="agent",
+            action="voice_promise_extracted",
+            reason=f"Voice transcript extracted with intent '{extracted.intent}' (confidence={extracted.confidence})",
+            metadata=extracted.to_dict(),
+        )
+
+    return JSONResponse(status_code=200, content={
+        "extracted": extracted.to_dict(),
+        "promise_created": promise_created,
+        "promise": promise_record,
+    })
+
 @router.get("/api/customers")
 def api_list_customers(container: PersistenceContainer = Depends(get_container)) -> list[dict[str, Any]]:
     from app.dashboard_api import build_customers_list

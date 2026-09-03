@@ -1,10 +1,10 @@
 {
-  "evaluation_id": "a28b2775-a85e-48ba-8a3d-e4eeea32666e",
+  "evaluation_id": "a5438e17-a1a8-4a80-a0c9-2847fd963b3b",
   "seed": 42,
   "count": 50,
   "status": "completed",
-  "started_at": "2026-09-03T10:43:30.519577+00:00",
-  "completed_at": "2026-09-03T10:43:30.627144+00:00",
+  "started_at": "2026-09-03T11:57:10.532134+00:00",
+  "completed_at": "2026-09-03T11:57:10.604377+00:00",
   "benchmark_configuration": {
     "ai_enabled": true,
     "ai_routing": "contextual",
@@ -6411,7 +6411,7 @@
   ],
   "error": null,
   "benchmark_metadata": {
-    "generated_at": "2026-09-03 10:43:32 UTC",
+    "generated_at": "2026-09-03 11:57:11 UTC",
     "evaluation_id": "REC-CANONICAL-2026-S42-C50",
     "dataset_version": "v2-counterfactual",
     "canonical_scale": "50-case seed 42 detailed trace + 1000-case multi-seed suite"

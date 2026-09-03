@@ -51,6 +51,20 @@ export interface PromiseToPay {
   metadata: Record<string, unknown>;
 }
 
+export interface ExtractedPromise {
+  intent: string;
+  amount_minor: number | null;
+  promised_date: string | null;
+  confidence: number;
+  source_text: string;
+}
+
+export interface VoicePromiseResponse {
+  extracted: ExtractedPromise;
+  promise_created: boolean;
+  promise: PromiseToPay | null;
+}
+
 export interface PromiseSummary {
   active_count: number;
   committed_amount_minor: number;
@@ -625,6 +639,11 @@ export const api = {
     method: "POST", body: JSON.stringify({ reason })
   }),
   promiseSummary: () => fetchAPI<PromiseSummary>("/api/dashboard/promise-summary"),
+  voicePromise: (itemId: string, transcript: string, referenceDate?: string) =>
+    fetchAPI<VoicePromiseResponse>(`/api/recovery-items/${itemId}/voice-promise`, {
+      method: "POST",
+      body: JSON.stringify({ transcript, reference_date: referenceDate }),
+    }),
   
   // Batches
   batches: () => fetchAPI<Batch[]>("/api/batches"),

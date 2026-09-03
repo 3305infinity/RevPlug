@@ -106,6 +106,9 @@ Tracks median recovery time (**2h 14m**), P90 (**18h 42m**), attempt conversion 
 ### 18. Revenue Leakage Diagnostics View (`app/services/revenue_leakage.py`)
 Categorizes unrecovered revenue by failure cause and recommends specific policy fixes.
 
+### 19. AI Collections Call (`frontend/src/app/recovery/[id]/voice-call/page.tsx`)
+End-to-end voice collection flow for overdue B2B/subscription cases using the browser's built-in Web Speech API (no external paid telephony/voice API required). The agent speaks an opening line in Hinglish via `SpeechSynthesis`, captures the customer's live spoken reply via `SpeechRecognition` (`lang: 'en-IN'`), sends the real transcript to `POST /api/recovery-items/{id}/voice-promise`, which calls the existing `HinglishPromiseExtractor.extract()` and `PromiseService.create_promise()` on the REAL transcript. A `PromiseRecord` is only created when extraction returns `intent == "promise_to_pay"` with both `amount_minor` and `promised_date` resolved; otherwise the extraction result is shown honestly (fail-closed). Works in Chrome out of the box, zero API keys, zero cost.
+
 ---
 
 # 4. Benchmark Evaluation Results

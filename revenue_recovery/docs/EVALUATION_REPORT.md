@@ -1,6 +1,6 @@
 # RevPlug Benchmark & Counterfactual ROI Report
 
-**Generated At:** 2026-09-03 10:43:32 UTC
+**Generated At:** 2026-09-03 11:57:11 UTC
 **Canonical Benchmark Scale:** 50 cases | 10 seeds (`42` to `51`) | Version `2.0-canonical`
 **Evaluation Mode:** AI_ASSISTED (AI Contextual Routing + Deterministic Safety Shield)
 

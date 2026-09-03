@@ -87,6 +87,7 @@ RevPlug replaces blind retry logic with a **closed-loop bounded recovery agent**
 - **Transactional Case Clearing (`DELETE /api/recovery-items/{id}`)**: Atomically purge a recovery case and its complete operational dependency graph with confirmation UI and backend preview counts.
 - **Data-Driven Strategy Analytics**: Inspects historical strategy performance, calculates actual intervention success rates, and generates automated data-backed opportunity signals without fake numbers.
 - **Failure Injection Sandbox (`/controls`)**: Developer and judge sandbox to simulate real failure conditions (LLM timeout, gateway 502, duplicate webhook, payment success race, policy override attempt, hallucinated action) and verify safe boundary handling.
+- **AI Collections Call (`/recovery/[id]/voice-call`)**: In-browser voice collection flow using the Web Speech API (SpeechRecognition for real-time STT, SpeechSynthesis for TTS). The agent speaks an opening line in Hinglish, captures the customer's live spoken reply, sends the real transcript to the `HinglishPromiseExtractor` backend service, and creates a real `PromiseRecord` via `PromiseService` only when extraction returns a valid promise-to-pay with both amount and date. No simulated data, no mock transcript, no external paid voice API required — works in Chrome out of the box.
 
 ---
 

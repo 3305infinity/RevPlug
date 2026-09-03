@@ -206,6 +206,27 @@ export default function CaseWorkspace() {
       {/* PAYMENT COMMITMENT */}
       <PromiseCommitment itemId={id} customerId={customerId} />
 
+      <div style={{ marginBottom: "1.5rem" }}>
+        <Link
+          href={`/recovery/${id}/voice-call`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            fontSize: "0.8125rem",
+            fontWeight: 600,
+            color: "var(--accent)",
+            textDecoration: "none",
+            padding: "0.5rem 0.875rem",
+            borderRadius: 6,
+            border: "1px solid rgba(99,102,241,0.3)",
+            background: "rgba(99,102,241,0.06)",
+          }}
+        >
+          🎙️ AI Collections Call
+        </Link>
+      </div>
+
       {/* 1. DECISION — Centerpiece */}
       <RecoveryDecisionCard
         trace={liveTrace}
