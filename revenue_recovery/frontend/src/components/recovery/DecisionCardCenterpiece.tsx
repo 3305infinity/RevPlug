@@ -222,7 +222,7 @@ export default function DecisionCardCenterpiece({ trace, detail }: Props) {
                         {selected.action.replace(/_/g, " ").toUpperCase()} — selected
                       </div>
                       <div style={{ color: "var(--text-secondary)", marginBottom: 4 }}>
-                        Expected Net Recovery {fmtINR(selected.expected_recovery != null && selected.cost != null ? selected.expected_recovery - selected.cost : selected.expected_recovery)}
+                        Expected Net Recovery {fmtINR(selected.net_expected_recovery)}
                         {confidencePct && <> · Confidence {confidencePct}</>}
                       </div>
                       {selected.reason && (

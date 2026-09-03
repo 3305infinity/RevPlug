@@ -47,17 +47,17 @@ const DECISIONS = [
 
 export default function FourDecisionsSection() {
   return (
-    <div style={{ padding: "4rem 0", borderTop: "1px solid #21262d" }}>
+    <div style={{ padding: "3rem 0", borderTop: "1px solid #21262d" }}>
       {/* SECTION HEADER */}
-      <div style={{ marginBottom: "2.5rem" }}>
+      <div style={{ marginBottom: "2rem" }}>
         <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#6e7681", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.35rem" }}>
           THE FOUR DECISIONS
         </div>
-        <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.02em" }}>
+        <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.01em" }}>
           Every payment failure gets one answer.
         </h2>
-        <p style={{ fontSize: "0.875rem", color: "#8b949e", marginTop: 4 }}>
-          RevPlug diagnoses, evaluates, and produces a canonical recovery decision — bounded by policy authority.
+        <p style={{ fontSize: "0.8125rem", color: "#8b949e", marginTop: 4 }}>
+          RevPlug produces a canonical recovery decision, bounded by policy authority.
         </p>
       </div>
 

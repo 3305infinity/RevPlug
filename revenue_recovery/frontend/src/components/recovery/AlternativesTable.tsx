@@ -60,13 +60,13 @@ export default function AlternativesTable({ trace }: Props) {
 
   const selectedAction = trace?.product_decision?.selected_action ?? trace?.ai_recommendation?.selected_action;
 
-  // Sort: selected first, then by expected recovery descending
+  // Sort: selected first, then by net expected recovery descending
   const sorted = [...candidates].sort((a, b) => {
     const aSelected = a.action === selectedAction || (a as any).selected;
     const bSelected = b.action === selectedAction || (b as any).selected;
     if (aSelected && !bSelected) return -1;
     if (!aSelected && bSelected) return 1;
-    return (b.expected_recovery ?? 0) - (a.expected_recovery ?? 0);
+    return (b.net_expected_recovery ?? 0) - (a.net_expected_recovery ?? 0);
   });
 
   return (
@@ -167,8 +167,8 @@ export default function AlternativesTable({ trace }: Props) {
             const isSelected = cand.action === selectedAction || (cand as any).selected;
             const isBlocked = cand.policy_status === "BLOCKED";
             const label = ACTION_LABELS[cand.action] ?? cand.action.replace(/_/g, " ");
-            const expMinor = cand.expected_recovery ?? 0;
-            const costMinor = cand.cost ?? 0;
+            const netMinor = cand.net_expected_recovery ?? 0;
+            const costMinor = cand.intervention_cost ?? 0;
             const policyRule = cand.policy_rule;
 
             let outcomeLabel = "Not selected — lower expected value";
@@ -221,10 +221,10 @@ export default function AlternativesTable({ trace }: Props) {
                     textAlign: "right",
                     fontFamily: "monospace",
                     fontWeight: 600,
-                    color: isBlocked ? "var(--text-muted)" : expMinor > 0 ? "#10b981" : "var(--text-muted)",
+                    color: isBlocked ? "var(--text-muted)" : netMinor > 0 ? "#10b981" : "var(--text-muted)",
                   }}
                 >
-                  {expMinor > 0 ? fmtINR(expMinor) : "—"}
+                  {netMinor > 0 ? fmtINR(netMinor) : "—"}
                 </td>
                 <td
                   style={{

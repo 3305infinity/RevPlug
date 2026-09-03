@@ -72,26 +72,13 @@ export default function RecoveryWhy({ trace, detail, amountAtRiskMinor }: Props)
     });
   }
 
-  // 4. Economic rationale
+  // 4. Economic rationale — expected recovery only (amount at risk shown in DecisionCard)
   const expectedMinor = trace?.expected_recovery_minor ?? 0;
   if (expectedMinor > 0) {
     rows.push({
       label: "Expected recovery",
       value: `${fmtINR(expectedMinor)} (projected)`,
       highlight: true,
-    });
-  }
-  if (amountAtRiskMinor > 0) {
-    rows.push({
-      label: "Revenue at risk",
-      value: fmtINR(amountAtRiskMinor),
-    });
-  }
-  const costMinor = trace?.intervention_cost_minor ?? 0;
-  if (costMinor > 0) {
-    rows.push({
-      label: "Intervention cost",
-      value: fmtINR(costMinor),
     });
   }
 

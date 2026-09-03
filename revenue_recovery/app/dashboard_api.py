@@ -232,7 +232,9 @@ def build_dashboard_summary(container, *, agent=None) -> dict[str, Any]:
     expected_recovery = sum(i.expected_recovery_value or 0 for i in at_risk_items)
 
     # Actually recovered — ONLY from recovery_outcomes (financial truth)
-    actually_recovered = _actual_recovered_from_outcomes(container)
+    # Scoped to the current portfolio so it is comparable to revenue_at_risk and expected_recovery.
+    current_portfolio_ids = {i.id for i in items}
+    actually_recovered = _actual_recovered_from_outcomes(container, item_ids=current_portfolio_ids)
 
     # Recovery rate
     recovery_rate = actually_recovered / revenue_at_risk if revenue_at_risk > 0 else 0.0

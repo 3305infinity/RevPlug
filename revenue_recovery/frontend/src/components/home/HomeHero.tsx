@@ -31,7 +31,7 @@ export default function HomeHero() {
             color: "#f0f6fc",
           }}
         >
-          Autonomous Revenue Recovery<br />
+          Revenue Recovery
           within policy bounds.
         </h1>
 

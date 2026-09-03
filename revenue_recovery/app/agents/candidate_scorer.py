@@ -198,6 +198,7 @@ def build_ranked_proposal(
         action=top.action,
         reason=primary_reason,
         confidence=confidence,
+        proposed_retry=(top.action == RecoveryAction.RETRY_PAYMENT),
         model_name=model_name,
         evidence={
             "candidate_count": len(scored),

@@ -191,8 +191,6 @@ class RealRecoveryDecisionAgent:
                     f"Low AI confidence ({conf_val:.2f} < {self._confidence_threshold}) — safe fallback triggered", latency,
                 )
 
-            selected_act = RecoveryAction(selected_act_str)
-
             # Augment proposal with EV-ranked full candidate list
             eligible = _eligible_candidates(context)
             if selected_act_str not in eligible:
@@ -200,12 +198,25 @@ class RealRecoveryDecisionAgent:
             scored_candidates = _score_candidates(context, eligible)
             top_candidate = scored_candidates[0] if scored_candidates else None
 
-            # Proposal construction — preserve LLM confidence; attach EV candidates for transparency
+            # Domain-override policy: if LLM confidence is HIGH (>= 0.75) it can override
+            # the top EV candidate; otherwise final action MUST be the top-scored candidate.
+            # This prevents LLM hallucinations from overriding sound EV-based rankings.
+            HIGH_CONFIDENCE_THRESHOLD = 0.75
+            if conf_val >= HIGH_CONFIDENCE_THRESHOLD and top_candidate is not None:
+                final_action = selected_act
+                final_reason = parsed.get("reasoning_summary") or parsed.get("reasoning") or "AI high-confidence override"
+                override_applied = (selected_act_str != top_candidate.action)
+            else:
+                final_action = RecoveryAction(top_candidate.action) if top_candidate else selected_act
+                final_reason = f"Top EV-ranked action selected (LLM confidence {conf_val:.2f} below override threshold)"
+                override_applied = False
+
+            # Proposal construction — LLM high-confidence overrides are reflected in reasoning
             proposal = RecoveryProposal(
-                action=selected_act,
-                reason=parsed.get("reasoning_summary") or parsed.get("reasoning") or "AI recommended action",
+                action=final_action,
+                reason=final_reason,
                 confidence=conf_val,
-                proposed_retry=(selected_act == RecoveryAction.RETRY_PAYMENT),
+                proposed_retry=(final_action == RecoveryAction.RETRY_PAYMENT),
                 model_name=self.model_name,
                 evidence={
                     "provider": self.provider_name,
@@ -217,6 +228,7 @@ class RealRecoveryDecisionAgent:
                     "output_tokens": getattr(response, "output_tokens", 0),
                     "ev_candidates": [c.to_dict() for c in scored_candidates],
                     "top_net_ev": top_candidate.net_expected_recovery if top_candidate else None,
+                    "llm_override": override_applied,
                 },
                 diagnosis={"diagnosis_source": self.provider_name, "confidence": conf_val},
                 candidates=scored_candidates,

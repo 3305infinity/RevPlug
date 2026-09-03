@@ -16,12 +16,12 @@ export default function VerifiedSettlementSection() {
       {/* SECTION HEADER */}
       <div style={{ marginBottom: "2rem" }}>
         <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#6e7681", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.35rem" }}>
-          FINANCIAL TRUTH ARCHITECTURE
+          SETTLEMENT VERIFICATION
         </div>
-        <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.02em" }}>
+        <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.01em" }}>
           An attempted recovery is not a recovered payment.
         </h2>
-        <p style={{ fontSize: "0.875rem", color: "#8b949e", marginTop: 4 }}>
+        <p style={{ fontSize: "0.8125rem", color: "#8b949e", marginTop: 4 }}>
           RevPlug never counts money as recovered merely because an API action was dispatched. Only signed, verified webhooks count.
         </p>
       </div>

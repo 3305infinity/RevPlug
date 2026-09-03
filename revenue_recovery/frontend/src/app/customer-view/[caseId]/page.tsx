@@ -77,13 +77,18 @@ export default function CustomerViewPage() {
     (detail?.actual_recovery_value && detail.actual_recovery_value > 0) ||
     primaryAttempt?.outcome === "success";
 
-  const handleCtaClick = () => {
+  const handleCtaClick = async () => {
     setViewState("processing");
-    // Result is derived from actual backend execution output; no fake transition.
-    const recovered = isPaid;
-    setTimeout(() => {
+    try {
+      const result = await api.runSimulation({ item_id: caseId });
+      const recovered =
+        result.settlement_verified === true ||
+        result.recovery_status === "recovered" ||
+        (result.actual_recovery_value != null && result.actual_recovery_value > 0);
       setViewState(recovered ? "paid" : "failed");
-    }, 1000);
+    } catch {
+      setViewState("failed");
+    }
   };
 
   const showCta = channel === "payment_link" && viewState !== "paid" && viewState !== "failed";

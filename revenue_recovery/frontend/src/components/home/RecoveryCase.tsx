@@ -11,13 +11,13 @@ export default function RecoveryCase() {
       {/* SECTION HEADER */}
       <div style={{ marginBottom: "2rem" }}>
         <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#6e7681", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.35rem" }}>
-          ACTUAL PRODUCT PREVIEW
+          RECOVERY WORKSPACE
         </div>
-        <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.02em" }}>
+        <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.01em" }}>
           Built for the moment revenue starts slipping.
         </h2>
-        <p style={{ fontSize: "0.875rem", color: "#8b949e", marginTop: 4 }}>
-          Live workspace view showing real AI proposal, server-side policy gate, and verified settlement telemetry.
+        <p style={{ fontSize: "0.8125rem", color: "#8b949e", marginTop: 4 }}>
+          Live workspace showing proposal, policy gate, and settlement outcome.
         </p>
       </div>
 
@@ -114,15 +114,15 @@ export default function RecoveryCase() {
               {/* DECISION TRACE GRID */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
                 <div style={{ padding: "1rem", background: "#161b22", borderRadius: 6, border: "1px solid #21262d" }}>
-                  <div style={{ fontSize: "0.65rem", color: "#6e7681", textTransform: "uppercase" }}>AI PROPOSAL</div>
+                  <div style={{ fontSize: "0.65rem", color: "#6e7681", textTransform: "uppercase" }}>Proposal</div>
                   <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#f0f6fc", marginTop: 4 }}>send_payment_link</div>
-                  <div style={{ fontSize: "0.7rem", color: "#8b949e", marginTop: 4 }}>Groq Llama-3.3-70b (91% confidence)</div>
+                  <div style={{ fontSize: "0.7rem", color: "#8b949e", marginTop: 4 }}>Highest expected net recovery</div>
                 </div>
 
                 <div style={{ padding: "1rem", background: "#161b22", borderRadius: 6, border: "1px solid #21262d" }}>
                   <div style={{ fontSize: "0.65rem", color: "#6e7681", textTransform: "uppercase" }}>POLICY GATE</div>
                   <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#10b981", marginTop: 4 }}>ALLOWED</div>
-                  <div style={{ fontSize: "0.7rem", color: "#8b949e", marginTop: 4 }}>Rule: stopping_rules_pass</div>
+                  <div style={{ fontSize: "0.7rem", color: "#8b949e", marginTop: 4 }}>Policy: stopping_rules_pass</div>
                 </div>
 
                 <div style={{ padding: "1rem", background: "#161b22", borderRadius: 6, border: "1px solid #21262d" }}>
@@ -168,9 +168,9 @@ export default function RecoveryCase() {
               {/* DECISION TRACE GRID */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
                 <div style={{ padding: "1rem", background: "#161b22", borderRadius: 6, border: "1px solid #21262d" }}>
-                  <div style={{ fontSize: "0.65rem", color: "#6e7681", textTransform: "uppercase" }}>AI PROPOSED</div>
+                  <div style={{ fontSize: "0.65rem", color: "#6e7681", textTransform: "uppercase" }}>Proposal</div>
                   <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#f59e0b", marginTop: 4 }}>retry_payment</div>
-                  <div style={{ fontSize: "0.7rem", color: "#8b949e", marginTop: 4 }}>Groq Llama-3.3-70b (75% confidence)</div>
+                  <div style={{ fontSize: "0.7rem", color: "#8b949e", marginTop: 4 }}>Blocked by policy</div>
                 </div>
 
                 <div style={{ padding: "1rem", background: "#161b22", borderRadius: 6, border: "1px solid #21262d" }}>

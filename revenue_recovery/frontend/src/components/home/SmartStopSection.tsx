@@ -11,13 +11,13 @@ export default function SmartStopSection() {
       {/* SECTION HEADER */}
       <div style={{ marginBottom: "2rem" }}>
         <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#6e7681", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.35rem" }}>
-          SMART STOP &amp; TRUST
+          SAFETY & STOPPING
         </div>
-        <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.02em" }}>
-          Sometimes the right recovery action is no action.
+        <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.01em" }}>
+          Sometimes the right action is no action.
         </h2>
-        <p style={{ fontSize: "0.875rem", color: "#8b949e", marginTop: 4 }}>
-          Blind automated retries on fraud or hard declines destroy brand trust and incur gateway penalty fees.
+        <p style={{ fontSize: "0.8125rem", color: "#8b949e", marginTop: 4 }}>
+          Fraud signals, opted-out customers, and uneconomic cases are stopped before any API call is made.
         </p>
       </div>
 

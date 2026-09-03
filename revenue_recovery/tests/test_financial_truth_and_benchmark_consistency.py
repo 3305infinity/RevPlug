@@ -166,3 +166,58 @@ def test_safe_zero_denominator_handling():
         honest_summary="Baseline zero recovery handled safely",
     )
     assert comp.relative_improvement is None
+
+
+def test_canonical_evaluation_report_structure_and_invariants():
+    """Run canonical benchmark and verify the evaluation_report.json structure and invariants."""
+    from app.eval.run_benchmark import run_benchmark
+    res = run_benchmark(count=50, seed=42)
+
+    json_path = Path("evaluation_report.json")
+    assert json_path.exists()
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # Top-level structure
+    assert "revplug" in data
+    assert "baseline" in data
+    assert "safe_baseline" in data
+    assert "comparison" in data
+    assert "multi_seed_aggregate" in data
+
+    ros = data["revplug"]
+    bl = data["baseline"]
+    sbl = data["safe_baseline"]
+    comp = data["comparison"]
+    agg = data["multi_seed_aggregate"]
+
+    # Financial invariants
+    assert ros["actual_recovered"] <= ros["total_amount_at_risk"]
+    assert ros["net_recovered"] == ros["actual_recovered"] - ros["intervention_cost"]
+    assert ros["recovery_rate"] <= 1.0
+    assert ros["recovered_count"] <= ros["cases_evaluated"]
+
+    # Baseline invariants
+    assert bl["actual_recovered"] <= bl["total_amount_at_risk"]
+    assert sbl["actual_recovered"] <= sbl["total_amount_at_risk"]
+
+    # Comparison invariants
+    assert comp["absolute_recovery_difference"] == ros["actual_recovered"] - bl["actual_recovered"]
+    assert comp["revplug_beat_baseline"] == (ros["net_recovered"] > (bl["actual_recovered"] - bl["intervention_cost"]))
+
+    # Multi-seed aggregate invariants
+    assert agg["total_seeds"] == len(agg["seeds"])
+    assert agg["revplug_wins_vs_safe"] + agg["safe_wins_vs_revplug"] + agg.get("ties_vs_safe", 0) <= agg["total_seeds"]
+    assert "revplug_mean_net" in agg
+    assert "safe_mean_net" in agg
+
+    # Safety: RevPlug must have zero safety violations in canonical evaluation
+    assert ros["safety_violations"]["total_safety_violations"] == 0
+
+    # Markdown report must be generated from the same canonical data
+    md_path = Path("docs/EVALUATION_REPORT.md")
+    assert md_path.exists()
+    md_text = md_path.read_text(encoding="utf-8")
+    assert f"₹{ros['actual_recovered']/100:,.2f}" in md_text
+    assert f"₹{ros['net_recovered']/100:,.2f}" in md_text

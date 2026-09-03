@@ -58,16 +58,13 @@ export default function ProductHomePage() {
                 How it works
               </a>
               <Link href="/dashboard" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Dashboard
+                Command Center
               </Link>
-              <Link href="/customers" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Customers
+              <Link href="/recovery" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
+                Recovery
               </Link>
-              <Link href="/strategy-analytics" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Strategies
-              </Link>
-              <Link href="/policy-simulator" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Policy Simulator
+              <Link href="/proof-lab" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
+                Benchmark
               </Link>
             </nav>
           </div>
@@ -146,7 +143,7 @@ export default function ProductHomePage() {
 
       {/* FOOTER */}
       <footer style={{ borderTop: "1px solid #21262d", background: "#0d1117", padding: "1.5rem", textAlign: "center", fontSize: "0.75rem", color: "#6e7681", fontFamily: "monospace" }}>
-        RevPlug · Revenue Recovery Control Plane · Powered by Groq AI &amp; Razorpay
+        RevPlug · Revenue Recovery Control Plane · Powered by Razorpay
       </footer>
     </div>
   );

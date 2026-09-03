@@ -160,7 +160,6 @@ export default function OperationsDashboard() {
   const stoppedCount = decisions?.STOP?.count || 0;
   const stoppedValue = decisions?.STOP?.total_at_risk || 0;
   const actionableOpportunities = items.filter((i) => !["recovered", "stopped"].includes(i.status)).length;
-  const protectedValue = items.filter((i) => i.status === "stopped" || i.status === "escalated").reduce((acc, i) => acc + i.amount_minor, 0);
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", paddingBottom: "3rem" }}>
@@ -172,13 +171,10 @@ export default function OperationsDashboard() {
             Revenue Recovery Command Center
           </h1>
           <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
-            Autonomous decisions · Bounded execution · Verified settlement
+            Policy-bounded recovery · Settlement-verified
           </div>
         </div>
         <div style={{ display: "flex", gap: "0.625rem", alignItems: "center" }}>
-          <Link href="/allocation" className="btn-secondary" style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}>
-            Capital Allocation
-          </Link>
           <Link href="/review" className="btn-primary" style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}>
             Review Queue {needsAttentionCount > 0 ? `(${needsAttentionCount})` : ""}
           </Link>
@@ -218,22 +214,20 @@ export default function OperationsDashboard() {
           <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#10b981", letterSpacing: "-0.02em" }}>
             {verifiedRecovered > 0 ? fmt(verifiedRecovered) : "—"}
           </div>
-          <div style={{ fontSize: "0.6875rem", color: "#10b981", marginTop: 4 }}>
-            {verifiedRecovered > 0
-              ? `${(summary.recovery_rate * 100).toFixed(1)}% recovery rate`
-              : "Settlement-verified funds only"}
+          <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
+            Settlement-confirmed funds
           </div>
         </div>
 
         <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #f59e0b" }}>
           <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Protected
+            Cases Needing Attention
           </div>
           <div className="font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#f59e0b", letterSpacing: "-0.02em" }}>
-            {fmt(protectedValue)}
+            {needsAttentionCount}
           </div>
           <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
-            {stoppedCount} policy-blocked cases
+            Escalated or pending review
           </div>
         </div>
       </div>
@@ -300,70 +294,15 @@ export default function OperationsDashboard() {
         </div>
       )}
 
-      {/* ── STRATEGY INSIGHT ── */}
-      {strategyReport && strategyReport.strategies.length > 0 && (
-        <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem", borderLeft: "3px solid #6366f1" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
-            <div style={{ flex: 1, minWidth: 280 }}>
-              <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
-                Strategy Insight
-              </div>
-              {strategyReport.what_works.length > 0 ? (
-                <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                  {strategyReport.what_works[0].label} has produced the strongest verified recovery history.
-                  {strategyReport.what_works[0].explanation}
-                </div>
-              ) : (
-                <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", fontStyle: "italic" }}>
-                  No strategy has sufficient evidence to establish a preferred intervention.
-                </div>
-              )}
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <Link href="/strategy-analytics" style={{
-                fontSize: "0.6875rem", fontWeight: 700, color: "#6366f1",
-                textDecoration: "none", padding: "0.3rem 0.65rem", borderRadius: 4,
-                border: "1px solid rgba(99,102,241,0.3)", background: "rgba(99,102,241,0.06)", whiteSpace: "nowrap",
-              }}>
-                View Strategy Analytics →
-              </Link>
-              <Link href="/proof-lab" style={{
-                fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b",
-                textDecoration: "none", padding: "0.3rem 0.65rem", borderRadius: 4,
-                border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", whiteSpace: "nowrap",
-              }}>
-                Performance Proof →
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── PERFORMANCE PROOF ── */}
-      {!strategyReport && (
-        <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.5rem", borderLeft: "3px solid #f59e0b", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-            <strong style={{ color: "var(--text-primary)" }}>Performance proof available.</strong> Compare RevPlug against fixed recovery strategies in a controlled evaluation environment.
-          </div>
-          <Link href="/proof-lab" style={{
-            fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b",
-            textDecoration: "none", padding: "0.3rem 0.65rem", borderRadius: 4,
-            border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", whiteSpace: "nowrap",
-          }}>
-            View Proof Lab →
-          </Link>
-        </div>
-      )}
-
-      {/* ── NEXT BEST RECOVERY HERO ── */}
+      {/* ── NEXT BEST RECOVERY ── */}
       {nextBestRecovery && (
-        <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem", borderLeft: "4px solid #6366f1", background: "linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(99,102,241,0.01) 100%)" }}>
+        <div style={{ padding: "1.25rem 1.5rem", marginBottom: "1.5rem", borderBottom: "1px solid var(--border)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
             <div style={{ flex: 1, minWidth: 280 }}>
-              <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
-                Next Best Recovery
+              <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+                Next Recovery
               </div>
-              <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
+              <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
                 {getCustomerDisplayName(nextBestRecovery.customer_id, (nextBestRecovery as any).customer_name)}
               </div>
               <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: 12 }}>
@@ -378,17 +317,11 @@ export default function OperationsDashboard() {
                   <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>Expected Net</div>
                   <div className="font-mono" style={{ fontSize: "1rem", fontWeight: 700, color: "#10b981" }}>{fmt(nextBestRecovery.expected_recovery_value || 0)}</div>
                 </div>
-                <div>
-                  <div style={{ fontSize: "0.5625rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>Decision</div>
-                  <div style={{ marginTop: 2 }}>
-                    <DecisionBadge decision="RECOVER" compact />
-                  </div>
-                </div>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
               <Link href={`/recovery/${nextBestRecovery.id}`} className="btn-primary" style={{ fontSize: "0.8125rem", padding: "0.5rem 1rem" }}>
-                Open Case →
+                Review case →
               </Link>
             </div>
           </div>
@@ -401,7 +334,7 @@ export default function OperationsDashboard() {
         {/* Recovery Decisions Distribution */}
         <div className="card" style={{ padding: "1.25rem" }}>
           <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "1rem" }}>
-            Recovery Decisions
+            Decisions
           </div>
           {decisions ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
@@ -502,11 +435,11 @@ export default function OperationsDashboard() {
           )}
         </div>
 
-        {/* Live Recovery Activity */}
+        {/* Recent Activity */}
         <div className="card" style={{ padding: "1.25rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.875rem" }}>
             <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Live Recovery Activity
+              Recent Activity
             </div>
             <Link href="/activity" style={{ fontSize: "0.75rem", color: "var(--accent)", fontWeight: 600 }}>
               View all activity →
@@ -545,11 +478,11 @@ export default function OperationsDashboard() {
       </div>
 
       {/* ── TRUST STRIP ── */}
-      <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.5rem", display: "flex", gap: "1.5rem", flexWrap: "wrap", alignItems: "center", justifyContent: "space-around" }}>
-        <TrustItem icon="✓" label="Settlement verified" sublabel="Money counted only after evidence" color="#10b981" />
-        <TrustItem icon="🛡" label="Policy constrained" sublabel="AI cannot bypass safety rules" color="#6366f1" />
-        <TrustItem icon="⟳" label="Duplicate-safe" sublabel="Idempotency prevents double action" color="#3b82f6" />
-        <TrustItem icon="◉" label="Auditable" sublabel="Decisions produce traceable records" color="#f59e0b" />
+      <div style={{ padding: "0.75rem 0", marginBottom: "1.5rem", display: "flex", gap: "2rem", flexWrap: "wrap", fontSize: "0.75rem", color: "var(--text-secondary)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+        <span><strong style={{ color: "#10b981" }}>Settlement-verified</strong> — money counted only after evidence</span>
+        <span><strong style={{ color: "#6366f1" }}>Policy-bounded</strong> — server-side authority, not frontend state</span>
+        <span><strong style={{ color: "#3b82f6" }}>Duplicate-safe</strong> — idempotent execution</span>
+        <span><strong style={{ color: "#f59e0b" }}>Auditable</strong> — every decision produces a traceable record</span>
       </div>
 
       {/* ── ATTRIBUTION SUMMARY ── */}
@@ -583,10 +516,8 @@ export default function OperationsDashboard() {
 
       {/* ── QUICK LINKS ── */}
       <div style={{ display: "flex", justifyContent: "center", gap: "1.5rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
-        <Link href="/strategy-analytics" style={{ color: "var(--accent)" }}>Strategy Analytics →</Link>
         <Link href="/batch-recovery" style={{ color: "var(--accent)" }}>Batch Results →</Link>
-        <Link href="/allocation" style={{ color: "var(--accent)" }}>Capital Allocation →</Link>
-        <Link href="/proof-lab" style={{ color: "var(--accent)" }}>Proof Lab →</Link>
+        <Link href="/proof-lab" style={{ color: "var(--accent)" }}>Benchmark →</Link>
       </div>
     </div>
   );

@@ -33,14 +33,14 @@ const FLOW_STEPS: FlowStep[] = [
   {
     step: "02",
     title: "DIAGNOSIS",
-    badge: "Degradation (91%)",
+    badge: "Soft decline",
     badgeType: "info",
     primaryMeta: "Temporary provider degradation",
     secondaryMeta: "Confidence: 0.91",
     details: {
-      eventLabel: "AI classification: Temporary provider degradation",
-      metrics: "Confidence Score: 0.91 · Signals: gateway_timeout + recent successful payment",
-      explanation: "Contextual LLM interprets error context and rules out insufficient funds or customer churn.",
+      eventLabel: "Failure cause classified",
+      metrics: "Category: soft · Retryable: yes · Signals: gateway_timeout + recent successful payment",
+      explanation: "Failure context is interpreted and routed to the appropriate recovery path.",
     },
   },
   {
@@ -48,12 +48,12 @@ const FLOW_STEPS: FlowStep[] = [
     title: "PROPOSAL",
     badge: "send_payment_link",
     badgeType: "info",
-    primaryMeta: "AI proposed action",
+    primaryMeta: "Send payment link",
     secondaryMeta: "EV: +₹4,250",
     details: {
-      eventLabel: "AI proposed intervention: send_payment_link",
-      metrics: "Action: send_payment_link · Cost: ₹0 · Gross EV: ₹4,250",
-      explanation: "AI evaluates candidate action matrix and recommends intervention maximizing Expected Value.",
+      eventLabel: "Candidate actions evaluated",
+      metrics: "Action: send_payment_link · Cost: ₹0 · Gross EV: ₹4,250 · Net EV: ₹4,250",
+      explanation: "Candidate actions are ranked by expected net recovery. Highest-value permitted action is selected.",
     },
   },
   {
@@ -64,22 +64,22 @@ const FLOW_STEPS: FlowStep[] = [
     primaryMeta: "fraud: pass · opt-out: pass",
     secondaryMeta: "budget: pass (1/3)",
     details: {
-      eventLabel: "Deterministic policy checks: PASS",
+      eventLabel: "Policy evaluation passed",
       metrics: "✓ retry budget (1/3) · ✓ opt-out (PASS) · ✓ fraud (PASS) · ✓ EV threshold (PASS)",
-      explanation: "Server-side policy engine validates zero-violation safety before authorizing execution.",
+      explanation: "Server-side policy engine validates safety constraints before authorizing execution.",
     },
   },
   {
     step: "05",
-    title: "RAZORPAY",
+    title: "EXECUTE",
     badge: "DISPATCHED",
     badgeType: "info",
-    primaryMeta: "Test-mode action",
-    secondaryMeta: "pay_link_1042 created",
+    primaryMeta: "Payment link created",
+    secondaryMeta: "pay_link_1042",
     details: {
-      eventLabel: "Razorpay Test Mode API execution",
+      eventLabel: "Action dispatched",
       metrics: "Action: Payment link created · Link ID: pay_link_1042 · Status: DISPATCHED",
-      explanation: "Bounded executor dispatches only the specific action authorized by deterministic policy.",
+      explanation: "Bounded executor dispatches only the specific action authorized by policy.",
     },
   },
   {
@@ -111,70 +111,30 @@ const FLOW_STEPS: FlowStep[] = [
 ];
 
 export default function RecoveryFlow() {
-  const [activeIdx, setActiveIdx] = useState<number>(3); // Default focus on Policy node
+  const [activeIdx, setActiveIdx] = useState<number>(3);
 
   const activeStep = FLOW_STEPS[activeIdx] || FLOW_STEPS[0];
 
   return (
-    <div id="visual-flow" style={{ padding: "2.5rem 0 3rem" }}>
+    <div id="visual-flow" style={{ padding: "3rem 0" }}>
       {/* SECTION HEADER */}
-      <div style={{ marginBottom: "1.5rem" }}>
+      <div style={{ marginBottom: "2rem" }}>
         <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#6e7681", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.35rem" }}>
-          END-TO-END RECOVERY FLOW
+          HOW IT WORKS
         </div>
-        <h2 style={{ fontSize: "1.375rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.01em" }}>
+        <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.01em" }}>
           From payment signal to verified settlement
         </h2>
-        <p style={{ fontSize: "0.8125rem", color: "#8b949e", marginTop: 4, maxWidth: 680, lineHeight: 1.4 }}>
-          Follow a revenue-risk event through RevPlug's operational transaction trace — from gateway failure signal to policy authorization and verified settlement truth.
+        <p style={{ fontSize: "0.8125rem", color: "#8b949e", marginTop: 4, maxWidth: 640, lineHeight: 1.4 }}>
+          Every revenue-risk event passes through detection, decision, execution, and verification.
         </p>
       </div>
 
-      {/* CONTINUOUS HORIZONTAL OPERATIONAL PIPELINE (DESKTOP) */}
-      <div style={{ position: "relative", borderTop: "1px solid #21262d", borderBottom: "1px solid #21262d", padding: "1.5rem 0", background: "#0d1117" }}>
-        {/* CONTINUOUS CONNECTING LINE */}
-        <div
-          style={{
-            position: "absolute",
-            top: "2.75rem",
-            left: "5%",
-            right: "5%",
-            height: "1px",
-            background: "#21262d",
-            zIndex: 1,
-          }}
-        />
-
-        {/* ACTIVE HIGHLIGHT SEGMENT */}
-        <div
-          style={{
-            position: "absolute",
-            top: "2.75rem",
-            left: "5%",
-            width: `${((activeIdx + 1) / FLOW_STEPS.length) * 90}%`,
-            height: "1px",
-            background: "#2563eb",
-            zIndex: 2,
-            transition: "width 0.25s ease",
-          }}
-        />
-
-        {/* 7 OPERATIONAL NODES */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", position: "relative", zIndex: 3, gap: "0.5rem" }}>
+      {/* OPERATIONAL PIPELINE */}
+      <div style={{ borderTop: "1px solid #21262d", borderBottom: "1px solid #21262d" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
           {FLOW_STEPS.map((s, idx) => {
             const isSelected = activeIdx === idx;
-            const isPolicyNode = idx === 3;
-
-            let badgeBg = "rgba(110, 118, 129, 0.15)";
-            let badgeColor = "#8b949e";
-
-            if (s.badgeType === "success") {
-              badgeBg = "rgba(16, 185, 129, 0.15)";
-              badgeColor = "#10b981";
-            } else if (s.badgeType === "info") {
-              badgeBg = "rgba(99, 102, 241, 0.15)";
-              badgeColor = "#6366f1";
-            }
 
             return (
               <button
@@ -185,60 +145,20 @@ export default function RecoveryFlow() {
                   background: isSelected ? "#161b22" : "transparent",
                   border: "none",
                   borderTop: isSelected ? "2px solid #2563eb" : "2px solid transparent",
-                  padding: "0.75rem 0.5rem",
+                  padding: "1rem 0.75rem",
                   textAlign: "left",
                   cursor: "pointer",
-                  transition: "all 0.15s ease",
-                  borderRadius: "0 0 4px 4px",
+                  transition: "background 0.15s ease",
                 }}
               >
-                {/* STEP NUMBER & INDICATOR NODE */}
-                <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.5rem" }}>
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: isSelected ? "#2563eb" : isPolicyNode ? "#10b981" : "#30363d",
-                      display: "inline-block",
-                    }}
-                  />
-                  <span className="font-mono" style={{ fontSize: "0.625rem", color: isSelected ? "#f0f6fc" : "#6e7681", fontWeight: 700 }}>
-                    {s.step}
-                  </span>
+                <div className="font-mono" style={{ fontSize: "0.625rem", color: isSelected ? "#f0f6fc" : "#6e7681", fontWeight: 700, marginBottom: "0.35rem" }}>
+                  {s.step}
                 </div>
-
-                <div style={{ fontSize: "0.75rem", fontWeight: 700, color: isSelected ? "#ffffff" : "#c9d1d9", marginBottom: "0.25rem" }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: 700, color: isSelected ? "#ffffff" : "#c9d1d9", marginBottom: "0.35rem" }}>
                   {s.title}
                 </div>
-
-                <div
-                  className="font-mono"
-                  style={{
-                    fontSize: "0.625rem",
-                    color: isSelected ? "#f0f6fc" : "#8b949e",
-                    marginBottom: "0.25rem",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
+                <div style={{ fontSize: "0.6875rem", color: isSelected ? "#8b949e" : "#6e7681", lineHeight: 1.4 }}>
                   {s.primaryMeta}
-                </div>
-
-                <div
-                  className="font-mono"
-                  style={{
-                    display: "inline-block",
-                    fontSize: "0.625rem",
-                    fontWeight: 600,
-                    padding: "0.15rem 0.35rem",
-                    borderRadius: 3,
-                    background: badgeBg,
-                    color: badgeColor,
-                  }}
-                >
-                  {s.badge}
                 </div>
               </button>
             );
@@ -246,45 +166,28 @@ export default function RecoveryFlow() {
         </div>
       </div>
 
-      {/* COMPACT OPERATIONAL INSPECTOR PANEL */}
-      <div
-        style={{
-          marginTop: "1rem",
-          padding: "1rem 1.25rem",
-          background: "#161b22",
-          border: "1px solid #21262d",
-          borderRadius: 6,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "1rem",
-        }}
-      >
-        <div>
-          <div style={{ fontSize: "0.625rem", color: "#6e7681", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase" }}>
-            STAGE {activeStep.step} TRACE SPECIFICATION
+      {/* INSPECTOR */}
+      <div style={{ marginTop: "1.25rem", padding: "1rem 1.25rem", background: "#161b22", border: "1px solid #21262d", borderRadius: 6 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+          <div>
+            <div className="font-mono" style={{ fontSize: "0.625rem", color: "#6e7681", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
+              Stage {activeStep.step} — {activeStep.title}
+            </div>
+            <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "#f0f6fc", lineHeight: 1.5 }}>
+              {activeStep.details.eventLabel}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "#8b949e", marginTop: 4, lineHeight: 1.5 }}>
+              {activeStep.details.explanation}
+            </div>
           </div>
-          <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#f0f6fc", marginTop: 2 }}>
-            {activeStep.details.eventLabel}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "#8b949e", marginTop: 4 }}>
-            “{activeStep.details.explanation}”
-          </div>
-        </div>
-
-        <div style={{ textAlign: "right" }}>
-          <div className="font-mono" style={{ fontSize: "0.75rem", color: "#2563eb", fontWeight: 600 }}>
+          <div className="font-mono" style={{ fontSize: "0.75rem", color: "#8b949e", textAlign: "right", lineHeight: 1.6 }}>
             {activeStep.details.metrics}
-          </div>
-          <div style={{ fontSize: "0.625rem", color: "#6e7681", fontFamily: "monospace", marginTop: 4 }}>
-            Hover or click any node to inspect
           </div>
         </div>
       </div>
 
-      {/* KEY PRODUCT MESSAGE (PLAIN TYPOGRAPHY - NOT A CARD) */}
-      <div style={{ marginTop: "1.5rem", borderTop: "1px solid #21262d", paddingTop: "1.25rem" }}>
+      {/* PRODUCT MESSAGE */}
+      <div style={{ marginTop: "1.5rem", paddingTop: "1.25rem", borderTop: "1px solid #21262d" }}>
         <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.01em" }}>
           AI proposes. Policy decides. Settlement proves.
         </div>

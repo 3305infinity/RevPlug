@@ -14,6 +14,9 @@ class ValidAction(str, Enum):
     RETRY_PAYMENT = "retry_payment"
     SEND_PAYMENT_LINK = "send_payment_link"
     SEND_REMINDER = "send_reminder"
+    SEND_CUSTOMER_MESSAGE = "send_customer_message"
+    ALTERNATE_CHANNEL = "alternate_channel"
+    PROMISE_TO_PAY = "promise_to_pay"
     OFFER_DISCOUNT = "offer_discount"
     ESCALATE_HUMAN = "escalate_human"
     STOP_RECOVERY = "stop_recovery"
@@ -66,6 +69,33 @@ class ActionRegistry:
             name=ValidAction.SEND_REMINDER.value,
             description="Dispatch payment reminder notification",
             cost_minor=500,
+            timeout_seconds=30,
+            retryable=True,
+            is_idempotent=True,
+            requires_human_approval=False,
+        ),
+        ValidAction.SEND_CUSTOMER_MESSAGE.value: ActionContract(
+            name=ValidAction.SEND_CUSTOMER_MESSAGE.value,
+            description="Send a customer-facing recovery message",
+            cost_minor=500,
+            timeout_seconds=30,
+            retryable=True,
+            is_idempotent=True,
+            requires_human_approval=False,
+        ),
+        ValidAction.ALTERNATE_CHANNEL.value: ActionContract(
+            name=ValidAction.ALTERNATE_CHANNEL.value,
+            description="Reach customer through an alternate notification channel",
+            cost_minor=300,
+            timeout_seconds=30,
+            retryable=True,
+            is_idempotent=True,
+            requires_human_approval=False,
+        ),
+        ValidAction.PROMISE_TO_PAY.value: ActionContract(
+            name=ValidAction.PROMISE_TO_PAY.value,
+            description="Record a customer promise-to-pay commitment",
+            cost_minor=200,
             timeout_seconds=30,
             retryable=True,
             is_idempotent=True,

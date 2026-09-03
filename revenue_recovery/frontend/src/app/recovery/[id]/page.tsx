@@ -223,7 +223,7 @@ export default function CaseWorkspace() {
             background: "rgba(99,102,241,0.06)",
           }}
         >
-          🎙️ AI Collections Call
+          Browser Voice Assistant
         </Link>
       </div>
 
@@ -244,111 +244,90 @@ export default function CaseWorkspace() {
             background: "rgba(16,185,129,0.06)",
           }}
         >
-          📱 See what the customer received
+          Customer View
         </Link>
       </div>
 
-      {/* 1. DECISION — Centerpiece */}
-      <RecoveryDecisionCard
-        trace={liveTrace}
-        detail={liveDetail}
-        itemId={id}
-        amountAtRiskMinor={amountAtRiskMinor}
-        customerId={customerId}
-        customerName={customerName}
-      />
+      {/* MONEY STORY FLOW */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
 
-      {/* 1.5 STRATEGY EVIDENCE */}
-      <StrategyEvidence
-        itemId={id}
-        selectedAction={liveTrace?.product_decision?.selected_action ?? null}
-      />
+        {/* 1. DECISION — Centerpiece */}
+        <RecoveryDecisionCard
+          trace={liveTrace}
+          detail={liveDetail}
+          itemId={id}
+          amountAtRiskMinor={amountAtRiskMinor}
+          customerId={customerId}
+          customerName={customerName}
+        />
 
-      {/* 2. WHY THIS DECISION? */}
-      <RecoveryWhy
-        trace={liveTrace}
-        detail={liveDetail}
-        amountAtRiskMinor={amountAtRiskMinor}
-      />
+        {/* 2. WHY THIS DECISION? */}
+        <RecoveryWhy
+          trace={liveTrace}
+          detail={liveDetail}
+          amountAtRiskMinor={amountAtRiskMinor}
+        />
 
-      {/* 3. SELECTED INTERVENTION */}
-      <SelectedIntervention
-        trace={liveTrace}
-        detail={liveDetail}
-      />
+        {/* 3. SELECTED INTERVENTION */}
+        <SelectedIntervention
+          trace={liveTrace}
+          detail={liveDetail}
+        />
 
-      {/* 4. ALTERNATIVES CONSIDERED */}
-      <AlternativesTable
-        trace={liveTrace}
-      />
+        {/* 4. ALTERNATIVES CONSIDERED */}
+        <AlternativesTable
+          trace={liveTrace}
+        />
 
-      {/* 5. POLICY CHECK */}
-      <PolicyCard
-        trace={liveTrace}
-        detail={liveDetail}
-      />
+        {/* 5. POLICY CHECK */}
+        <PolicyCard
+          trace={liveTrace}
+          detail={liveDetail}
+        />
 
-      {/* 5.5 POLICY SIMULATOR LINK */}
-      <div className="card" style={{ padding: "1rem 1.25rem", borderLeft: "4px solid #f59e0b", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-        <div>
-          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>Policy Preview</div>
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-            Explore how policy changes would affect this recovery decision.
-          </div>
-        </div>
-        <Link href={`/policy-simulator?opportunity=${id}`} style={{
-          fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b",
-          textDecoration: "none", padding: "0.35rem 0.75rem", borderRadius: 4,
-          border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", whiteSpace: "nowrap",
-        }}>
-          Open Policy Simulator →
-        </Link>
+        {/* 6. RECOVERY ECONOMICS */}
+        <RecoveryEconomics
+          trace={liveTrace}
+          detail={liveDetail}
+        />
+
+        {/* 7. RECOVERY RECEIPT & SETTLEMENT PROOF */}
+        <RecoveryReceipt
+          trace={liveTrace}
+          detail={liveDetail}
+        />
+
+        {/* 8. RECOVERY TIMELINE */}
+        <CaseTimeline
+          trace={liveTrace}
+          detailAuditEvents={liveDetail?.audit_events}
+        />
+
       </div>
 
-      {/* 6. RECOVERY ECONOMICS */}
-      <RecoveryEconomics
-        trace={liveTrace}
-        detail={liveDetail}
-      />
-
-      {/* 7. RECOVERY RECEIPT & SETTLEMENT PROOF */}
-      <RecoveryReceipt
-        trace={liveTrace}
-        detail={liveDetail}
-      />
-
-      {/* 8. RECOVERY TIMELINE */}
-      <CaseTimeline
-        trace={liveTrace}
-        detailAuditEvents={liveDetail?.audit_events}
-      />
-
-      {/* 9. CUSTOMER CONTEXT */}
-      <CustomerContext
-        profile={customerProfile}
-        customerId={customerId}
-        customerName={customerName}
-      />
-
-      {/* TRUST & SAFETY PANEL */}
-      <TrustPanel />
-
-      {/* 10. TECHNICAL TRACE & AUDIT (Secondary Collapsed Section) */}
-      <div className="card" style={{ padding: "1.25rem", marginTop: "1.5rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-            Technical Trace & Operational Inspection
+      {/* SECONDARY CONTEXT — Collapsible */}
+      <div style={{ marginTop: "1.5rem" }}>
+        <div className="card" style={{ padding: "1rem 1.25rem", borderLeft: "4px solid #6366f1" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+              Supporting Context
+            </div>
+            <button onClick={() => setTechOpen(!techOpen)} className="btn-ghost" style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}>
+              {techOpen ? "Hide ▲" : "Show ▼"}
+            </button>
           </div>
-          <button onClick={() => setTechOpen(!techOpen)} className="btn-ghost" style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}>
-            {techOpen ? "Hide Technical Details ▲" : "Inspect Raw Decision Trace ▼"}
-          </button>
+
+          {techOpen && (
+            <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <CustomerContext
+                profile={customerProfile}
+                customerId={customerId}
+                customerName={customerName}
+              />
+              <TrustPanel />
+            </div>
+          )}
         </div>
-
-        {techOpen && (
-          <div style={{ marginTop: "1rem" }}>
-            <DecisionTraceView trace={liveTrace} detail={liveDetail} itemId={id} />
-          </div>
-        )}
       </div>
 
       {/* ── DESTRUCTIVE DATA CLEAR CONFIRMATION MODAL ───────────── */}

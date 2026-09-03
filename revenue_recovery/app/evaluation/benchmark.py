@@ -302,7 +302,7 @@ def format_report_markdown(report: MultiSeedAggregateReport) -> str:
         f"| **Net Recovery** | ₹{naive_n_rs:,.2f} | ₹{safe_n_rs:,.2f} | **₹{rev_n_rs:,.2f}** | **+{report.net_lift_pct:.2f}%** |",
         f"| **Recovery Rate** | {naive_rate:.2f}% | {safe_rate:.2f}% | **{rev_rate:.2f}%** | **+{rev_rate - safe_rate:.2f}% pts** |",
         f"| **Safety Violations** | {report.naive_mean_violations:.0f} | **0** | **0** | **100% Safe** |",
-        f"| **Decision Quality** | 32.0% | 45.0% | **{report.revplug_mean_decision_quality:.1f}%** | **+{report.revplug_mean_decision_quality - 45.0:.1f}% pts** |",
+        f"| **Decision Quality** | — | — | **{report.revplug_mean_decision_quality:.1f}%** | — |",
         "",
         "## Statistical Rigor & Paired Difference",
         "",

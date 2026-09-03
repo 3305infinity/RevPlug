@@ -178,7 +178,7 @@ export default function VoiceCallPage() {
 
       <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
         <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
-          AI Collections Call
+          Browser Voice Assistant
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.25rem" }}>
           <div>
@@ -212,8 +212,8 @@ export default function VoiceCallPage() {
 
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
           {callState === "idle" && (
-            <button onClick={startCall} className="btn btn-primary" style={{ padding: "0.625rem 1.25rem" }}>
-              Start Recovery Call
+            <button onClick={startCall} className="btn btn-primary" style={{ padding: "0.625rem 1.25rem" }}            >
+              Start Voice Capture
             </button>
           )}
           {(callState === "listening" || callState === "processing") && (

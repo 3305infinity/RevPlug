@@ -34,11 +34,29 @@ def render_markdown_report(data: dict) -> str:
 
     fmt = lambda minor: f"₹{minor / 100:,.2f}"
 
+    single_seed_label = f"Seed {data.get('seed', '?')} ({data.get('count', '?')} cases)"
+    multi_seed_label = f"{agg.get('total_seeds', 10)} seeds ({agg.get('cases_per_seed', 100)} cases/seed, {agg.get('total_seeds', 10) * agg.get('cases_per_seed', 100)} total)"
+
+    # Multi-seed aggregate headline numbers (statistically canonical)
+    revplug_mean_gross = agg.get("revplug_mean_gross", 0)
+    revplug_mean_net = agg.get("revplug_mean_net", 0)
+    safe_mean_net = agg.get("safe_mean_net", 0)
+    naive_mean_net = agg.get("naive_mean_net", 0)
+    revplug_win_rate = agg.get("revplug_win_rate_pct", 0.0)
+    revplug_wins = agg.get("revplug_wins_vs_safe", 0)
+    total_seeds = agg.get("total_seeds", 10)
+    ci_lower = agg.get("confidence_interval_95_lower", 0.0)
+    ci_upper = agg.get("confidence_interval_95_upper", 0.0)
+
+    # Single-seed comparison numbers
+    safe_lift_pct = comp.get("safe_lift_pct")
+    naive_lift_pct = comp.get("naive_lift_pct")
+
     lines = [
         "# RevPlug Benchmark & Counterfactual ROI Report",
         "",
         f"**Generated At:** {gen_time}",
-        f"**Canonical Benchmark Scale:** {data.get('count', 1000)} cases | {data.get('seed_count', 10)} seeds (`42` to `51`) | Version `2.0-canonical`",
+        f"**Canonical Benchmark Scale:** {multi_seed_label} | Version `2.0-canonical`",
         f"**Evaluation Mode:** {cfg.get('evaluation_mode', 'AI_ASSISTED')} (AI Contextual Routing + Deterministic Safety Shield)",
         "",
         "---",
@@ -47,38 +65,37 @@ def render_markdown_report(data: dict) -> str:
         "",
         "RevPlug is a **bounded autonomous revenue recovery system** designed to maximize settlement-verified revenue while enforcing strict deterministic safety policies and retry budgets.",
         "",
-        f"In this multi-seed benchmark of **{data.get('count', 1000)} cases** across 10 deterministic seeds:",
-        f"- **{ros.get('llm_classified_count', 0)} AI-Assisted Cases** (contextual candidate selection & ranking)",
-        f"- **{ros.get('rules_classified_count', 0)} Deterministic Cases** (opt-out compliance, fraud protection, retry budget enforcement)",
-        f"- **{ai.get('ai_proposals', 0)} AI Proposals Generated**",
-        f"- **{ai.get('ai_proposals_accepted', 0)} AI Proposals Accepted & Executed**",
-        f"- **{ai.get('policy_blocked_proposals', 0)} AI Proposals Blocked by Deterministic Policy Shield**",
-        f"- **{ai.get('ai_fallback_cases', 0)} AI Fallbacks Triggered**",
-        f"- **{ros.get('safety_violations', {}).get('total_safety_violations', 0)} Safety Policy Violations**",
+        f"In this multi-seed benchmark of **{multi_seed_label}**:",
+        f"- **{ros.get('llm_classified_count', 0)} AI-Assisted Cases** (single-seed detailed trace)",
+        f"- **{ros.get('rules_classified_count', 0)} Deterministic Cases** (single-seed detailed trace)",
+        f"- **{ai.get('ai_proposals', 0)} AI Proposals Generated** (single-seed)",
+        f"- **{ai.get('ai_proposals_accepted', 0)} AI Proposals Accepted & Executed** (single-seed)",
+        f"- **{ai.get('policy_blocked_proposals', 0)} AI Proposals Blocked by Deterministic Policy Shield** (single-seed)",
+        f"- **{ai.get('ai_fallback_cases', 0)} AI Fallbacks Triggered** (single-seed)",
+        f"- **{ros.get('safety_violations', {}).get('total_safety_violations', 0)} Safety Policy Violations** (single-seed)",
         "",
-        f"RevPlug achieved a **{comp.get('naive_lift_pct', 0.0):+.1f}% Net Recovery Lift** over naive fixed-retry baselines and **{comp.get('safe_lift_pct', 0.0):+.1f}% Net Lift** over safe fixed-retry baselines, recovering **{fmt(ros.get('actual_recovered', 0))}** with **ZERO safety policy violations**.",
+        f"Across {total_seeds} seeds, RevPlug won {revplug_wins}/{total_seeds} seeds ({revplug_win_rate:.0f}%) against the Safe Baseline. "
+        f"Mean Net Recovery: **{fmt(revplug_mean_net)}** vs Safe Baseline mean **{fmt(safe_mean_net)}**.",
         "",
         "---",
         "",
-        "## 2. Benchmark Financial & AI Decision Proof",
+        "## 2. Single-Seed Detailed Trace (Canonical Seed 42)",
         "",
-        "| Metric | Naive Fixed Retry | Safe Fixed Retry | RevPlug Bounded AI Agent | Net Uplift |",
+        "| Metric | Naive Fixed Retry | Safe Fixed Retry | RevPlug Bounded AI Agent | Net Uplift vs Safe |",
         "| :--- | :--- | :--- | :--- | :--- |",
         f"| **Total Revenue at Risk** | {fmt(bl.get('total_amount_at_risk', 0))} | {fmt(sbl.get('total_amount_at_risk', 0))} | {fmt(ros.get('total_amount_at_risk', 0))} | — |",
-        f"| **AI-Assisted Cases** | 0 | 0 | **{ros.get('llm_classified_count', 0)} ({ros.get('llm_classified_count', 0)/max(1, ros.get('cases_evaluated', 1))*100:.1f}%)** | **+{ros.get('llm_classified_count', 0)} AI Cases** |",
+        f"| **AI-Assisted Cases** | 0 | 0 | **{ros.get('llm_classified_count', 0)} ({ros.get('llm_classified_count', 0)/max(1, ros.get('cases_evaluated', 1))*100:.1f}%)** | — |",
         f"| **Deterministic Cases** | {bl.get('cases_evaluated', 0)} (100%) | {sbl.get('cases_evaluated', 0)} (100%) | **{ros.get('rules_classified_count', 0)} ({ros.get('rules_classified_count', 0)/max(1, ros.get('cases_evaluated', 1))*100:.1f}%)** | — |",
-        f"| **Verified Recovered Revenue** | {fmt(bl.get('actual_recovered', 0))} | {fmt(sbl.get('actual_recovered', 0))} | **{fmt(ros.get('actual_recovered', 0))}** | **+{fmt(comp.get('absolute_recovery_difference', 0))}** |",
-        f"| **Verified Recovery Rate** | {bl.get('recovery_rate', 0.0)*100:.1f}% | {sbl.get('recovery_rate', 0.0)*100:.1f}% | **{ros.get('recovery_rate', 0.0)*100:.1f}%** | **+{comp.get('recovery_rate_difference', 0.0)*100:.1f}% Uplift** |",
-        f"| **Intervention Cost** | {fmt(bl.get('intervention_cost', 0))} | {fmt(sbl.get('intervention_cost', 0))} | **{fmt(ros.get('intervention_cost', 0))}** | **-{fmt(bl.get('intervention_cost', 0) - ros.get('intervention_cost', 0))} Cost** |",
-        f"| **Net Recovered Revenue** | {fmt(comp.get('naive_baseline_net', 0))} | {fmt(comp.get('safe_baseline_net', 0))} | **{fmt(ros.get('net_recovered', 0))}** | **+{fmt(comp.get('revplug_net', 0) - comp.get('safe_baseline_net', 0))} ({comp.get('safe_lift_pct', 0.0):+.1f}%)** |",
-        f"| **AI Proposals Blocked by Policy** | 0 | 0 | **{ai.get('policy_blocked_proposals', 0)}** | **100% Policy Shield Protection** |",
-        f"| **Safety Policy Violations** | **{bl.get('baseline_policy_violations', {}).get('total_policy_violations', 0)}** | **0** | **0** | **-100% Policy Violations** |",
+        f"| **Verified Recovered Revenue** | {fmt(bl.get('actual_recovered', 0))} | {fmt(sbl.get('actual_recovered', 0))} | **{fmt(ros.get('actual_recovered', 0))}** | **{fmt(comp.get('absolute_recovery_difference', 0))}** |",
+        f"| **Verified Recovery Rate** | {bl.get('recovery_rate', 0.0)*100:.1f}% | {sbl.get('recovery_rate', 0.0)*100:.1f}% | **{ros.get('recovery_rate', 0.0)*100:.1f}%** | **{comp.get('recovery_rate_difference', 0.0)*100:.1f}% pts** |",
+        f"| **Intervention Cost** | {fmt(bl.get('intervention_cost', 0))} | {fmt(sbl.get('intervention_cost', 0))} | **{fmt(ros.get('intervention_cost', 0))}** | **-{fmt(bl.get('intervention_cost', 0) - ros.get('intervention_cost', 0))}** |",
+        f"| **Net Recovered Revenue** | {fmt(comp.get('naive_baseline_net', 0))} | {fmt(comp.get('safe_baseline_net', 0))} | **{fmt(ros.get('net_recovered', 0))}** | **{fmt(ros.get('net_recovered', 0) - comp.get('safe_baseline_net', 0))} ({safe_lift_pct:+.1f}%)** |",
+        f"| **AI Proposals Blocked by Policy** | 0 | 0 | **{ai.get('policy_blocked_proposals', 0)}** | — |",
+        f"| **Safety Policy Violations** | **{bl.get('baseline_policy_violations', {}).get('total_policy_violations', 0)}** | **0** | **0** | — |",
         "",
         "---",
         "",
-        "## 3. Revenue Attribution Breakdown",
-        "",
-        "RevPlug enforces strict financial truth: money is recognized as recovered ONLY when backed by authoritative settlement evidence.",
+        "## 3. Revenue Attribution Breakdown (Single Seed)",
         "",
         "| Attribution Category | Cases | Recovered Amount | Description |",
         "| :--- | :--- | :--- | :--- |",
@@ -89,12 +106,23 @@ def render_markdown_report(data: dict) -> str:
         "",
         "---",
         "",
-        "## 4. Multi-Seed Statistical Robustness",
+        "## 4. Multi-Seed Statistical Robustness (Canonical Result)",
         "",
-        f"- **Total Seeds Evaluated:** {agg.get('total_seeds', 10)} (Seeds 42–51)",
-        f"- **RevPlug Win Rate vs Safe Baseline:** {agg.get('revplug_wins_vs_safe', 10)}/10 seeds ({agg.get('revplug_win_rate_pct', 100.0):.0f}%)",
-        f"- **95% Confidence Interval (Net Lift):** [{agg.get('confidence_interval_95_lower', 0.0):+.2f}%, {agg.get('confidence_interval_95_upper', 0.0):+.2f}%]",
-        f"- **Mean Net Recovery per Seed:** {fmt(agg.get('revplug_mean_net', 0))}",
+        f"**Total Seeds Evaluated:** {total_seeds} (Seeds 42–51) | **Cases per Seed:** {agg.get('cases_per_seed', 100)}",
+        "",
+        "| Metric | Baseline A (Naive Retry) | Baseline B (Safe Retry) | RevPlug Autonomous Agent | RevPlug vs Safe |",
+        "| :--- | :--- | :--- | :--- | :--- |",
+        f"| **Mean Gross Recovery** | {fmt(agg.get('naive_mean_gross', 0))} | {fmt(agg.get('safe_mean_gross', 0))} | **{fmt(revplug_mean_gross)}** | {((revplug_mean_gross - agg.get('safe_mean_gross', 0)) / max(1, agg.get('safe_mean_gross', 1)) * 100):+.1f}% |",
+        f"| **Mean Net Recovery** | {fmt(naive_mean_net)} | {fmt(safe_mean_net)} | **{fmt(revplug_mean_net)}** | {((revplug_mean_net - safe_mean_net) / max(1, safe_mean_net) * 100):+.1f}% |",
+        f"| **Mean Recovery Rate** | {agg.get('naive_mean_gross', 0) / max(1, agg.get('mean_amount_at_risk', 1)) * 100:.1f}% | {agg.get('safe_mean_gross', 0) / max(1, agg.get('mean_amount_at_risk', 1)) * 100:.1f}% | **{revplug_mean_gross / max(1, agg.get('mean_amount_at_risk', 1)) * 100:.1f}%** | {((revplug_mean_gross - agg.get('safe_mean_gross', 0)) / max(1, agg.get('mean_amount_at_risk', 1)) * 100):+.1f}% pts |",
+        f"| **Mean Safety Violations** | {agg.get('naive_mean_violations', 0.0):.1f} | {agg.get('safe_mean_violations', 0.0):.1f} | **{agg.get('revplug_mean_violations', 0.0):.1f}** | — |",
+        f"| **Mean Decision Quality** | — | — | **{agg.get('revplug_mean_decision_quality', 0.0):.1f}%** | — |",
+        "",
+        f"- **RevPlug Win Count vs Safe Baseline:** {revplug_wins}/{total_seeds} seeds ({revplug_win_rate:.0f}%)",
+        f"- **95% Confidence Interval (Net Lift):** [{ci_lower:+,.2f}%, {ci_upper:+,.2f}%]",
+        f"- **Mean Net Recovery per Seed:** {fmt(revplug_mean_net)}",
+        f"- **Safe Baseline Mean Net per Seed:** {fmt(safe_mean_net)}",
+        f"- **Net Difference (RevPlug − Safe):** {fmt(revplug_mean_net - safe_mean_net)}",
         "",
         "---",
         "",

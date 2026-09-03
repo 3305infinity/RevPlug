@@ -113,30 +113,6 @@ export default function PolicySimulatorPage() {
     <div style={{ maxWidth: 1200, margin: "0 auto", paddingBottom: "3rem" }}>
       {/* HEADER */}
       <div style={{ marginBottom: "1.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "1rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: 4 }}>
-          <span style={{
-            fontSize: "0.625rem",
-            padding: "0.1rem 0.4rem",
-            borderRadius: 4,
-            fontWeight: 700,
-            background: "rgba(59, 130, 246, 0.15)",
-            color: "#60a5fa",
-            border: "1px solid #3b82f6",
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-          }}>POLICY PREVIEW</span>
-          {currentPolicy && (
-            <span style={{
-              fontSize: "0.625rem",
-              padding: "0.1rem 0.4rem",
-              borderRadius: 4,
-              fontWeight: 700,
-              background: "var(--bg-secondary)",
-              color: "var(--text-muted)",
-              border: "1px solid var(--border)",
-            }}>CURRENT: {currentPolicy.version}</span>
-          )}
-        </div>
         <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 4 }}>
           Policy Simulator
         </h1>

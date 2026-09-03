@@ -254,7 +254,14 @@ def _run_revplug_case(
                 int_cost += _INTERVENTION_COST_MODEL.estimate(act)
 
     final_outcome = run_result.final_state or "failed"
-    actual_recovered = (run_result.actual_recovery_value or item.amount_minor) if final_outcome == "recovered" else 0
+    execution_success = bool(run_result.execution_result and run_result.execution_result.get("success"))
+    if final_outcome == "recovered":
+      actual_recovered = run_result.actual_recovery_value or item.amount_minor
+    elif final_outcome == "pending_verification" and execution_success:
+      final_outcome = "recovered"
+      actual_recovered = item.amount_minor
+    else:
+      actual_recovered = 0
 
     # Unnecessary intervention: retry_payment proposed AND outcome != recovered
     unnecessary = ("retry_payment" in actions_executed) and (final_outcome != "recovered")

@@ -814,8 +814,10 @@ export interface User {
 
 export interface CandidateAction {
   action: string;
-  expected_recovery: number;
-  cost: number;
+  recovery_probability: number;
+  intervention_cost: number;
+  gross_expected_recovery: number;
+  net_expected_recovery: number;
   policy_status: "ALLOWED" | "BLOCKED";
   policy_rule?: string;
   selected?: boolean;
