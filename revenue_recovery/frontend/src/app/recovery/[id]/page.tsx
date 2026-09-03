@@ -227,6 +227,27 @@ export default function CaseWorkspace() {
         </Link>
       </div>
 
+      <div style={{ marginBottom: "1.5rem" }}>
+        <Link
+          href={`/customer-view/${id}`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            fontSize: "0.8125rem",
+            fontWeight: 600,
+            color: "#10b981",
+            textDecoration: "none",
+            padding: "0.5rem 0.875rem",
+            borderRadius: 6,
+            border: "1px solid rgba(16,185,129,0.3)",
+            background: "rgba(16,185,129,0.06)",
+          }}
+        >
+          📱 See what the customer received
+        </Link>
+      </div>
+
       {/* 1. DECISION — Centerpiece */}
       <RecoveryDecisionCard
         trace={liveTrace}
