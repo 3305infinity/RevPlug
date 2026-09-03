@@ -257,7 +257,7 @@ RevPlug runs out-of-the-box in lightweight **In-Memory mode** for unit testing a
 cd revenue_recovery
 python -m venv .venv
 .venv\Scripts\activate  # Windows (.venv/bin/activate on Linux/macOS)
-pip install -r pyproject.toml
+pip install -e ".[dev]"
 
 # 2. Copy default environment template
 cp .env.example .env

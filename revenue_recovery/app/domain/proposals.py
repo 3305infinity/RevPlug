@@ -16,6 +16,29 @@ class RecoveryAction(StrEnum):
     ESCALATE_HUMAN = "escalate_human"
     STOP_RECOVERY = "stop_recovery"
     NO_ACTION = "no_action"
+    WAIT = "wait"
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateScore:
+    """Ranked candidate action with EV breakdown."""
+
+    action: RecoveryAction
+    recovery_probability: float
+    intervention_cost: int
+    gross_expected_recovery: int
+    net_expected_recovery: int
+    reason: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "action": self.action.value if isinstance(self.action, RecoveryAction) else str(self.action),
+            "recovery_probability": self.recovery_probability,
+            "intervention_cost": self.intervention_cost,
+            "gross_expected_recovery": self.gross_expected_recovery,
+            "net_expected_recovery": self.net_expected_recovery,
+            "reason": self.reason,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +59,7 @@ class RecoveryProposal:
     evidence: dict[str, Any] = field(default_factory=dict)
     diagnosis: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    candidates: list[CandidateScore] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if isinstance(self.action, str) and not isinstance(self.action, RecoveryAction):

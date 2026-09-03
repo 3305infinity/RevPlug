@@ -635,6 +635,64 @@ export default function DecisionTraceView({ trace, detail, itemId, caseData: pro
               ) : (
                 <EmptyEvidenceNote message="No candidate is marked as selected. The system may have used a deterministic decision path." />
               )}
+
+              {/* Narrative: Why this action, not the others */}
+              {selectedCandidate && (
+                <div style={{ marginTop: "0.75rem", padding: "0.875rem", background: "var(--bg-primary)", borderRadius: 6, border: "1px solid var(--border)", fontSize: "0.8125rem" }}>
+                  <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
+                    Why This Action, Not the Others
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", color: "var(--text-secondary)" }}>
+                    <div>
+                      <span style={{ fontWeight: 700, color: "var(--text-primary)", fontFamily: "monospace" }}>
+                        {selectedCandidate.action.replace(/_/g, " ").toUpperCase()}
+                      </span>
+                      {" — selected"}
+                      <div style={{ marginTop: 2 }}>
+                        Expected Net Recovery {fmtRupee((selectedCandidate.expected_recovery != null && selectedCandidate.cost != null) ? selectedCandidate.expected_recovery - selectedCandidate.cost : selectedCandidate.expected_recovery)}
+                        {aiConfidence != null && <> · Confidence {(aiConfidence * 100).toFixed(0)}%</>}
+                      </div>
+                      {selectedCandidate.reason && (
+                        <ul style={{ margin: "0.35rem 0 0 0", paddingLeft: "1.125rem", lineHeight: 1.6 }}>
+                          {selectedCandidate.reason.split("; ").map((r, i) => <li key={i}>{r}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                    {(() => {
+                      const rejected = candidates.filter((c) => !c.selected);
+                      if (rejected.length === 0) return null;
+                      return (
+                        <div>
+                          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 3 }}>
+                            Considered and rejected:
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                            {rejected.map((cand) => {
+                              const net = (cand.expected_recovery != null && cand.cost != null)
+                                ? cand.expected_recovery - cand.cost
+                                : cand.expected_recovery;
+                              const label = cand.policy_status === "BLOCKED"
+                                ? `Blocked by policy${cand.policy_rule ? ` (${cand.policy_rule.replace(/_/g, " ")})` : ""}`
+                                : cand.reason || "Lower expected net recovery than selected action";
+                              return (
+                                <div key={cand.action}>
+                                  <strong style={{ color: "var(--text-primary)", fontFamily: "monospace" }}>
+                                    {cand.action.replace(/_/g, " ").toUpperCase()}
+                                  </strong>
+                                  {" — "}
+                                  {net != null ? `EV ${fmtRupee(net)}` : "EV —"}
+                                  {" "}
+                                  <span style={{ color: "var(--text-muted)" }}>({label})</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </>
           )}
 

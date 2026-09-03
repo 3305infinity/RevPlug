@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from app.agents.candidate_scorer import _data_driven_confidence, _eligible_candidates, _score_candidates
+from app.agents.llm_client import DeterministicLLMClient, LLMClient, LLMResponse
+from app.domain.actions import ActionRegistry
 from app.domain.context import RecoveryContext
+from app.domain.failures import FailureCategory
 from app.domain.proposals import RecoveryAction, RecoveryProposal
+from app.scoring.expected_value import ExpectedValueScorer
 
 
 class RecoveryDecisionAgent(Protocol):
@@ -30,7 +35,7 @@ class RecoveryDecisionAgent(Protocol):
 
 
 class MockRecoveryDecisionAgent:
-    """Deterministic mock agent that produces sensible proposals.
+    """Deterministic mock agent that produces sensible proposals with ranked candidates.
 
     Does NOT require any LLM API key. Uses only the classified failure
     category and recovery context to produce proposals.
@@ -41,6 +46,9 @@ class MockRecoveryDecisionAgent:
       - HARD → SEND_PAYMENT_LINK (or ESCALATE_HUMAN if repeated)
       - FRAUD → STOP_RECOVERY
       - UNKNOWN → ESCALATE_HUMAN
+
+    Each proposal includes a ranked candidate list scored by EV_net.
+    Confidence is derived from comparable historical outcomes, not hardcoded.
     """
 
     def __init__(self, *, name: str = "mock-agent", model_name: str = "mock") -> None:
@@ -58,236 +66,114 @@ class MockRecoveryDecisionAgent:
     def propose(self, context: RecoveryContext) -> RecoveryProposal:
         from app.domain.failures import FailureCategory
 
-        # Determine diagnosis source (rules vs llm)
         source_type = context.metadata.get("source_type") or getattr(context, "source_type", "payment_failure")
         diagnosis_source = "rules" if context.failure_category != FailureCategory.UNKNOWN else "llm"
 
-        # 1. Overdue Receivables Ladder
+        # Domain-specific primary action selection (preserves existing semantics)
         if source_type in {"overdue_receivable", "receivable"}:
             days_overdue = int(context.metadata.get("days_overdue", 1))
             if days_overdue < 3:
-                action = RecoveryAction.SEND_REMINDER
-                reason = "Day 1 overdue: Gentle invoice reminder"
+                primary_action = RecoveryAction.SEND_REMINDER
+                primary_reason = "Day 1 overdue: Gentle invoice reminder"
             elif days_overdue < 7:
-                action = RecoveryAction.SEND_PAYMENT_LINK
-                reason = "Day 3 overdue: Invoice payment link reminder"
+                primary_action = RecoveryAction.SEND_PAYMENT_LINK
+                primary_reason = "Day 3 overdue: Invoice payment link reminder"
             elif days_overdue < 14:
-                action = RecoveryAction.ALTERNATE_CHANNEL
-                reason = "Day 7 overdue: Alternate channel notice"
+                primary_action = RecoveryAction.ALTERNATE_CHANNEL
+                primary_reason = "Day 7 overdue: Alternate channel notice"
             else:
-                action = RecoveryAction.ESCALATE_HUMAN
-                reason = "Day 14 overdue: Escalate to human operator"
-            return RecoveryProposal(
-                action=action,
-                reason=reason,
-                confidence=0.9,
-                model_name=self._model_name,
-                evidence={"source_type": source_type, "days_overdue": days_overdue},
-                diagnosis={"diagnosis_source": diagnosis_source},
-            )
-
-        # 2. Checkout Abandonment
-        if source_type == "checkout_abandonment":
+                primary_action = RecoveryAction.ESCALATE_HUMAN
+                primary_reason = "Day 14 overdue: Escalate to human operator"
+        elif source_type == "checkout_abandonment":
             abandoned_mins = int(context.metadata.get("checkout_age_minutes", context.metadata.get("abandoned_minutes", 30)))
-            if abandoned_mins > 10080:  # > 7 days
-                return RecoveryProposal(
-                    action=RecoveryAction.STOP_RECOVERY,
-                    reason="Checkout abandonment stale (>7 days)",
-                    confidence=0.9,
-                    model_name=self._model_name,
-                    evidence={"abandoned_mins": abandoned_mins},
-                    diagnosis={"diagnosis_source": "rules"},
-                )
-            return RecoveryProposal(
-                action=RecoveryAction.SEND_PAYMENT_LINK,
-                reason="Recent checkout abandonment; send recovery payment link",
-                confidence=0.85,
-                model_name=self._model_name,
-                evidence={"abandoned_mins": abandoned_mins},
-                diagnosis={"diagnosis_source": "rules"},
-            )
-
-        # 3. Subscription Failure
-        if source_type == "subscription_failure":
+            if abandoned_mins > 10080:
+                primary_action = RecoveryAction.STOP_RECOVERY
+                primary_reason = "Checkout abandonment stale (>7 days)"
+            else:
+                primary_action = RecoveryAction.SEND_PAYMENT_LINK
+                primary_reason = "Recent checkout abandonment; send recovery payment link"
+        elif source_type == "subscription_failure":
             if context.failure_category == FailureCategory.SOFT and context.attempt_count < context.max_attempts:
-                return RecoveryProposal(
-                    action=RecoveryAction.RETRY_PAYMENT,
-                    reason="Soft subscription failure; retry payment token",
-                    confidence=0.8,
-                    proposed_retry=True,
-                    model_name=self._model_name,
-                    evidence={"attempt_count": context.attempt_count},
-                    diagnosis={"diagnosis_source": "rules"},
-                )
-            return RecoveryProposal(
-                action=RecoveryAction.SEND_PAYMENT_LINK,
-                reason="Subscription failure non-retryable or budget exhausted; send link",
-                confidence=0.75,
-                model_name=self._model_name,
-                evidence={"attempt_count": context.attempt_count},
-                diagnosis={"diagnosis_source": "rules"},
-            )
-
-        # 4. Mandate Failure
-        if source_type == "mandate_failure":
+                primary_action = RecoveryAction.RETRY_PAYMENT
+                primary_reason = "Soft subscription failure; retry payment token"
+            else:
+                primary_action = RecoveryAction.SEND_PAYMENT_LINK
+                primary_reason = "Subscription failure non-retryable or budget exhausted; send link"
+        elif source_type == "mandate_failure":
             retry_eligible = context.metadata.get("retry_eligible", True)
             if retry_eligible and context.attempt_count < context.max_attempts:
-                return RecoveryProposal(
-                    action=RecoveryAction.RETRY_PAYMENT,
-                    reason="Mandate failure temporary error; queue delayed retry",
-                    confidence=0.8,
-                    proposed_retry=True,
-                    model_name=self._model_name,
-                    evidence={"retry_eligible": True},
-                    diagnosis={"diagnosis_source": "rules"},
-                )
-            return RecoveryProposal(
-                action=RecoveryAction.SEND_PAYMENT_LINK,
-                reason="Mandate failure non-retryable; request manual payment link",
-                confidence=0.75,
-                model_name=self._model_name,
-                evidence={"retry_eligible": False},
-                diagnosis={"diagnosis_source": "rules"},
-            )
-
-        # Check observation history for replanning after failures
-        last_obs = context.last_observation or {}
-        last_action = last_obs.get("action")
-        last_status = last_obs.get("status")
-        last_reason = last_obs.get("reason", "")
-        prev_actions = set(context.previous_actions)
-
-        # 5. Standard Payment Failure & General Rules
-        if context.failure_category == FailureCategory.FRAUD:
-            return RecoveryProposal(
-                action=RecoveryAction.STOP_RECOVERY,
-                reason="Fraud-related failures must not be automatically retried or contacted",
-                confidence=0.95,
-                model_name=self._model_name,
-                evidence={"category": context.failure_category.value},
-                diagnosis={"diagnosis_source": "rules"},
-            )
-
-        if context.failure_category == FailureCategory.AUTHENTICATION_REQUIRED:
-            if "send_payment_link" in prev_actions and last_status == "failed":
-                return RecoveryProposal(
-                    action=RecoveryAction.ESCALATE_HUMAN,
-                    reason="Payment link sent for re-authentication failed; escalate to human",
-                    confidence=0.85,
-                    model_name=self._model_name,
-                    evidence={"category": context.failure_category.value, "last_status": last_status},
-                    diagnosis={"diagnosis_source": "rules"},
-                )
-            return RecoveryProposal(
-                action=RecoveryAction.SEND_PAYMENT_LINK,
-                reason="Customer must re-authenticate; send a payment link to resume",
-                confidence=0.8,
-                model_name=self._model_name,
-                evidence={"category": context.failure_category.value},
-                diagnosis={"diagnosis_source": "rules"},
-            )
-
-        if context.failure_category == FailureCategory.SOFT:
+                primary_action = RecoveryAction.RETRY_PAYMENT
+                primary_reason = "Mandate failure temporary error; queue delayed retry"
+            else:
+                primary_action = RecoveryAction.SEND_PAYMENT_LINK
+                primary_reason = "Mandate failure non-retryable; request manual payment link"
+        elif context.failure_category == FailureCategory.FRAUD:
+            primary_action = RecoveryAction.STOP_RECOVERY
+            primary_reason = "Fraud-related failures must not be automatically retried or contacted"
+        elif context.failure_category == FailureCategory.AUTHENTICATION_REQUIRED:
+            if "send_payment_link" in context.previous_actions and (context.last_observation or {}).get("status") == "failed":
+                primary_action = RecoveryAction.ESCALATE_HUMAN
+                primary_reason = "Payment link sent for re-authentication failed; escalate to human"
+            else:
+                primary_action = RecoveryAction.SEND_PAYMENT_LINK
+                primary_reason = "Customer must re-authenticate; send a payment link to resume"
+        elif context.failure_category == FailureCategory.SOFT:
             if context.customer_opt_out:
-                return RecoveryProposal(
-                    action=RecoveryAction.STOP_RECOVERY,
-                    reason="Customer has opted out of automated recovery; must not retry",
-                    confidence=0.95,
-                    model_name=self._model_name,
-                    evidence={"category": context.failure_category.value, "customer_opt_out": True},
-                    diagnosis={"diagnosis_source": "rules"},
-                )
-
-            # Re-plan logic: if retry_payment failed or was attempted
-            if "retry_payment" in prev_actions and last_status == "failed":
-                if "send_payment_link" not in prev_actions:
-                    return RecoveryProposal(
-                        action=RecoveryAction.SEND_PAYMENT_LINK,
-                        reason=f"Payment retry failed ({last_reason or 'insufficient_funds'}); pivot to direct payment link",
-                        confidence=0.85,
-                        model_name=self._model_name,
-                        evidence={
-                            "category": context.failure_category.value,
-                            "previous_action": "retry_payment",
-                            "last_reason": last_reason,
-                        },
-                        diagnosis={"diagnosis_source": "rules"},
-                    )
-                elif "alternate_channel" not in prev_actions:
-                    return RecoveryProposal(
-                        action=RecoveryAction.ALTERNATE_CHANNEL,
-                        reason="Payment link failed; attempt recovery via alternate notification channel",
-                        confidence=0.75,
-                        model_name=self._model_name,
-                        evidence={"category": context.failure_category.value},
-                        diagnosis={"diagnosis_source": "rules"},
-                    )
+                primary_action = RecoveryAction.STOP_RECOVERY
+                primary_reason = "Customer has opted out of automated recovery; must not retry"
+            elif "retry_payment" in context.previous_actions and (context.last_observation or {}).get("status") == "failed":
+                if "send_payment_link" not in context.previous_actions:
+                    primary_action = RecoveryAction.SEND_PAYMENT_LINK
+                    primary_reason = "Payment retry failed; pivot to direct payment link"
+                elif "alternate_channel" not in context.previous_actions:
+                    primary_action = RecoveryAction.ALTERNATE_CHANNEL
+                    primary_reason = "Payment link failed; attempt recovery via alternate notification channel"
                 else:
-                    return RecoveryProposal(
-                        action=RecoveryAction.ESCALATE_HUMAN,
-                        reason="Multiple recovery interventions failed; escalate for human assistance",
-                        confidence=0.90,
-                        model_name=self._model_name,
-                        evidence={"category": context.failure_category.value, "attempts_exhausted": True},
-                        diagnosis={"diagnosis_source": "rules"},
-                    )
+                    primary_action = RecoveryAction.ESCALATE_HUMAN
+                    primary_reason = "Multiple recovery interventions failed; escalate for human assistance"
+            elif context.retryable and context.attempt_count < context.max_attempts:
+                primary_action = RecoveryAction.RETRY_PAYMENT
+                primary_reason = f"Soft failure (attempt {context.attempt_count + 1}/{context.max_attempts}); retry is appropriate"
+            else:
+                primary_action = RecoveryAction.SEND_PAYMENT_LINK
+                primary_reason = "Soft failure but retry budget exhausted; offer payment link"
+        elif context.failure_category == FailureCategory.HARD:
+            if "send_payment_link" in context.previous_actions and (context.last_observation or {}).get("status") == "failed":
+                primary_action = RecoveryAction.ESCALATE_HUMAN
+                primary_reason = "Hard failure payment link attempt failed; escalate to human review"
+            elif context.attempt_count >= 2:
+                primary_action = RecoveryAction.ESCALATE_HUMAN
+                primary_reason = "Hard failure repeated multiple times; escalate to human review"
+            else:
+                primary_action = RecoveryAction.SEND_PAYMENT_LINK
+                primary_reason = "Hard failure; offer payment link with alternate method"
+        else:
+            primary_action = RecoveryAction.ESCALATE_HUMAN
+            primary_reason = "Unknown failure category; escalate to human for manual review"
 
-            if context.retryable and context.attempt_count < context.max_attempts:
-                return RecoveryProposal(
-                    action=RecoveryAction.RETRY_PAYMENT,
-                    reason=f"Soft failure (attempt {context.attempt_count + 1}/{context.max_attempts}); retry is appropriate",
-                    confidence=0.7,
-                    proposed_retry=True,
-                    model_name=self._model_name,
-                    evidence={
-                        "category": context.failure_category.value,
-                        "attempt": context.attempt_count + 1,
-                    },
-                    diagnosis={"diagnosis_source": "rules"},
-                )
-            return RecoveryProposal(
-                action=RecoveryAction.SEND_PAYMENT_LINK,
-                reason="Soft failure but retry budget exhausted; offer payment link",
-                confidence=0.6,
-                model_name=self._model_name,
-                evidence={"category": context.failure_category.value},
-                diagnosis={"diagnosis_source": "rules"},
-            )
+        if not ActionRegistry.is_valid(primary_action.value):
+            primary_action = RecoveryAction.ESCALATE_HUMAN
+            primary_reason = "Primary action not in registry; escalate for safety"
 
-        if context.failure_category == FailureCategory.HARD:
-            if "send_payment_link" in prev_actions and last_status == "failed":
-                return RecoveryProposal(
-                    action=RecoveryAction.ESCALATE_HUMAN,
-                    reason="Hard failure payment link attempt failed; escalate to human review",
-                    confidence=0.85,
-                    model_name=self._model_name,
-                    evidence={"category": context.failure_category.value},
-                    diagnosis={"diagnosis_source": "rules"},
-                )
-            if context.attempt_count >= 2:
-                return RecoveryProposal(
-                    action=RecoveryAction.ESCALATE_HUMAN,
-                    reason="Hard failure repeated multiple times; escalate to human review",
-                    confidence=0.7,
-                    model_name=self._model_name,
-                    evidence={"category": context.failure_category.value},
-                    diagnosis={"diagnosis_source": "rules"},
-                )
-            return RecoveryProposal(
-                action=RecoveryAction.SEND_PAYMENT_LINK,
-                reason="Hard failure; offer payment link with alternate method",
-                confidence=0.5,
-                model_name=self._model_name,
-                evidence={"category": context.failure_category.value},
-                diagnosis={"diagnosis_source": "rules"},
-            )
+        eligible = _eligible_candidates(context)
+        if primary_action.value not in eligible:
+            eligible.insert(0, primary_action.value)
 
-        # UNKNOWN / Ambiguous case -> Uses LLM or fallback
+        scorer = ExpectedValueScorer()
+        scored = _score_candidates(context, eligible, scorer=scorer)
+        confidence = _data_driven_confidence(context, scored)
+
         return RecoveryProposal(
-            action=RecoveryAction.ESCALATE_HUMAN,
-            reason="Unknown failure category; escalate to human for manual review",
-            confidence=0.6,
+            action=primary_action,
+            reason=primary_reason,
+            confidence=confidence,
+            proposed_retry=(primary_action == RecoveryAction.RETRY_PAYMENT),
             model_name=self._model_name,
-            evidence={"category": context.failure_category.value},
-            diagnosis={"diagnosis_source": "llm"},
+            evidence={
+                "source_type": source_type,
+                "days_overdue": context.metadata.get("days_overdue"),
+                "category": context.failure_category.value,
+            },
+            diagnosis={"diagnosis_source": diagnosis_source},
+            candidates=scored,
         )

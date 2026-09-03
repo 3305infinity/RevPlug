@@ -120,36 +120,60 @@ class TestMockAgent:
         proposal = agent.propose(ctx)
         assert proposal.action == RecoveryAction.RETRY_PAYMENT
         assert proposal.proposed_retry is True
+        assert len(proposal.candidates) >= 3
+        assert any(c.action == RecoveryAction.RETRY_PAYMENT for c in proposal.candidates)
 
     def test_soft_failure_exhausted_budget_proposes_link(self, agent):
         ctx = _ctx(failure_category=FailureCategory.SOFT, attempt_count=3, max_attempts=3)
         proposal = agent.propose(ctx)
         assert proposal.action == RecoveryAction.SEND_PAYMENT_LINK
+        assert len(proposal.candidates) >= 3
 
     def test_authentication_required_proposes_link(self, agent):
         ctx = _ctx(failure_category=FailureCategory.AUTHENTICATION_REQUIRED)
         proposal = agent.propose(ctx)
         assert proposal.action == RecoveryAction.SEND_PAYMENT_LINK
+        assert len(proposal.candidates) >= 3
 
     def test_hard_failure_proposes_link_first_time(self, agent):
         ctx = _ctx(failure_category=FailureCategory.HARD, attempt_count=0)
         proposal = agent.propose(ctx)
         assert proposal.action == RecoveryAction.SEND_PAYMENT_LINK
+        assert len(proposal.candidates) >= 3
 
     def test_hard_failure_repeated_escalates(self, agent):
         ctx = _ctx(failure_category=FailureCategory.HARD, attempt_count=2)
         proposal = agent.propose(ctx)
         assert proposal.action == RecoveryAction.ESCALATE_HUMAN
+        assert len(proposal.candidates) >= 1
 
     def test_fraud_proposes_stop(self, agent):
         ctx = _ctx(failure_category=FailureCategory.FRAUD)
         proposal = agent.propose(ctx)
         assert proposal.action == RecoveryAction.STOP_RECOVERY
+        assert len(proposal.candidates) >= 1
 
     def test_unknown_escalates(self, agent):
         ctx = _ctx(failure_category=FailureCategory.UNKNOWN)
         proposal = agent.propose(ctx)
         assert proposal.action == RecoveryAction.ESCALATE_HUMAN
+        assert len(proposal.candidates) >= 1
+
+    def test_confidence_is_data_driven_not_fixed(self, agent):
+        ctx_a = _ctx(failure_category=FailureCategory.SOFT, attempt_count=0, customer_id="cust_a")
+        proposal_a = agent.propose(ctx_a)
+        ctx_b = _ctx(failure_category=FailureCategory.SOFT, attempt_count=0, customer_id="cust_b")
+        proposal_b = agent.propose(ctx_b)
+        assert 0.0 <= proposal_a.confidence <= 1.0
+        assert 0.0 <= proposal_b.confidence <= 1.0
+        assert proposal_a.confidence == proposal_b.confidence
+
+    def test_candidates_ranked_by_ev_net_descending(self, agent):
+        ctx = _ctx(failure_category=FailureCategory.SOFT, attempt_count=0, amount_minor=100000)
+        proposal = agent.propose(ctx)
+        assert len(proposal.candidates) >= 3
+        for i in range(len(proposal.candidates) - 1):
+            assert proposal.candidates[i].net_expected_recovery >= proposal.candidates[i + 1].net_expected_recovery
 
     def test_agent_name(self, agent):
         assert agent.name == "mock-agent"

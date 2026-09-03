@@ -800,6 +800,7 @@ export interface CandidateAction {
   policy_status: "ALLOWED" | "BLOCKED";
   policy_rule?: string;
   selected?: boolean;
+  reason?: string;
 }
 
 export interface NaiveBaselineResult {

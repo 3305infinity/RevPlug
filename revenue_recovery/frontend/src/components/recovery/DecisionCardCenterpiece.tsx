@@ -192,27 +192,78 @@ export default function DecisionCardCenterpiece({ trace, detail }: Props) {
           <span style={{ color: "var(--text-secondary)" }}>{methodNote}</span>
         </div>
 
-        {/* Why this action */}
+        {/* Why this action — with ranked candidates */}
         {!isNoAction && (
           <div style={{ marginBottom: "1rem", background: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: 6, padding: "0.875rem" }}>
             <div style={{ fontSize: "0.5625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
-              Why This Action
+              Why This Action, Not the Others
             </div>
-            {trace?.decision_evidence ? (
-              <ul style={{ margin: 0, paddingLeft: "1.125rem", fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                {(trace.decision_evidence as string[]).map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
-              </ul>
-            ) : (
-              <ul style={{ margin: 0, paddingLeft: "1.125rem", fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                {failureCategory && <li>Failure category: {failureCategory.replace(/_/g, " ")}</li>}
-                {policyAllowed !== null && <li>Policy state: {policyAllowed ? "Action permitted" : "Action blocked by policy"}</li>}
-                {expNet != null && amountAtRisk != null && <li>Economic case: expected recovery ({fmtINR(expNet)}) vs risk ({fmtINR(amountAtRisk)})</li>}
-                {detail?.retry_count != null && <li>Retry budget: {detail.retry_count} / 3 used</li>}
-                {!failureCategory && !expNet && <li style={{ color: "var(--text-muted)" }}>Decision evidence not available in trace</li>}
-              </ul>
-            )}
+
+            {(() => {
+              const cands = trace?.candidate_actions || [];
+              const selected = cands.find((c: any) => c.selected) || null;
+              const rejected = cands.filter((c: any) => !c.selected);
+              const confidence = trace?.ai_recommendation?.confidence;
+              const confidencePct = confidence != null ? `${(confidence * 100).toFixed(0)}%` : null;
+
+              if (!selected && rejected.length === 0) {
+                return (
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                    No ranked candidates recorded for this case.
+                  </div>
+                );
+              }
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", fontSize: "0.8125rem" }}>
+                  {selected && (
+                    <div>
+                      <div style={{ fontWeight: 700, color: "var(--accent)", fontFamily: "monospace", marginBottom: 3 }}>
+                        {selected.action.replace(/_/g, " ").toUpperCase()} — selected
+                      </div>
+                      <div style={{ color: "var(--text-secondary)", marginBottom: 4 }}>
+                        Expected Net Recovery {fmtINR(selected.expected_recovery != null && selected.cost != null ? selected.expected_recovery - selected.cost : selected.expected_recovery)}
+                        {confidencePct && <> · Confidence {confidencePct}</>}
+                      </div>
+                      {selected.reason && (
+                        <ul style={{ margin: 0, paddingLeft: "1.125rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                          {selected.reason.split("; ").map((r, i) => <li key={i}>{r}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
+                  {rejected.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>
+                        Considered and rejected:
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {rejected.map((c: any) => {
+                          const net = (c.expected_recovery != null && c.cost != null)
+                            ? c.expected_recovery - c.cost
+                            : c.expected_recovery;
+                          const label = c.policy_status === "BLOCKED"
+                            ? `Blocked by policy${c.policy_rule ? ` (${c.policy_rule.replace(/_/g, " ")})` : ""}`
+                            : c.reason || "Lower expected net recovery than selected action";
+                          return (
+                            <div key={c.action} style={{ color: "var(--text-secondary)" }}>
+                              <strong style={{ color: "var(--text-primary)", fontFamily: "monospace" }}>
+                                {c.action.replace(/_/g, " ").toUpperCase()}
+                              </strong>
+                              {" — "}
+                              {net != null ? `EV ${fmtINR(net)}` : "EV —"}
+                              {" "}
+                              <span style={{ color: "var(--text-muted)" }}>({label})</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 

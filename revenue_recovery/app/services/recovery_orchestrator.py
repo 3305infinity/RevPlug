@@ -172,6 +172,8 @@ class RecoveryOrchestrator:
             score_result = self._score(current_item, current_context, proposal, events)
             last_score_result = score_result
 
+            proposed_act = getattr(proposal.action, "value", str(proposal.action))
+
             if hasattr(self._scorer, "evaluate_candidates"):
                 candidate_evals = self._scorer.evaluate_candidates(
                     amount_minor=current_item.amount_minor,
@@ -192,6 +194,7 @@ class RecoveryOrchestrator:
                     candidates_with_policy.append({
                         **cand,
                         "policy_status": policy_status,
+                        "selected": act == proposed_act,
                     })
 
                 events.append(self._audit_log.log(
@@ -203,7 +206,6 @@ class RecoveryOrchestrator:
                 ))
 
             # Prevent infinite proposal loop (same action proposed repeatedly after failure without progress)
-            proposed_act = getattr(proposal.action, "value", str(proposal.action))
             prev_actions = current_context.previous_actions
             last_obs = current_context.last_observation or {}
             last_status = last_obs.get("status")

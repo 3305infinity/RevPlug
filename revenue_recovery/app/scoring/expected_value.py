@@ -162,6 +162,7 @@ class ExpectedValueScorer:
                 "intervention_cost": cost,
                 "gross_expected_recovery": gross_ev,
                 "net_expected_recovery": net_ev,
+                "reason": f"{failure_category} failure + {action} → probability {prob:.0%}, cost {cost}, expected value {net_ev}",
             })
 
         # Sort by net_expected_recovery descending

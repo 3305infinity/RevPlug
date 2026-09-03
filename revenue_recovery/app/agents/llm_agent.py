@@ -7,7 +7,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from app.agents.decision_agent import RecoveryDecisionAgent
+from app.agents.candidate_scorer import _data_driven_confidence, _eligible_candidates, _score_candidates
+from app.agents.decision_agent import MockRecoveryDecisionAgent, RecoveryDecisionAgent
 from app.agents.llm_client import DeterministicLLMClient, LLMClient, LLMResponse
 from app.agents.prompt_builder import RecoveryPromptBuilder
 from app.domain.context import RecoveryContext
@@ -190,7 +191,16 @@ class RealRecoveryDecisionAgent:
                     f"Low AI confidence ({conf_val:.2f} < {self._confidence_threshold}) — safe fallback triggered", latency,
                 )
 
-            # Proposal construction
+            selected_act = RecoveryAction(selected_act_str)
+
+            # Augment proposal with EV-ranked full candidate list
+            eligible = _eligible_candidates(context)
+            if selected_act_str not in eligible:
+                eligible.insert(0, selected_act_str)
+            scored_candidates = _score_candidates(context, eligible)
+            top_candidate = scored_candidates[0] if scored_candidates else None
+
+            # Proposal construction — preserve LLM confidence; attach EV candidates for transparency
             proposal = RecoveryProposal(
                 action=selected_act,
                 reason=parsed.get("reasoning_summary") or parsed.get("reasoning") or "AI recommended action",
@@ -205,8 +215,11 @@ class RealRecoveryDecisionAgent:
                     "prompt_version": RecoveryPromptBuilder.PROMPT_VERSION,
                     "input_tokens": getattr(response, "input_tokens", 0),
                     "output_tokens": getattr(response, "output_tokens", 0),
+                    "ev_candidates": [c.to_dict() for c in scored_candidates],
+                    "top_net_ev": top_candidate.net_expected_recovery if top_candidate else None,
                 },
                 diagnosis={"diagnosis_source": self.provider_name, "confidence": conf_val},
+                candidates=scored_candidates,
             )
 
             self._last_trace = AgentTrace(
