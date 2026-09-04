@@ -34,7 +34,7 @@ async def api_get_timing_evaluation(
 ) -> Response:
     item_id = _parse_item_id(item_id)
 
-    item = container.recovery_items.get_by_id(item_id) if hasattr(container, "recovery_items") else None
+    item = container.recovery_items.get(item_id) if hasattr(container, "recovery_items") else None
     if item is None:
         return JSONResponse(status_code=404, content={"error": f"Item {item_id} not found"})
 
@@ -88,7 +88,7 @@ async def api_get_timing_signals(
 ) -> Response:
     item_id = _parse_item_id(item_id)
 
-    item = container.recovery_items.get_by_id(item_id) if hasattr(container, "recovery_items") else None
+    item = container.recovery_items.get(item_id) if hasattr(container, "recovery_items") else None
     if item is None:
         return JSONResponse(status_code=404, content={"error": f"Item {item_id} not found"})
 
@@ -135,7 +135,7 @@ async def api_reschedule_wait(
 ) -> Response:
     item_id = _parse_item_id(item_id)
 
-    item = container.recovery_items.get_by_id(item_id) if hasattr(container, "recovery_items") else None
+    item = container.recovery_items.get(item_id) if hasattr(container, "recovery_items") else None
     if item is None:
         return JSONResponse(status_code=404, content={"error": f"Item {item_id} not found"})
 

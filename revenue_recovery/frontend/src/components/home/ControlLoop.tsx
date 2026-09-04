@@ -103,10 +103,54 @@ export default function ControlLoop() {
         ))}
       </div>
 
-      {/* CORE PRODUCT STATEMENT */}
+      {/* ONE CONTROL LOOP. MULTIPLE REVENUE SURFACES */}
       <div
         style={{
           marginTop: "3rem",
+          padding: "1.75rem 2rem",
+          background: "var(--bg-secondary)",
+          border: "1px solid var(--border)",
+          borderRadius: 10,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1.5rem", marginBottom: "1.5rem" }}>
+          <div>
+            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              UNIFIED ARCHITECTURE
+            </div>
+            <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>
+              One control loop. Multiple revenue surfaces.
+            </h3>
+            <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 4, maxWidth: 600 }}>
+              RevPlug applies the same deterministic policy, Net EV ranking, and settlement verification engine across all revenue-leakage channels.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }} className="grid-responsive-4">
+          <div style={{ background: "var(--bg-primary)", padding: "1rem", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#ef4444" }}>💳 Payment Failures</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>Gateway timeouts, issuer declines, 3DS authentication drops, and soft decline recovery.</div>
+          </div>
+          <div style={{ background: "var(--bg-primary)", padding: "1rem", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)" }}>🛒 Checkout Abandonment</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>High-intent cart abandonment, checkout payment drop-offs, and dynamic recovery links.</div>
+          </div>
+          <div style={{ background: "var(--bg-primary)", padding: "1rem", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#10b981" }}>🔄 Subscriptions &amp; Mandates</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>SaaS subscription renewals, UPI AutoPay, eNACH mandate failures, and bounded retry budgets.</div>
+          </div>
+          <div style={{ background: "var(--bg-primary)", padding: "1rem", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#06b6d4" }}>📄 Overdue Receivables</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>B2B overdue invoices, automated outreach, Hinglish promise-to-pay, and commitment tracking.</div>
+          </div>
+        </div>
+      </div>
+
+      {/* CORE PRODUCT STATEMENT */}
+      <div
+        style={{
+          marginTop: "2.5rem",
           paddingTop: "1.5rem",
           display: "flex",
           justifyContent: "space-between",

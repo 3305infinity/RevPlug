@@ -65,8 +65,8 @@ def build_case_trace(item_id: str, container: Any) -> dict[str, Any]:
     """Build canonical decision trace from stored audit events & item state."""
     # 1. Fetch item if available
     item = None
-    if hasattr(container, "recovery_items") and hasattr(container.recovery_items, "get_by_id"):
-        item = container.recovery_items.get_by_id(item_id)
+    if hasattr(container, "recovery_items") and hasattr(container.recovery_items, "get"):
+        item = container.recovery_items.get(item_id)
 
     # 2. Fetch events
     events: list[AuditEvent] = []

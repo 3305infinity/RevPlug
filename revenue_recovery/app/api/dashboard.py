@@ -299,6 +299,12 @@ def api_create_recovery_item(payload: dict[str, Any], container: PersistenceCont
             "fraud_risk": fraud_risk,
             "event_type": event_type,
             "raw_failure_reason": raw_failure_reason,
+            "subscription_id": str(payload.get("subscription_id") or "").strip() or None,
+            "invoice_number": str(payload.get("invoice_number") or "").strip() or None,
+            "due_date": str(payload.get("due_date") or "").strip() or None,
+            "days_overdue": payload.get("days_overdue"),
+            "abandonment_context": str(payload.get("abandonment_context") or "").strip() or None,
+            "mandate_ref": str(payload.get("mandate_ref") or "").strip() or None,
             "is_synthetic": False,
         },
     )

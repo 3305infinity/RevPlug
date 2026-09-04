@@ -203,50 +203,142 @@ export default function CaseWorkspace() {
         </div>
       )}
 
-      {/* PAYMENT COMMITMENT */}
-      <PromiseCommitment itemId={id} customerId={customerId} />
+      {/* ── SURFACE-SPECIFIC CONTEXT BANNER ── */}
+      {(() => {
+        const srcType = liveDetail?.source_type || liveDetail?.metadata?.event_type;
+        if (srcType === "checkout_abandonment") {
+          return (
+            <div className="card" style={{ padding: "0.875rem 1.25rem", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 8, marginBottom: "1rem" }}>
+              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase" }}>REVENUE SURFACE: CHECKOUT ABANDONMENT</div>
+              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>Cart Value: ₹{(amountAtRiskMinor / 100).toLocaleString()}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Context: {liveDetail?.metadata?.abandonment_context || "Cart timeout at payment step"}</div>
+            </div>
+          );
+        }
+        if (srcType === "subscription_failure" || srcType === "subscription_payment_failed") {
+          return (
+            <div className="card" style={{ padding: "0.875rem 1.25rem", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 8, marginBottom: "1rem" }}>
+              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase" }}>REVENUE SURFACE: SUBSCRIPTION RENEWAL</div>
+              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>Subscription ID: {liveDetail?.metadata?.subscription_id || "sub_saas_pro_901"} · Renewal: ₹{(amountAtRiskMinor / 100).toLocaleString()}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Bounded B2B retry count: {(liveDetail as any)?.retry_count || 1} / 3 Max Retries</div>
+            </div>
+          );
+        }
+        if (srcType === "mandate_failure" || srcType === "mandate_failed") {
+          return (
+            <div className="card" style={{ padding: "0.875rem 1.25rem", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 8, marginBottom: "1rem" }}>
+              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b", textTransform: "uppercase" }}>REVENUE SURFACE: MANDATE / AUTOPAY FAILURE</div>
+              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>Mandate Ref: {liveDetail?.metadata?.mandate_ref || "man_nach_autopay_771"} · Amount: ₹{(amountAtRiskMinor / 100).toLocaleString()}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Bounded retry sequencing active · eNACH / UPI AutoPay</div>
+            </div>
+          );
+        }
+        if (srcType === "overdue_receivable" || srcType === "invoice_overdue") {
+          return (
+            <div className="card" style={{ padding: "0.875rem 1.25rem", background: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.25)", borderRadius: 8, marginBottom: "1rem" }}>
+              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#06b6d4", textTransform: "uppercase" }}>REVENUE SURFACE: B2B OVERDUE RECEIVABLE</div>
+              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>Invoice: {liveDetail?.metadata?.invoice_number || liveDetail?.external_id || "INV-2026-901"} · Amount: ₹{(amountAtRiskMinor / 100).toLocaleString()}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Days Overdue: {liveDetail?.metadata?.days_overdue || 15} days · Outreach &amp; Promise-to-Pay Workflow</div>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
-      <div style={{ marginBottom: "1.5rem" }}>
-        <Link
-          href={`/recovery/${id}/voice-call`}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            fontSize: "0.8125rem",
-            fontWeight: 600,
-            color: "var(--accent)",
-            textDecoration: "none",
-            padding: "0.5rem 0.875rem",
-            borderRadius: 6,
-            border: "1px solid rgba(99,102,241,0.3)",
-            background: "rgba(99,102,241,0.06)",
-          }}
-        >
-          Hinglish Voice-Assisted Promise-to-Pay
-        </Link>
-      </div>
+      {/* ── LIFECYCLE PROGRESS BANNER ── */}
+      {(() => {
+        const curStatus = liveDetail?.status || liveTrace?.status || "queued";
+        const isRecovered = curStatus === "recovered";
+        const isPendingVer = curStatus === "pending_verification" || curStatus === "intervention_executed";
+        const isStopped = curStatus === "stopped";
+        const isEscalated = curStatus === "escalated";
 
-      <div style={{ marginBottom: "1.5rem" }}>
-        <Link
-          href={`/customer-view/${id}`}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            fontSize: "0.8125rem",
-            fontWeight: 600,
-            color: "#10b981",
-            textDecoration: "none",
-            padding: "0.5rem 0.875rem",
-            borderRadius: 6,
-            border: "1px solid rgba(16,185,129,0.3)",
-            background: "rgba(16,185,129,0.06)",
-          }}
-        >
-          Customer View
-        </Link>
-      </div>
+        const currentStep = isRecovered || isPendingVer ? 5 : (curStatus === "intervention_pending" ? 4 : (curStatus === "queued" ? 3 : 2));
+
+        const steps = [
+          { num: 1, label: "DETECTED", desc: "Risk Event" },
+          { num: 2, label: "DIAGNOSED", desc: "Root Cause" },
+          { num: 3, label: "DECISION", desc: "Net EV & Policy" },
+          { num: 4, label: "ACTION", desc: "Bounded Dispatch" },
+          { num: 5, label: "VERIFICATION", desc: "Settlement Proof" },
+        ];
+
+        return (
+          <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem", background: "var(--bg-secondary)" }}>
+            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "1rem" }}>
+              CASE RECOVERY LIFECYCLE
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.5rem", position: "relative" }}>
+              {steps.map((st) => {
+                const isActive = st.num === currentStep;
+                const isPassed = st.num < currentStep || isRecovered;
+                return (
+                  <div
+                    key={st.num}
+                    style={{
+                      padding: "0.75rem",
+                      borderRadius: 8,
+                      textAlign: "center",
+                      background: isActive ? "rgba(59, 130, 246, 0.15)" : isPassed ? "rgba(16, 185, 129, 0.1)" : "var(--bg-primary)",
+                      border: `1.5px solid ${isActive ? "var(--accent)" : isPassed ? "#10b981" : "var(--border)"}`,
+                    }}
+                  >
+                    <div style={{ fontSize: "0.625rem", fontWeight: 800, color: isActive ? "var(--accent)" : isPassed ? "#10b981" : "var(--text-muted)" }}>
+                      STEP 0{st.num}
+                    </div>
+                    <div style={{ fontSize: "0.8125rem", fontWeight: 700, color: isActive ? "var(--text-primary)" : isPassed ? "#10b981" : "var(--text-secondary)", marginTop: 2 }}>
+                      {st.label}
+                    </div>
+                    <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                      {st.desc}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* STATUS HIGHLIGHT BANNER */}
+            <div style={{ marginTop: "1rem" }}>
+              {isRecovered && (
+                <div style={{ background: "rgba(16, 185, 129, 0.12)", border: "1px solid #10b981", color: "#34d399", padding: "0.875rem 1.125rem", borderRadius: 8, fontSize: "0.8125rem" }}>
+                  <strong style={{ fontSize: "0.875rem" }}>✓ SETTLEMENT VERIFIED — RECOVERED</strong>
+                  <div style={{ color: "var(--text-secondary)", marginTop: 2 }}>
+                    ₹{(amountAtRiskMinor / 100).toLocaleString()} verified recovered via webhook HMAC evidence. Settlement confirmed and logged in audit ledger.
+                  </div>
+                </div>
+              )}
+
+              {isPendingVer && (
+                <div style={{ background: "rgba(59, 130, 246, 0.12)", border: "1px solid #3b82f6", color: "#60a5fa", padding: "0.875rem 1.125rem", borderRadius: 8, fontSize: "0.8125rem" }}>
+                  <strong style={{ fontSize: "0.875rem" }}>PENDING VERIFICATION</strong>
+                  <div style={{ color: "var(--text-secondary)", marginTop: 2 }}>
+                    Payment link dispatched. Waiting for settlement evidence. Autonomous action executed; revenue will count as VERIFIED RECOVERED only after gateway settlement evidence is received.
+                  </div>
+                </div>
+              )}
+
+              {isEscalated && (
+                <div style={{ background: "rgba(245, 158, 11, 0.12)", border: "1px solid #f59e0b", color: "#fbbf24", padding: "0.875rem 1.125rem", borderRadius: 8, fontSize: "0.8125rem" }}>
+                  <strong style={{ fontSize: "0.875rem" }}>HUMAN REVIEW REQUIRED (ESCALATED)</strong>
+                  <div style={{ color: "var(--text-secondary)", marginTop: 2 }}>
+                    Automated recovery blocked by policy constraint ({liveDetail?.stopped_reason || liveTrace?.safety_decision?.reason || "Policy threshold exceeded"}). Routed to human review queue.
+                  </div>
+                </div>
+              )}
+
+              {isStopped && (
+                <div style={{ background: "rgba(239, 68, 68, 0.12)", border: "1px solid #ef4444", color: "#f87171", padding: "0.875rem 1.125rem", borderRadius: 8, fontSize: "0.8125rem" }}>
+                  <strong style={{ fontSize: "0.875rem" }}>STOPPED — POLICY SHIELD TRIGGERED</strong>
+                  <div style={{ color: "var(--text-secondary)", marginTop: 2 }}>
+                    Recovery stopped to preserve protected capital ({liveDetail?.stopped_reason || liveTrace?.safety_decision?.reason || "Fraud / hard decline policy block"}). Verified recovery: ₹0.
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* MONEY STORY FLOW */}
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>

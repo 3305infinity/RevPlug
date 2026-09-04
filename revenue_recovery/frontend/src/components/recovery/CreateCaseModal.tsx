@@ -20,6 +20,13 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
   const [consentOptOut, setConsentOptOut] = useState(false);
   const [fraudRisk, setFraudRisk] = useState(false);
 
+  // Surface-specific conditional inputs
+  const [subscriptionId, setSubscriptionId] = useState("");
+  const [abandonmentContext, setAbandonmentContext] = useState("Payment step timeout at checkout");
+  const [mandateRef, setMandateRef] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [daysOverdue, setDaysOverdue] = useState("15");
+
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -38,6 +45,12 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
     const apiHost = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
     const amountMinor = Math.round(Number(amountRupees) * 100);
 
+    const ref = referenceId.trim() ||
+      (eventType === "invoice_overdue" ? invoiceNumber || `INV-${Date.now().toString().slice(-6)}` :
+       eventType === "subscription_payment_failed" ? subscriptionId || `SUB-${Date.now().toString().slice(-6)}` :
+       eventType === "mandate_failed" ? mandateRef || `MAN-${Date.now().toString().slice(-6)}` :
+       `REF-${Date.now().toString().slice(-6)}`);
+
     try {
       const res = await fetch(`${apiHost}/api/recovery-items/create`, {
         method: "POST",
@@ -50,9 +63,14 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
           event_type: eventType,
           failure_reason: failureReason,
           payment_method: paymentMethod,
-          reference_id: referenceId.trim() || `inv_${Date.now().toString().slice(-6)}`,
+          reference_id: ref,
           consent_opt_out: consentOptOut,
           fraud_risk: fraudRisk,
+          subscription_id: subscriptionId.trim(),
+          abandonment_context: abandonmentContext.trim(),
+          mandate_ref: mandateRef.trim(),
+          invoice_number: invoiceNumber.trim(),
+          days_overdue: daysOverdue ? Number(daysOverdue) : 15,
         }),
       });
 
@@ -79,7 +97,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.7)",
+        backgroundColor: "rgba(0, 0, 0, 0.75)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -91,7 +109,9 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
         className="card"
         style={{
           width: "100%",
-          maxWidth: 580,
+          maxWidth: 620,
+          maxHeight: "90vh",
+          overflowY: "auto",
           padding: "1.75rem",
           background: "var(--bg-secondary)",
           border: "1px solid var(--border)",
@@ -102,7 +122,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
           <div>
             <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              BUSINESS EVENT INGESTION
+              REVENUE RISK EVENT INGESTION
             </div>
             <h2 style={{ fontSize: "1.25rem", fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
               Create Recovery Case
@@ -123,9 +143,37 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
         )}
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+          {/* EVENT TYPE SELECTOR */}
+          <div style={{ gridColumn: "span 2" }}>
+            <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-primary)", display: "block", marginBottom: 4 }}>
+              Revenue Surface / Risk Event Type *
+            </label>
+            <select
+              value={eventType}
+              onChange={(e) => setEventType(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.6rem 0.75rem",
+                borderRadius: 6,
+                background: "var(--bg-primary)",
+                border: "1px solid var(--accent)",
+                color: "var(--text-primary)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+              }}
+            >
+              <option value="payment_failed">💳 Payment Failed (Gateway / Issuer Decline)</option>
+              <option value="checkout_abandonment">🛒 Checkout Abandoned (Cart Drop-off)</option>
+              <option value="subscription_payment_failed">🔄 Subscription Renewal Failed (SaaS Renewal)</option>
+              <option value="mandate_failed">🏦 Mandate Failed (UPI AutoPay / eNACH)</option>
+              <option value="invoice_overdue">📄 Invoice Overdue (B2B Receivables)</option>
+            </select>
+          </div>
+
+          {/* COMMON CUSTOMER FIELDS */}
           <div>
             <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Customer / Account ID
+              Customer / Business ID
             </label>
             <input
               type="text"
@@ -138,7 +186,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
 
           <div>
             <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Customer Name
+              Customer / Account Name
             </label>
             <input
               type="text"
@@ -149,9 +197,14 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
             />
           </div>
 
+          {/* AMOUNT AT RISK */}
           <div>
             <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Amount at Risk (₹) *
+              {eventType === "checkout_abandonment" ? "Checkout / Cart Value (₹) *" :
+               eventType === "subscription_payment_failed" ? "Renewal Amount (₹) *" :
+               eventType === "mandate_failed" ? "Mandate Amount (₹) *" :
+               eventType === "invoice_overdue" ? "Invoice Amount (₹) *" :
+               "Amount at Risk (₹) *"}
             </label>
             <input
               type="number"
@@ -178,62 +231,162 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
             </select>
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Event Type
-            </label>
-            <select
-              value={eventType}
-              onChange={(e) => setEventType(e.target.value)}
-              style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
-            >
-              <option value="payment_failed">Payment Failed</option>
-              <option value="subscription_payment_failed">Subscription Renewal Failed</option>
-              <option value="checkout_abandonment">Checkout Abandoned</option>
-              <option value="invoice_overdue">Invoice Overdue</option>
-              <option value="payment_requires_action">Payment Requires Action</option>
-            </select>
-          </div>
+          {/* CONDITIONAL SURFACE FIELDS */}
+          {eventType === "payment_failed" && (
+            <>
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Failure Reason / Cause
+                </label>
+                <select
+                  value={failureReason}
+                  onChange={(e) => setFailureReason(e.target.value)}
+                  style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
+                >
+                  <option value="payment_timed_out">Soft Gateway Timeout</option>
+                  <option value="insufficient_funds">Insufficient Funds</option>
+                  <option value="expired_card">Expired Card</option>
+                  <option value="authentication_failed">Authentication Failed</option>
+                  <option value="risk_check_failed">Risk Check Failed</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Payment Method
+                </label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
+                >
+                  <option value="upi">UPI AutoPay / Link</option>
+                  <option value="card">Credit / Debit Card</option>
+                  <option value="netbanking">Netbanking / eNACH</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {eventType === "checkout_abandonment" && (
+            <>
+              <div style={{ gridColumn: "span 2" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Abandonment Context / Stage
+                </label>
+                <input
+                  type="text"
+                  placeholder="Cart timeout at payment step"
+                  value={abandonmentContext}
+                  onChange={(e) => setAbandonmentContext(e.target.value)}
+                  style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
+                />
+              </div>
+            </>
+          )}
+
+          {eventType === "subscription_payment_failed" && (
+            <>
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Subscription ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="sub_saas_pro_901"
+                  value={subscriptionId}
+                  onChange={(e) => setSubscriptionId(e.target.value)}
+                  style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Renewal Failure Cause
+                </label>
+                <select
+                  value={failureReason}
+                  onChange={(e) => setFailureReason(e.target.value)}
+                  style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
+                >
+                  <option value="expired_card">Expired Card</option>
+                  <option value="insufficient_funds">Insufficient Funds</option>
+                  <option value="mandate_failed">Mandate Revoked / Invalid</option>
+                  <option value="payment_timed_out">Soft Issuer Timeout</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {eventType === "mandate_failed" && (
+            <>
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Mandate / AutoPay Reference
+                </label>
+                <input
+                  type="text"
+                  placeholder="man_upi_autopay_771"
+                  value={mandateRef}
+                  onChange={(e) => setMandateRef(e.target.value)}
+                  style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Mandate Failure Cause
+                </label>
+                <select
+                  value={failureReason}
+                  onChange={(e) => setFailureReason(e.target.value)}
+                  style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
+                >
+                  <option value="mandate_failed">Bank Technical Execution Error</option>
+                  <option value="insufficient_funds">Account Balance Below Threshold</option>
+                  <option value="authentication_failed">Mandate Authorization Expired</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {eventType === "invoice_overdue" && (
+            <>
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Invoice Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="INV-2026-8801"
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                  Days Overdue
+                </label>
+                <input
+                  type="number"
+                  placeholder="15"
+                  value={daysOverdue}
+                  onChange={(e) => setDaysOverdue(e.target.value)}
+                  style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Failure Reason / Cause
-            </label>
-            <select
-              value={failureReason}
-              onChange={(e) => setFailureReason(e.target.value)}
-              style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
-            >
-              <option value="payment_timed_out">Soft Gateway Timeout</option>
-              <option value="insufficient_funds">Insufficient Funds</option>
-              <option value="expired_card">Expired Card</option>
-              <option value="authentication_failed">Authentication Failed</option>
-              <option value="risk_check_failed">Risk Check Failed</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Payment Method
-            </label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
-            >
-              <option value="upi">UPI AutoPay / Link</option>
-              <option value="card">Credit / Debit Card</option>
-              <option value="netbanking">Netbanking / eNACH</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Invoice / Ref Number
+              External Reference ID
             </label>
             <input
               type="text"
-              placeholder="inv_88201"
+              placeholder="tx_882019"
               value={referenceId}
               onChange={(e) => setReferenceId(e.target.value)}
               style={{ width: "100%", padding: "0.5rem", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: "0.8125rem" }}
