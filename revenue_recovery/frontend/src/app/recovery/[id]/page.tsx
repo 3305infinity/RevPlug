@@ -223,7 +223,7 @@ export default function CaseWorkspace() {
             background: "rgba(99,102,241,0.06)",
           }}
         >
-          Browser Voice Assistant
+          Hinglish Voice-Assisted Promise-to-Pay
         </Link>
       </div>
 

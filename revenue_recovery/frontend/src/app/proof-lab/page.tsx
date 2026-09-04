@@ -257,7 +257,7 @@ export default function ProofLab() {
         revplug_mean_net: ms.revplug_mean_net ?? 0,
         revplug_median_net: 0,
         revplug_std_net: 0,
-        revplug_mean_cost: 0,
+        revplug_mean_cost: ms.revplug_mean_cost ?? ((ms.revplug_mean_gross ?? 0) - (ms.revplug_mean_net ?? 0)),
         revplug_mean_violations: ms.revplug_mean_violations ?? 0,
         revplug_mean_decision_quality: ms.revplug_mean_decision_quality ?? 0,
         gross_lift_pct: ms.gross_lift_pct ?? 0,

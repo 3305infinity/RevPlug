@@ -165,8 +165,8 @@ class ExpectedValueScorer:
                 "reason": f"{failure_category} failure + {action} → probability {prob:.0%}, cost {cost}, expected value {net_ev}",
             })
 
-        # Sort by net_expected_recovery descending
-        scored_candidates.sort(key=lambda c: c["net_expected_recovery"], reverse=True)
+        # Sort by net_expected_recovery descending, with deterministic tie-breaking by action name
+        scored_candidates.sort(key=lambda c: (-c["net_expected_recovery"], c["action"]))
         return scored_candidates
 
 

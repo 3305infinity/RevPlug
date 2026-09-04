@@ -1,150 +1,62 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import HomeHeader from "@/components/home/HomeHeader";
 import HomeHero from "@/components/home/HomeHero";
-import RecoveryFlow from "@/components/home/RecoveryFlow";
+import WhyRevenueLeaks from "@/components/home/WhyRevenueLeaks";
 import RecoveryCase from "@/components/home/RecoveryCase";
-import ProductExplanation from "@/components/home/ProductExplanation";
+import ControlLoop from "@/components/home/ControlLoop";
 import FourDecisionsSection from "@/components/home/FourDecisionsSection";
-import DecisionPipeline from "@/components/home/DecisionPipeline";
-import SmartStopSection from "@/components/home/SmartStopSection";
-import VerifiedSettlementSection from "@/components/home/VerifiedSettlementSection";
+import HinglishVoiceSection from "@/components/home/HinglishVoiceSection";
 import BenchmarkProof from "@/components/home/BenchmarkProof";
-import RazorpayConnectionSection from "@/components/home/RazorpayConnectionSection";
+import RazorpayIntegration from "@/components/home/RazorpayIntegration";
 import HomeCTA from "@/components/home/HomeCTA";
-import NavbarAuth from "@/components/home/NavbarAuth";
+import LandingFooter from "@/components/home/LandingFooter";
 
 export default function ProductHomePage() {
-  const [apiOnline, setApiOnline] = useState(true);
-
-  useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/health`)
-      .then((r) => setApiOnline(r.ok))
-      .catch(() => setApiOnline(false));
-  }, []);
-
   return (
-    <div style={{ minHeight: "100vh", background: "#0d1117", color: "#f0f6fc", fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
-      {/* 1. MINIMAL PRODUCT HEADER */}
-      <header
-        style={{
-          borderBottom: "1px solid #21262d",
-          background: "#0d1117",
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1100,
-            margin: "0 auto",
-            padding: "0.75rem 1.5rem",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "2.5rem" }}>
-            <Link href="/" style={{ textDecoration: "none" }}>
-              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#f0f6fc", letterSpacing: "-0.01em" }}>
-                RevPlug
-              </div>
-            </Link>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg-root)",
+        color: "var(--text-primary)",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      }}
+    >
+      {/* 1. RESPONSIVE FINTECH HEADER */}
+      <HomeHeader />
 
-            <nav style={{ display: "flex", gap: "1.5rem", fontSize: "0.8125rem" }}>
-              <a href="#visual-flow" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                How it works
-              </a>
-              <Link href="/dashboard" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Command Center
-              </Link>
-              <Link href="/recovery" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Recovery
-              </Link>
-              <Link href="/proof-lab" style={{ color: "#8b949e", textDecoration: "none", fontWeight: 500 }}>
-                Benchmark
-              </Link>
-            </nav>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.75rem", color: "#6e7681", fontFamily: "monospace" }}>
-              <span
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: apiOnline ? "#10b981" : "#ef4444",
-                  display: "inline-block",
-                }}
-              />
-              <span style={{ color: apiOnline ? "#10b981" : "#ef4444", fontWeight: 600 }}>
-                {apiOnline ? "Razorpay Test Mode" : "Offline"}
-              </span>
-            </div>
-
-            <NavbarAuth />
-
-            <Link
-              href="/dashboard"
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                padding: "0.4rem 0.85rem",
-                borderRadius: 6,
-                background: "#2563eb",
-                color: "#ffffff",
-                textDecoration: "none",
-              }}
-            >
-              Open Dashboard
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* CONTINUOUS MAIN STORY CONTAINER */}
-      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.5rem" }}>
-        {/* 2. HERO */}
+      {/* 2. MAIN LANDING STORY */}
+      <main style={{ maxWidth: 1140, margin: "0 auto", padding: "0 1.5rem" }}>
+        {/* HERO */}
         <HomeHero />
 
-        {/* 3 & 4. VISUAL RECOVERY FLOW & INTERACTIVE FLOW */}
-        <RecoveryFlow />
+        {/* WHY REVENUE LEAKS */}
+        <WhyRevenueLeaks />
 
-        {/* 5 & 6. FOUR DECISIONS + PRODUCT PREVIEW */}
-        <FourDecisionsSection />
-
-        {/* 7. ACTUAL PRODUCT PREVIEW */}
+        {/* ONE RECOVERY DECISION (WORKPLACE ARTIFACT) */}
         <RecoveryCase />
 
-        {/* 6. PRODUCT EXPLANATION (3 COLUMNS) */}
-        <ProductExplanation />
+        {/* THE CONTROL LOOP (DETECT / DECIDE / CONTROL / VERIFY) */}
+        <ControlLoop />
 
-        {/* 7. DECISION PIPELINE */}
-        <DecisionPipeline />
+        {/* THE FOUR OUTCOMES (RECOVER / WAIT / ESCALATE / STOP) */}
+        <FourDecisionsSection />
 
-        {/* 8. SMART STOP SECTION */}
-        <SmartStopSection />
+        {/* HINGLISH VOICE-ASSISTED PTP */}
+        <HinglishVoiceSection />
 
-        {/* 9. VERIFIED SETTLEMENT SECTION */}
-        <VerifiedSettlementSection />
-
-        {/* 10. BENCHMARK PROOF */}
+        {/* BENCHMARK / SYNTHETIC EVALUATION PROOF */}
         <BenchmarkProof />
 
-        {/* 11. RAZORPAY CONNECTION */}
-        <RazorpayConnectionSection />
+        {/* RAZORPAY INTEGRATION & SETTLEMENT TRUST */}
+        <RazorpayIntegration />
 
-        {/* 12. FINAL CTA */}
+        {/* FINAL CTA */}
         <HomeCTA />
       </main>
 
-      {/* FOOTER */}
-      <footer style={{ borderTop: "1px solid #21262d", background: "#0d1117", padding: "1.5rem", textAlign: "center", fontSize: "0.75rem", color: "#6e7681", fontFamily: "monospace" }}>
-        RevPlug · Revenue Recovery Control Plane · Powered by Razorpay
-      </footer>
+      {/* 3. FOOTER */}
+      <LandingFooter />
     </div>
   );
 }

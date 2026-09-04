@@ -57,37 +57,8 @@ class MockRecoveryDecisionAgent:
         return self._model_name
 
     def propose(self, context: RecoveryContext) -> RecoveryProposal:
-        source_type = context.metadata.get("source_type") or getattr(context, "source_type", "payment_failure")
-        diagnosis_source = "rules"
-
-        eligible = _eligible_candidates(context)
-        if not eligible:
-            eligible = [RecoveryAction.STOP_RECOVERY.value]
-
-        proposal = build_ranked_proposal(
+        return build_ranked_proposal(
             context,
             scorer=ExpectedValueScorer(),
             model_name=self._model_name,
         )
-
-        if proposal.action.value not in eligible:
-            for act in eligible:
-                if ActionRegistry.is_valid(act):
-                    proposal = RecoveryProposal(
-                        action=RecoveryAction(act),
-                        reason=f"Deterministic domain rules route to {act.replace('_', ' ').title()} for {source_type} / {context.failure_category.value if hasattr(context.failure_category, 'value') else context.failure_category}",
-                        confidence=0.5,
-                        proposed_retry=(act == RecoveryAction.RETRY_PAYMENT.value),
-                        model_name=self._model_name,
-                        evidence={
-                            "source_type": source_type,
-                            "days_overdue": context.metadata.get("days_overdue"),
-                            "category": context.failure_category.value if hasattr(context.failure_category, "value") else str(context.failure_category),
-                            "routing_reason": "domain_eligibility_override",
-                        },
-                        diagnosis={"diagnosis_source": diagnosis_source},
-                        candidates=proposal.candidates,
-                    )
-                    break
-
-        return proposal

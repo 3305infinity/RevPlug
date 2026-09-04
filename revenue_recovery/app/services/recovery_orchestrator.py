@@ -175,9 +175,12 @@ class RecoveryOrchestrator:
             proposed_act = getattr(proposal.action, "value", str(proposal.action))
 
             if hasattr(self._scorer, "evaluate_candidates"):
+                from app.agents.candidate_scorer import _eligible_candidates
+                eligible_actions = _eligible_candidates(current_context)
                 candidate_evals = self._scorer.evaluate_candidates(
                     amount_minor=current_item.amount_minor,
                     failure_category=current_context.failure_category.value if hasattr(current_context.failure_category, "value") else str(current_context.failure_category),
+                    candidate_actions=eligible_actions,
                     attempt_number=current_context.attempt_count + 1,
                     context={**current_item.metadata, "customer_opted_out": current_context.customer_opt_out},
                 )

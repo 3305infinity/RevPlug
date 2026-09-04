@@ -27,15 +27,6 @@ interface CapitalProtectedData {
   itemized_cases: ItemizedCase[];
 }
 
-const REASON_COLORS: Record<string, string> = {
-  fraud: "#ef4444",
-  opt_out: "#f59e0b",
-  hard_decline: "#6366f1",
-  promise_active: "#3b82f6",
-  negative_ev: "#8b5cf6",
-  human_review: "#14b8a6",
-};
-
 const fmt = (minor: number) =>
   "₹" + (minor / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
@@ -53,9 +44,9 @@ export default function CapitalProtectedPanel({ apiHost, compact = false }: Prop
 
   useEffect(() => {
     fetch(`${host}/api/portfolio/capital-protected`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        setData(d);
+        if (d) setData(d);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -63,7 +54,7 @@ export default function CapitalProtectedPanel({ apiHost, compact = false }: Prop
 
   if (loading) {
     return (
-      <div style={{ padding: compact ? "0.75rem" : "1.25rem", background: "rgba(251, 191, 36, 0.05)", borderRadius: 8, border: "1px solid rgba(251, 191, 36, 0.2)" }}>
+      <div style={{ padding: compact ? "0.75rem" : "1.25rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
         <div className="skeleton" style={{ height: 40, borderRadius: 6 }} />
       </div>
     );
@@ -79,25 +70,22 @@ export default function CapitalProtectedPanel({ apiHost, compact = false }: Prop
   return (
     <div
       style={{
-        background: "linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(245, 158, 11, 0.04) 100%)",
-        border: "1px solid rgba(251, 191, 36, 0.3)",
-        borderRadius: 10,
+        background: "var(--bg-secondary)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
         padding: compact ? "0.875rem 1rem" : "1.25rem 1.5rem",
-        position: "relative",
-        overflow: "hidden",
       }}
     >
-      <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, rgba(251, 191, 36, 0.12) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" }} />
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: compact ? 0 : "1rem" }}>
+      {/* HEADER ROW */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>
-            🛡 CAPITAL PROTECTED
+          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--warning)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            CAPITAL PROTECTED
           </div>
-          <div className="font-mono" style={{ fontSize: compact ? "1.5rem" : "2rem", fontWeight: 900, color: "#fbbf24", lineHeight: 1 }}>
+          <div className="font-mono" style={{ fontSize: compact ? "1.5rem" : "1.75rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2, lineHeight: 1.2 }}>
             {fmt(total)}
           </div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 3 }}>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>
             {count} case{count !== 1 ? "s" : ""} safely declined by policy
           </div>
         </div>
@@ -105,50 +93,93 @@ export default function CapitalProtectedPanel({ apiHost, compact = false }: Prop
         {!compact && count > 0 && (
           <button
             onClick={() => setExpanded(!expanded)}
-            style={{ background: "transparent", border: "1px solid rgba(251, 191, 36, 0.3)", color: "#f59e0b", borderRadius: 6, padding: "0.3rem 0.65rem", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer" }}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--border)",
+              color: "var(--text-secondary)",
+              borderRadius: 6,
+              padding: "0.35rem 0.75rem",
+              fontSize: "0.75rem",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "background 0.15s ease, color 0.15s ease",
+            }}
           >
             {expanded ? "Hide ▲" : "Details ▼"}
           </button>
         )}
       </div>
 
+      {/* REASON SUMMARY BREAKDOWN */}
       {!compact && breakdown.length > 0 && (
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.75rem" }}>
-          {breakdown.map((b) => (
-            <div
-              key={b.reason}
-              title={`${b.label}: ${fmt(b.amount_minor)} (${b.count} cases)`}
-              style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 20, padding: "0.2rem 0.65rem", fontSize: "0.7rem", fontWeight: 600, color: REASON_COLORS[b.reason] || "var(--text-secondary)" }}
-            >
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: REASON_COLORS[b.reason] || "#888", flexShrink: 0 }} />
-              {b.label} · {b.count} · {fmt(b.amount_minor)}
-            </div>
-          ))}
+        <div
+          style={{
+            display: "flex",
+            gap: "1.25rem",
+            flexWrap: "wrap",
+            marginTop: "0.875rem",
+            paddingTop: "0.75rem",
+            borderTop: "1px solid var(--border-subtle)",
+            fontSize: "0.75rem",
+            color: "var(--text-secondary)",
+            fontFamily: "monospace",
+          }}
+        >
+          {breakdown.map((b) => {
+            const isHard = b.reason === "hard_decline" || b.reason === "fraud";
+            const reasonColor = isHard ? "var(--danger)" : "var(--text-secondary)";
+            return (
+              <span key={b.reason} style={{ color: reasonColor }}>
+                {b.label}: {b.count} ({fmt(b.amount_minor)})
+              </span>
+            );
+          })}
         </div>
       )}
 
+      {/* ITEMIZED DECLINE LOG TABLE */}
       {!compact && expanded && itemized.length > 0 && (
-        <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(251, 191, 36, 0.15)", paddingTop: "0.875rem" }}>
-          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
+        <div style={{ marginTop: "1rem", paddingTop: "0.875rem", borderTop: "1px solid var(--border)" }}>
+          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
             ITEMIZED DECLINE LOG
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-            {itemized.slice(0, 10).map((item) => (
-              <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.35rem 0.65rem", background: "var(--bg-secondary)", borderRadius: 6, fontSize: "0.75rem" }}>
-                <span style={{ color: "var(--text-secondary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {item.human_readable_line}
-                </span>
-                <span style={{ marginLeft: "0.75rem", flexShrink: 0, fontSize: "0.6875rem", fontWeight: 700, color: REASON_COLORS[item.block_reason] || "var(--text-muted)", background: "var(--bg-primary)", border: `1px solid ${REASON_COLORS[item.block_reason] || '#888'}44`, borderRadius: 4, padding: "1px 6px" }}>
-                  {item.block_reason.replace(/_/g, " ").toUpperCase()}
-                </span>
-              </div>
-            ))}
-            {itemized.length > 10 && (
-              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", textAlign: "center", paddingTop: "0.25rem" }}>
-                +{itemized.length - 10} more cases
-              </div>
-            )}
-          </div>
+
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left", fontSize: "0.6875rem", color: "var(--text-muted)" }}>
+                <th style={{ padding: "0.5rem 0.75rem", width: 120 }}>AMOUNT</th>
+                <th style={{ padding: "0.5rem 0.75rem", width: 200 }}>CUSTOMER</th>
+                <th style={{ padding: "0.5rem 0.75rem" }}>POLICY DECLINE REASON</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itemized.slice(0, 10).map((item) => {
+                const isHard = item.block_reason === "hard_decline" || item.block_reason === "fraud";
+                const reasonLabel = item.block_reason_label || item.block_reason.replace(/_/g, " ");
+                const reasonColor = isHard ? "var(--danger)" : "var(--text-secondary)";
+
+                return (
+                  <tr key={item.id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                    <td className="font-mono" style={{ padding: "0.5rem 0.75rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                      {fmt(item.amount_minor)}
+                    </td>
+                    <td style={{ padding: "0.5rem 0.75rem", color: "var(--text-primary)", fontWeight: 500 }}>
+                      {item.customer_name || item.customer_id}
+                    </td>
+                    <td style={{ padding: "0.5rem 0.75rem", color: reasonColor }}>
+                      {reasonLabel}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {itemized.length > 10 && (
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", textAlign: "center", paddingTop: "0.5rem" }}>
+              +{itemized.length - 10} more policy-declined cases
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -3,8 +3,20 @@ import type { Metadata } from "next";
 import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "RevPlug — Autonomous Revenue Recovery Infrastructure",
-  description: "AI-assisted revenue recovery engine with deterministic safety controls and payment verification",
+  title: "RevPlug — Revenue Recovery Control Plane",
+  description: "RevPlug detects payment failures, chooses recovery actions within policy, and counts revenue only after settlement is verified.",
+  openGraph: {
+    title: "RevPlug — Revenue Recovery Control Plane",
+    description: "Detect payment failures, enforce policy bounds, execute recovery actions, and count revenue only post-settlement.",
+    siteName: "RevPlug",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "RevPlug — Revenue Recovery Control Plane",
+    description: "Detect payment failures, enforce policy bounds, execute recovery actions, and count revenue only post-settlement.",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -16,3 +28,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+

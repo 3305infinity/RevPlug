@@ -186,10 +186,10 @@ def api_simulate_settlement(
     if item is None:
         return JSONResponse(status_code=404, content={"detail": f"Recovery case {item_id} could not be found."})
 
-    if item.status not in {RecoveryStatus.INTERVENTION_EXECUTED, RecoveryStatus.PENDING_VERIFICATION}:
+    if item.status in {RecoveryStatus.STOPPED, RecoveryStatus.ESCALATED, RecoveryStatus.RECOVERED}:
         return JSONResponse(
             status_code=400,
-            content={"detail": f"Item {item_id} is in status {item.status.value}; simulated settlement requires intervention_executed or pending_verification."},
+            content={"detail": f"Item {item_id} is in terminal status {item.status.value}; settlement cannot be simulated."},
         )
 
     verifier = SettlementVerifier(
@@ -765,6 +765,27 @@ async def api_voice_promise(item_id: str, request: Request, container: Persisten
         }
         promise_created = True
 
+        if hasattr(container.decisions, "save_decision"):
+            try:
+                from app.domain.proposals import RecoveryProposal, ActionType
+                proposal = RecoveryProposal(
+                    action=ActionType.WAIT,
+                    reason=f"Customer committed to payment on {promised_date.isoformat()} via Hinglish voice transcript",
+                    confidence=extracted.confidence,
+                    model_name="HinglishPromiseExtractor",
+                )
+                container.decisions.save_decision(
+                    proposal,
+                    item_id=item_id,
+                    agent_name="hinglish_promise_assistant",
+                    policy_allowed=True,
+                    policy_rule="active_promise_wait",
+                    policy_reason=f"Active Promise-to-Pay recorded; recovery paused until {promised_date.isoformat()}",
+                    final_action="WAIT",
+                )
+            except Exception:
+                pass
+
         container.audit_log.log(
             recovery_item_id=item_id,
             actor="agent",
@@ -774,6 +795,8 @@ async def api_voice_promise(item_id: str, request: Request, container: Persisten
                 "transcript": transcript,
                 "extracted": extracted.to_dict(),
                 "promise_id": promise.id,
+                "decision": "WAIT",
+                "scheduled_follow_up": promised_date.isoformat(),
             },
         )
     else:
@@ -785,10 +808,14 @@ async def api_voice_promise(item_id: str, request: Request, container: Persisten
             metadata=extracted.to_dict(),
         )
 
+    p_date_str = extracted.promised_date if extracted.promised_date else None
     return JSONResponse(status_code=200, content={
         "extracted": extracted.to_dict(),
         "promise_created": promise_created,
         "promise": promise_record,
+        "decision": "WAIT" if promise_created else None,
+        "reason": "Customer committed to payment date" if promise_created else None,
+        "follow_up_date": p_date_str if promise_created else None,
     })
 
 @router.get("/api/customers")
@@ -892,9 +919,10 @@ def api_razorpay_status() -> dict[str, Any]:
     is_live_test_mode = bool(key_id and secret and execution_mode == "razorpay_test")
 
     return {
+        "is_live_test_mode": is_live_test_mode,
         "execution_mode": "REAL TEST MODE" if is_live_test_mode else "SIMULATED",
-        "execution_mode_description": "SIMULATED — Signature verification logic is real, gateway API calls are mocked",
-        "razorpay_connection": "Connected" if key_id else "Not configured",
+        "execution_mode_description": "REAL TEST MODE — Connected to Razorpay API in test environment" if is_live_test_mode else "SIMULATED — Signature verification logic is real, gateway API calls are mocked",
+        "razorpay_connection": "Connected (Test Mode)" if is_live_test_mode else ("Configured" if key_id else "Not configured (Simulated)"),
         "masked_key_id": f"{key_id[:8]}..." if len(key_id) >= 8 else None,
         "webhook_verification": "Enabled" if (secret or not is_live_test_mode) else "Disabled",
         "payment_link_creation": "Available",
@@ -907,22 +935,30 @@ def api_razorpay_status() -> dict[str, Any]:
 @router.get("/api/controls")
 def api_controls() -> dict[str, Any]:
     import os
+    from app.services.policy_config_service import PolicyConfigStore
+    cfg = PolicyConfigStore.get_instance().get_config()
+
     execution_mode = os.getenv("RECOVERY_EXECUTION_MODE", "simulation").lower().strip()
     key_id = os.getenv("RAZORPAY_KEY_ID", "").strip()
+    secret = os.getenv("RAZORPAY_WEBHOOK_SECRET", "").strip()
+    is_live_test = bool(key_id and secret and execution_mode == "razorpay_test")
 
     return {
-        "max_payment_retries": 3,
+        "max_payment_retries": cfg.max_retries,
+        "max_contacts_per_24h": cfg.max_contacts_per_24h,
         "customer_opt_out": "Enabled",
         "fraud_retry_protection": "Enabled",
         "recovery_deadline": "24h",
         "promise_expiry_protection": "Enabled",
         "policy_enforcement": "Mandatory",
         "human_override": "Disabled",
-        "execution_mode": "REAL TEST MODE" if (key_id and execution_mode == "razorpay_test") else "SIMULATED — Signature verification logic is real, gateway API calls are mocked",
-        "razorpay_connection": "Connected" if key_id else "SIMULATED — Signature verification logic is real, gateway API calls are mocked",
+        "execution_mode": "REAL TEST MODE" if is_live_test else "SIMULATED — Signature verification logic is real, gateway API calls are mocked",
+        "is_live_test_mode": is_live_test,
+        "razorpay_connection": "Connected (Test Mode)" if is_live_test else "SIMULATED — Signature verification logic is real, gateway API calls are mocked",
         "webhook_verification": "Enabled (HMAC-SHA256 Active)",
         "payment_link_creation": "Available",
         "settlement_verification": "Enabled",
+        "policy_version": cfg.version,
     }
 
 @router.put("/api/programs/config")

@@ -34,6 +34,12 @@ class HinglishPromiseExtractor:
     """Bounded structured extractor for Hinglish promise-to-pay customer messages."""
 
     DAY_NAMES = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    MONTH_MAP = {
+        "january": 1, "jan": 1, "february": 2, "feb": 2, "march": 3, "mar": 3,
+        "april": 4, "apr": 4, "may": 5, "june": 6, "jun": 6, "july": 7, "jul": 7,
+        "august": 8, "aug": 8, "september": 9, "sept": 9, "sep": 9, "october": 10, "oct": 10,
+        "november": 11, "nov": 11, "december": 12, "dec": 12,
+    }
 
     def extract(self, text: str, reference_date: date | None = None) -> ExtractedPromise:
         if not text or not text.strip():
@@ -49,7 +55,7 @@ class HinglishPromiseExtractor:
         lower = text.lower().strip()
 
         # Check payment intent keywords
-        intent_keywords = ["clear kar", "payment kar", "pay kare", "pay kar", "bhej doon", "dunga", "dunge", "denge", "settle"]
+        intent_keywords = ["clear kar", "payment kar", "pay kare", "pay kar", "bhej doon", "dunga", "dunge", "denge", "settle", "pay kar dungi", "pay kar dunga"]
         has_intent = any(kw in lower for kw in intent_keywords)
 
         # Extract Amount
@@ -87,13 +93,13 @@ class HinglishPromiseExtractor:
         )
 
     def _extract_amount(self, text: str) -> int | None:
-        # 1. Match numbers with unit suffix like '50 hazaar', '50 hazar', '18k', '2 lakh'
-        match = re.search(r'([\d,]+(?:\.\d+)?)\s*(k|hazaar|hazar|lakh|lac)\b', text)
+        # 1. Match numbers with unit suffix like '50 hazaar', '50 hazar', '18k', '2 lakh', '12000 rupees', '12000 rs'
+        match = re.search(r'([\d,]+(?:\.\d+)?)\s*(k|hazaar|hazar|lakh|lac|rupees|rupee|rs\.?|inr)\b', text)
         if match:
             raw_num = match.group(1).replace(',', '')
             try:
                 val = float(raw_num)
-                unit = match.group(2)
+                unit = match.group(2).rstrip('.')
                 if unit in ('k', 'hazaar', 'hazar'):
                     val *= 1000
                 elif unit in ('lakh', 'lac'):
@@ -114,8 +120,8 @@ class HinglishPromiseExtractor:
             except ValueError:
                 pass
 
-        # 3. Match standalone numbers associated with pay/clear/rupees/transfer
-        match = re.search(r'([\d,]+)\s*(?:pay|kar|clear|ko|tak|dunga|transfer)', text)
+        # 3. Match standalone numbers associated with pay/clear/rupees/transfer/dungi
+        match = re.search(r'([\d,]+)\s*(?:pay|kar|clear|ko|tak|dunga|dungi|transfer|rupees|rs)', text)
         if match:
             raw_num = match.group(1).replace(',', '')
             try:
@@ -142,16 +148,53 @@ class HinglishPromiseExtractor:
         if "parso" in text:
             return ref + timedelta(days=2)
 
+        # Check explicit month name with day e.g. "15 September", "15th Sept 2026", "September 15"
+        match = re.search(
+            r'(\d{1,2})\s*(?:st|nd|rd|th)?\s*(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sept|sep|october|oct|november|nov|december|dec)\b(?:\s*(\d{4}))?',
+            text,
+        )
+        if match:
+            day_num = int(match.group(1))
+            month_name = match.group(2)
+            year_str = match.group(3)
+            month_num = self.MONTH_MAP.get(month_name)
+            if month_num and 1 <= day_num <= 31:
+                year_val = int(year_str) if year_str else ref.year
+                try:
+                    target_date = date(year_val, month_num, day_num)
+                    if not year_str and target_date < ref:
+                        target_date = date(year_val + 1, month_num, day_num)
+                    return target_date
+                except ValueError:
+                    pass
+
+        match = re.search(
+            r'(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sept|sep|october|oct|november|nov|december|dec)\s*(\d{1,2})\s*(?:st|nd|rd|th)?\b(?:\s*(\d{4}))?',
+            text,
+        )
+        if match:
+            month_name = match.group(1)
+            day_num = int(match.group(2))
+            year_str = match.group(3)
+            month_num = self.MONTH_MAP.get(month_name)
+            if month_num and 1 <= day_num <= 31:
+                year_val = int(year_str) if year_str else ref.year
+                try:
+                    target_date = date(year_val, month_num, day_num)
+                    if not year_str and target_date < ref:
+                        target_date = date(year_val + 1, month_num, day_num)
+                    return target_date
+                except ValueError:
+                    pass
+
         # Check "X tareekh / tarik / tarikh" pattern e.g. "5 tareekh ko"
         match = re.search(r'(\d{1,2})\s*(?:st|nd|rd|th)?\s*(?:tareekh|tarik|tarikh|date)', text)
         if match:
             day_num = int(match.group(1))
             if 1 <= day_num <= 31:
-                # Try current month first
                 try:
                     target_date = date(ref.year, ref.month, day_num)
                     if target_date < ref:
-                        # Target day in current month has passed, roll to next month
                         next_month = ref.month % 12 + 1
                         next_year = ref.year + (1 if next_month == 1 else 0)
                         target_date = date(next_year, next_month, day_num)

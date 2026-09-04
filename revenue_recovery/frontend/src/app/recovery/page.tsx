@@ -169,9 +169,9 @@ export default function RecoveryInboxPage() {
           <div style={{ fontSize: "0.75rem", color: "#10b981", marginTop: 2 }}>HMAC verified settlement</div>
         </div>
 
-        <div style={{ padding: "1rem", background: "linear-gradient(135deg, rgba(251, 191, 36, 0.10) 0%, rgba(245, 158, 11, 0.05) 100%)", borderRadius: 8, border: "1px solid rgba(251, 191, 36, 0.3)" }}>
-          <div style={{ fontSize: "0.6875rem", color: "#f59e0b", textTransform: "uppercase", fontWeight: 700 }}>🛡 CAPITAL PROTECTED</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#fbbf24", marginTop: 4, fontFamily: "monospace" }}>
+        <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+          <div style={{ fontSize: "0.6875rem", color: "var(--warning)", textTransform: "uppercase", fontWeight: 700 }}>CAPITAL PROTECTED</div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text-primary)", marginTop: 4, fontFamily: "monospace" }}>
             {fmt(items.filter((i) => i.status === "stopped" || i.status === "escalated").reduce((acc, i) => acc + i.amount_minor, 0))}
           </div>
           <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>

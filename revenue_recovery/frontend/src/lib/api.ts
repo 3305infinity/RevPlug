@@ -63,6 +63,9 @@ export interface VoicePromiseResponse {
   extracted: ExtractedPromise;
   promise_created: boolean;
   promise: PromiseToPay | null;
+  decision?: string | null;
+  reason?: string | null;
+  follow_up_date?: string | null;
 }
 
 export interface PromiseSummary {
@@ -644,16 +647,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ transcript, reference_date: referenceDate }),
     }),
-  
-  // Batches
-  batches: () => fetchAPI<Batch[]>("/api/batches"),
-  batchDetail: (id: string) => fetchAPI<Batch>(`/api/batches/${id}`),
-  enqueueBatch: (id: string) => fetchAPI<{ status: string; jobs: number }>(`/api/batches/${id}/enqueue`, { method: "POST" }),
-  datasets: () => fetchAPI<Array<{ label: string; description: string; item_count: number }>>("/api/demo/datasets"),
-  runDataset: (label: string) => fetchAPI<{ status: string; batch_id: string }>(`/api/demo/datasets/${label}/run`, { method: "POST" }),
-  
-  // Time-Series
-  tsRecovered: () => fetchAPI<TimeSeriesPoint[]>("/api/time-series/recovered-by-day"),
+  simulateSettlement: (itemId: string) =>
+    fetchAPI<{ status: string; recovery_item_id: string; verification_result: string; actual_recovery_minor: number; final_status: string }>(
+      `/api/recovery-items/${itemId}/simulate-settlement`,
+      { method: "POST" }
+    ),
   tsRisk: () => fetchAPI<TimeSeriesPoint[]>("/api/time-series/revenue-at-risk-by-day"),
   tsAttempts: () => fetchAPI<TimeSeriesPoint[]>("/api/time-series/attempts-by-day"),
   tsStopped: () => fetchAPI<TimeSeriesPoint[]>("/api/time-series/stopped-by-reason"),

@@ -1,4 +1,4 @@
-"""Tests for POST /api/recovery-items/{item_id}/voice-promise."""
+"""Tests for POST /api/recovery-items/{item_id}/voice-promise and Hinglish promise extraction."""
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -25,6 +25,39 @@ def _create_case(client: TestClient, customer_id: str = "cust_voice_test") -> st
     resp = client.post("/api/recovery-items/create", json=payload)
     assert resp.status_code == 201, resp.text
     return resp.json()["id"]
+
+
+def test_voice_promise_demo_transcript_creates_promise_and_wait_decision(client: TestClient):
+    """Target demo utterance extracts ₹12,000 promise and sets WAIT decision."""
+    item_id = _create_case(client, customer_id="cust_voice_demo")
+    transcript = "Abhi payment nahi ho pa raha hai, main 15 September ko 12000 rupees pay kar dungi."
+    ref_date = "2026-09-04"
+
+    resp = client.post(f"/api/recovery-items/{item_id}/voice-promise", json={
+        "transcript": transcript,
+        "reference_date": ref_date,
+    })
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    assert data["extracted"]["intent"] == "promise_to_pay"
+    assert data["extracted"]["amount_minor"] == 1200000
+    assert data["extracted"]["promised_date"] == "2026-09-15"
+    assert data["extracted"]["confidence"] >= 0.80
+    assert data["promise_created"] is True
+    assert data["promise"] is not None
+    assert data["promise"]["recovery_item_id"] == item_id
+    assert data["promise"]["promised_amount_minor"] == 1200000
+    assert data["promise"]["status"] == "promised"
+    assert data["decision"] == "WAIT"
+    assert data["follow_up_date"] == "2026-09-15"
+
+    # Confirm persistence via GET active promise endpoint
+    promise_resp = client.get(f"/api/promises/by-item/{item_id}?active=true")
+    assert promise_resp.status_code == 200
+    promise_data = promise_resp.json()
+    assert promise_data["promised_amount_minor"] == 1200000
+    assert promise_data["promised_date"] == "2026-09-15"
 
 
 def test_voice_promise_valid_hindi_transcript_creates_promise(client: TestClient):
@@ -81,6 +114,24 @@ def test_voice_promise_missing_amount_returns_incomplete(client: TestClient):
 
     assert data["extracted"]["intent"] == "incomplete_promise"
     assert data["extracted"]["amount_minor"] is None
+    assert data["promise_created"] is False
+    assert data["promise"] is None
+
+
+def test_voice_promise_missing_date_returns_incomplete(client: TestClient):
+    """Transcript with amount but no date should return incomplete promise."""
+    item_id = _create_case(client, customer_id="cust_voice_no_date")
+    transcript = "Main 12000 rupees pay kar dunga"
+
+    resp = client.post(f"/api/recovery-items/{item_id}/voice-promise", json={
+        "transcript": transcript,
+    })
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    assert data["extracted"]["intent"] == "incomplete_promise"
+    assert data["extracted"]["amount_minor"] == 1200000
+    assert data["extracted"]["promised_date"] is None
     assert data["promise_created"] is False
     assert data["promise"] is None
 

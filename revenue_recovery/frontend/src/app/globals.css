@@ -3,21 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --bg-root: #0d1117;
-  --bg-primary: #161b22;
-  --bg-secondary: #181e28;
-  --bg-tertiary: #21262d;
-  --bg-card: #161b22;
-  --bg-elevated: #21262d;
-  --border: #21262d;
-  --border-subtle: #1b2028;
+  --bg-root: #0a0d14;
+  --bg-primary: #121722;
+  --bg-secondary: #161c2b;
+  --bg-tertiary: #1e2638;
+  --bg-card: #121722;
+  --bg-elevated: #1a2233;
+  --border: #1c2334;
+  --border-subtle: #161c28;
   --border-focus: #2563eb;
-  --text-primary: #f0f6fc;
-  --text-secondary: #8b949e;
-  --text-muted: #6e7681;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-subtle: rgba(59, 130, 246, 0.08);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #38bdf8;
+  --accent-hover: #0284c7;
+  --accent-subtle: rgba(56, 189, 248, 0.08);
   --success: #10b981;
   --success-subtle: rgba(16, 185, 129, 0.08);
   --warning: #f59e0b;
@@ -288,4 +288,30 @@ a:hover {
 .glow-box {
   box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.05);
 }
+
+/* RESPONSIVE UTILITIES */
+@media (max-width: 767px) {
+  .hidden-mobile {
+    display: none !important;
+  }
+  .mobile-menu-toggle {
+    display: flex !important;
+  }
+  .grid-responsive-2 {
+    grid-template-columns: 1fr !important;
+  }
+  .grid-responsive-4 {
+    grid-template-columns: 1fr !important;
+  }
+  .grid-responsive-7 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .grid-responsive-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
 

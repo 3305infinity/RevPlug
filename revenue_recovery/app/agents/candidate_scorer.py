@@ -262,6 +262,12 @@ def build_ranked_proposal(
         )
 
     primary_reason = top.reason or f"{top.action.value} selected with highest EV ({_fmt_ev(top.net_expected_recovery)})"
+    all_registered = [a.value for a in RecoveryAction if a not in {RecoveryAction.WAIT, RecoveryAction.NO_ACTION}]
+    eligible_set = set(eligible)
+    excluded = [a for a in all_registered if a not in eligible_set]
+
+    cat_val = context.failure_category.value if hasattr(context.failure_category, "value") else str(context.failure_category)
+
     return RecoveryProposal(
         action=top.action,
         reason=primary_reason,
@@ -272,6 +278,12 @@ def build_ranked_proposal(
             "candidate_count": len(scored),
             "top_net_ev": top.net_expected_recovery,
             "top_probability": top.recovery_probability,
+            "eligible_candidates": [
+                {"action": a, "reason": f"Eligible for {cat_val} failure category"} for a in eligible
+            ],
+            "excluded_candidates": [
+                {"action": a, "reason": f"Excluded by domain eligibility for {cat_val} category or state"} for a in excluded
+            ],
         },
         diagnosis={"diagnosis_source": "rules", "ranking_method": "ev_net"},
         candidates=scored,
