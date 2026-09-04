@@ -2,13 +2,30 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { api, EvaluationReport } from "@/lib/api";
+import CreateCaseModal from "@/components/recovery/CreateCaseModal";
 
 type Status = "loading" | "error" | "ready";
 
-export default function AIPerformance() {
+interface FailureInjectionResponse {
+  status: string;
+  failure_type: string;
+  system_reaction: string;
+  [key: string]: any;
+}
+
+export default function ReliabilityFailureLab() {
   const [report, setReport] = useState<EvaluationReport | null>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
+
+  // Interactive failure injection lab state
+  const [selectedFailure, setSelectedFailure] = useState<string | null>(null);
+  const [injectionLoading, setInjectionLoading] = useState(false);
+  const [injectionResult, setInjectionResult] = useState<FailureInjectionResponse | null>(null);
+  const [injectionError, setInjectionError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const apiHost = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
   useEffect(() => {
     api.evaluations()
@@ -16,6 +33,38 @@ export default function AIPerformance() {
       .catch((err) => { setError(err instanceof Error ? err.message : "Failed to load"); setStatus("error"); })
       .finally(() => setStatus("ready"));
   }, []);
+
+  const handleInjectFailure = async (failureType: string) => {
+    if (failureType === "synthetic_event") {
+      setIsModalOpen(true);
+      return;
+    }
+
+    setSelectedFailure(failureType);
+    setInjectionLoading(true);
+    setInjectionResult(null);
+    setInjectionError(null);
+
+    try {
+      const res = await fetch(`${apiHost}/api/demo/inject-failure`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ failure_type: failureType }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `HTTP ${res.status}: Failed to execute failure scenario`);
+      }
+
+      const data = await res.json();
+      setInjectionResult(data);
+    } catch (err) {
+      setInjectionError(err instanceof Error ? err.message : "Failure injection error");
+    } finally {
+      setInjectionLoading(false);
+    }
+  };
 
   const safetyPassed = useMemo(() => {
     if (!report) return 0;
@@ -36,7 +85,7 @@ export default function AIPerformance() {
     return (
       <div style={{ textAlign: "center", padding: "4rem 2rem" }}>
         <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⚠️</div>
-        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.5rem" }}>Unable to load AI performance data</h2>
+        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.5rem" }}>Unable to load reliability lab data</h2>
         <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginBottom: "1.25rem" }}>{error}</p>
         <button onClick={() => window.location.reload()} className="btn-primary">Retry</button>
       </div>
@@ -55,23 +104,160 @@ export default function AIPerformance() {
     );
   }
 
+  const failureScenarios = [
+    {
+      id: "synthetic_event",
+      label: "Synthetic Failure Injection",
+      desc: "Simulate incoming payment failure webhook with custom customer, amount, & risk flags.",
+      badge: "Ingestion Lab",
+      color: "var(--accent)",
+    },
+    {
+      id: "llm_timeout",
+      label: "LLM Timeout (504)",
+      desc: "Simulate LLM gateway timeout during diagnosis. Proves deterministic policy fallback.",
+      badge: "AI Resilience",
+      color: "#f59e0b",
+    },
+    {
+      id: "executor_failure",
+      label: "Gateway 502 Bad Gateway",
+      desc: "Simulate Razorpay 502 API failure during dispatch. Verifies observation & dynamic re-planning.",
+      badge: "Gateway Resilience",
+      color: "#ef4444",
+    },
+    {
+      id: "duplicate_webhook",
+      label: "Duplicate Webhook Event",
+      desc: "Simulate duplicate payment failure webhook payload. Verifies idempotency store deduplication.",
+      badge: "Idempotency",
+      color: "#10b981",
+    },
+    {
+      id: "payment_success_race",
+      label: "Payment Success Race",
+      desc: "Simulate customer manual payment arriving during recovery worker attempt.",
+      badge: "Concurrency Guard",
+      color: "#8b5cf6",
+    },
+    {
+      id: "policy_violation",
+      label: "Policy Override Attempt",
+      desc: "Simulate model proposing unsafe retry on hard failure. Verifies PolicyEngine enforcement.",
+      badge: "Deterministic Shield",
+      color: "#ec4899",
+    },
+    {
+      id: "unknown_action",
+      label: "Hallucinated Action / Registry",
+      desc: "Simulate LLM proposing hallucinated action. Verifies ActionRegistry allowlist rejection.",
+      badge: "Safety Allowlist",
+      color: "#06b6d4",
+    },
+  ];
+
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em" }}>AI Performance</h1>
+    <div style={{ maxWidth: 1100, margin: "0 auto", paddingBottom: "3rem" }}>
+      {/* HEADER */}
+      <div style={{ marginBottom: "1.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "1rem" }}>
+        <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          DEVELOPER &amp; JUDGING SANDBOX
+        </div>
+        <h1 style={{ marginTop: 2, fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em" }}>
+          Reliability / Failure Lab
+        </h1>
         <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>
-          How the recovery agent performs across safety and accuracy
+          Controlled sandbox environment for failure scenario testing, LLM fallback validation, idempotency guards, and golden scenario evaluations.
         </p>
       </div>
 
-      <div className="card" style={{ padding: "0.875rem 1.25rem", marginBottom: "1.5rem", background: "var(--accent-subtle)", border: "1px solid rgba(99,102,241,0.15)", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        <svg width="18" height="18" fill="none" stroke="var(--accent)" strokeWidth="2" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-        </svg>
-        <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--accent)" }}>AI proposes. Policy decides.</span>
+      {/* ── SECTION 1: INTERACTIVE FAILURE INJECTION LAB ── */}
+      <div className="card" style={{ padding: "1.5rem", marginBottom: "2rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+          <div>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              FAILURE INJECTION &amp; RESILIENCY TEST SUITE
+            </div>
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 2 }}>
+              Trigger synthetic infrastructure failures, model hallucinations, and race conditions to verify system boundary safety.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.875rem", marginBottom: "1.5rem" }}>
+          {failureScenarios.map((scen) => (
+            <button
+              key={scen.id}
+              onClick={() => handleInjectFailure(scen.id)}
+              disabled={injectionLoading && selectedFailure === scen.id}
+              style={{
+                textAlign: "left",
+                padding: "1rem",
+                borderRadius: 8,
+                background: "var(--bg-primary)",
+                border: "1px solid var(--border)",
+                cursor: "pointer",
+                transition: "border-color 0.15s, background 0.15s",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                  {scen.label}
+                </span>
+                <span style={{ fontSize: "0.625rem", fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "var(--bg-secondary)", color: scen.color, border: "1px solid var(--border)" }}>
+                  {scen.badge}
+                </span>
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                {scen.desc}
+              </div>
+              <div style={{ marginTop: 10, fontSize: "0.6875rem", fontWeight: 700, color: scen.color }}>
+                {injectionLoading && selectedFailure === scen.id ? "Injecting & Testing..." : "Run Failure Test →"}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* INJECTION RESULT EVIDENCE DISPLAY */}
+        {injectionError && (
+          <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid #ef4444", color: "#ef4444", padding: "1rem", borderRadius: 8, fontSize: "0.8125rem", fontWeight: 600 }}>
+            Injection Failure: {injectionError}
+          </div>
+        )}
+
+        {injectionResult && (
+          <div style={{ background: "var(--bg-secondary)", padding: "1.25rem", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span className="status-badge status-recovered" style={{ fontSize: "0.6875rem" }}>
+                  {injectionResult.status.toUpperCase()}
+                </span>
+                <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "monospace" }}>
+                  {injectionResult.failure_type}
+                </span>
+              </div>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>LIVE BACKEND REACTION EVIDENCE</span>
+            </div>
+
+            <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "#10b981", marginBottom: "0.75rem" }}>
+              ✓ {injectionResult.system_reaction}
+            </div>
+
+            <pre style={{ background: "var(--bg-primary)", padding: "0.875rem", borderRadius: 6, border: "1px solid var(--border)", fontSize: "0.75rem", fontFamily: "monospace", overflowX: "auto", margin: 0 }}>
+              {JSON.stringify(injectionResult, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "2rem" }}>
+      {/* ── SECTION 2: AI SAFETY & GOLDEN SCENARIOS ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
+        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          GOLDEN SCENARIO EVALUATION SUITE
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
         <MetricCard label="Decision Accuracy" value={`${(report.pass_rate * 100).toFixed(0)}%`} sub="Pass rate" accent="var(--accent)" />
         <MetricCard label="Safety Accuracy" value={`${(safetyRate * 100).toFixed(0)}%`} sub="No unsafe retries proposed" accent={safetyRate >= 0.9 ? "var(--success)" : "var(--warning)"} />
         <MetricCard label="Scenarios Tested" value={String(report.total)} sub="Golden scenarios" accent="var(--purple)" />
@@ -131,11 +317,17 @@ export default function AIPerformance() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: "1.5rem", padding: "1.25rem 1.5rem", background: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
-        <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          <strong style={{ color: "var(--text-primary)" }}>How this works:</strong> Each scenario tests a specific failure category and verifies the agent produces a safe, appropriate recommendation. Safety-critical scenarios (fraud, hard decline, retry limits, opt-out) are weighted to ensure no unsafe retry is ever proposed. All decisions are validated against the deterministic PolicyEngine before execution.
-        </div>
-      </div>
+      <CreateCaseModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={() => {
+          setInjectionResult({
+            status: "handled_safely",
+            failure_type: "synthetic_event",
+            system_reaction: "Synthetic failure event successfully ingested into operational recovery queue.",
+          });
+        }}
+      />
     </div>
   );
 }

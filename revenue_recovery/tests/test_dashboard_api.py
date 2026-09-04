@@ -568,3 +568,87 @@ class TestHumanInTheLoop:
         assert report["financial_kpis"]["revenue_recovered_minor"] == 0
 
 
+class TestQueueSemanticsAndStatusClassification:
+    def test_status_sets_semantics(self):
+        """Verifies _ACTIVE_STATUSES and _TERMINAL_STATUSES are correctly partitioned."""
+        from app.dashboard_api import _ACTIVE_STATUSES, _TERMINAL_STATUSES, _AT_RISK_STATUSES
+
+        # Active statuses must include pending_verification and open states
+        assert "pending_verification" in _ACTIVE_STATUSES
+        assert "queued" in _ACTIVE_STATUSES
+        assert "intervention_executed" in _ACTIVE_STATUSES
+
+        # Terminal statuses must include recovered, stopped, failed, escalated
+        assert "recovered" in _TERMINAL_STATUSES
+        assert "stopped" in _TERMINAL_STATUSES
+        assert "failed" in _TERMINAL_STATUSES
+        assert "escalated" in _TERMINAL_STATUSES
+
+        # Terminal statuses must NOT be in _ACTIVE_STATUSES or _AT_RISK_STATUSES
+        for term in _TERMINAL_STATUSES:
+            assert term not in _ACTIVE_STATUSES
+            assert term not in _AT_RISK_STATUSES
+
+    def test_dashboard_summary_revenue_at_risk_excludes_terminal_cases(self, client):
+        """Revenue at risk and expected recovery must aggregate active open cases only."""
+        from app.domain.models import RecoveryItem, RecoveryStatus, SourceType
+        from datetime import datetime, timezone
+
+        container = client.app.state.container
+        container.reset_demo_data()
+
+        # 1. Active pending_verification item
+        item_active = RecoveryItem(
+            id="item_active_verif",
+            source_type=SourceType.PAYMENT_FAILURE,
+            external_id="ext_active_1",
+            customer_id="cust_sem_1",
+            amount_minor=100000,
+            currency="INR",
+            created_at=datetime.now(timezone.utc),
+            status=RecoveryStatus.PENDING_VERIFICATION,
+            expected_recovery_value=65000,
+            metadata={"source": "webhook_live", "is_synthetic": False},
+        )
+        # 2. Terminal stopped item
+        item_stopped = RecoveryItem(
+            id="item_terminal_stop",
+            source_type=SourceType.PAYMENT_FAILURE,
+            external_id="ext_stopped_1",
+            customer_id="cust_sem_2",
+            amount_minor=200000,
+            currency="INR",
+            created_at=datetime.now(timezone.utc),
+            status=RecoveryStatus.STOPPED,
+            expected_recovery_value=120000,
+            stopped_reason="High fraud risk signal",
+            metadata={"source": "webhook_live", "is_synthetic": False},
+        )
+        # 3. Terminal recovered item
+        item_recovered = RecoveryItem(
+            id="item_terminal_rec",
+            source_type=SourceType.PAYMENT_FAILURE,
+            external_id="ext_rec_1",
+            customer_id="cust_sem_3",
+            amount_minor=300000,
+            currency="INR",
+            created_at=datetime.now(timezone.utc),
+            status=RecoveryStatus.RECOVERED,
+            actual_recovery_value=300000,
+            metadata={"source": "webhook_live", "is_synthetic": False},
+        )
+
+        container.recovery_items.save(item_active)
+        container.recovery_items.save(item_stopped)
+        container.recovery_items.save(item_recovered)
+
+        summary = client.get("/api/dashboard/summary").json()
+
+        # Revenue at risk must include only active item (100,000 minor)
+        assert summary["revenue_at_risk"] == 100000
+
+        # Expected recovery must include only active item (65,000 minor)
+        assert summary["expected_recovery"] == 65000
+
+
+

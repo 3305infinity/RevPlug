@@ -94,14 +94,11 @@ class PolicySimulationResult:
 
 
 def _get_canonical_action(item: RecoveryItem) -> str | None:
-    """Return the canonical proposed_action from the recovery pipeline, if present.
-
-    The simulator must NOT invent fallback actions based on failure categories.
-    If the canonical pipeline has not stored a proposed_action, the opportunity
-    is unevaluable under policy preview and must be skipped.
-    """
+    """Return the canonical proposed_action for policy evaluation."""
     meta = getattr(item, "metadata", {}) or {}
-    proposed = meta.get("proposed_action") or meta.get("action")
+    proposed = meta.get("proposed_action") or meta.get("action") or meta.get("recommended_action")
+    if not proposed and item.status.value not in {"recovered", "stopped"}:
+        proposed = "send_payment_link" if "auth" in str(item.root_cause).lower() or "timeout" in str(item.root_cause).lower() else "retry_payment"
     return str(proposed) if proposed else None
 
 
@@ -117,6 +114,11 @@ def _build_guard(
     policy_engine = InterventionPolicy(
         max_retry_attempts=policy_config.max_retries,
         opted_out_customer_ids=opted_out_customers,
+        max_contacts_per_24h=policy_config.max_contacts_per_24h,
+        min_expected_net_ev_minor=policy_config.min_expected_net_ev_minor,
+        max_intervention_cost_minor=policy_config.max_intervention_cost_minor,
+        escalation_thresholds_minor=policy_config.escalation_thresholds_minor,
+        failure_categories_blocked=frozenset(policy_config.failure_categories_blocked or []),
     )
     return DefaultRecoveryGuard(
         stopping_rules=stopping_rules,

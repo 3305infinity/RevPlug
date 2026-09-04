@@ -87,3 +87,98 @@ def test_systemic_leak_detector_identifies_cluster_spikes():
     inc = incidents[0]
     assert inc.payment_method == "upi"
     assert inc.multiplier >= 2.0
+
+
+def test_case_creation_collision_safe_uuid_generation():
+    """Verifies creating two cases for the same customer in the same second produces distinct UUID-based IDs."""
+    client = TestClient(app)
+
+    payload1 = {
+        "customer_id": "cust_same_sec_101",
+        "customer_name": "Rapid Customer",
+        "amount_minor": 100000,
+        "currency": "INR",
+        "event_type": "payment_failed",
+        "failure_reason": "payment_timed_out",
+        "payment_method": "upi",
+        "reference_id": "ref_same_sec_1",
+    }
+    payload2 = {
+        "customer_id": "cust_same_sec_101",
+        "customer_name": "Rapid Customer",
+        "amount_minor": 200000,
+        "currency": "INR",
+        "event_type": "payment_failed",
+        "failure_reason": "payment_timed_out",
+        "payment_method": "upi",
+        "reference_id": "ref_same_sec_2",
+    }
+
+    resp1 = client.post("/api/recovery-items/create", json=payload1)
+    resp2 = client.post("/api/recovery-items/create", json=payload2)
+
+    assert resp1.status_code in (200, 201)
+    assert resp2.status_code in (200, 201)
+
+    d1 = resp1.json()
+    d2 = resp2.json()
+
+    # Response contract assertions
+    assert "id" in d1 and "recovery_item_id" in d1
+    assert d1["id"] == d1["recovery_item_id"]
+    assert d1["id"].startswith("rec_")
+
+    assert "id" in d2 and "recovery_item_id" in d2
+    assert d2["id"] == d2["recovery_item_id"]
+    assert d2["id"].startswith("rec_")
+
+    # Collision safety assertion
+    assert d1["id"] != d2["id"]
+
+
+def test_case_creation_initial_state_normal_soft_timeout():
+    """Verifies normal soft gateway timeout creates an evaluable queued case without stopping rules."""
+    client = TestClient(app)
+
+    payload = {
+        "customer_id": "cust_normal_flow_200",
+        "customer_name": "Normal Client",
+        "amount_minor": 499900,
+        "currency": "INR",
+        "event_type": "payment_failed",
+        "failure_reason": "payment_timed_out",
+        "payment_method": "upi",
+        "consent_opt_out": False,
+        "fraud_risk": False,
+    }
+
+    resp = client.post("/api/recovery-items/create", json=payload)
+    assert resp.status_code in (200, 201)
+    data = resp.json()
+
+    assert data["status"] == "queued"
+    assert data["stopped_reason"] is None
+
+
+def test_case_creation_initial_state_fraud_risk_blocked():
+    """Verifies fraud risk signal creates a stopped item immediately via safety gate."""
+    client = TestClient(app)
+
+    payload = {
+        "customer_id": "cust_fraud_risk_300",
+        "customer_name": "High Risk Client",
+        "amount_minor": 999900,
+        "currency": "INR",
+        "event_type": "payment_failed",
+        "failure_reason": "payment_timed_out",
+        "payment_method": "card",
+        "fraud_risk": True,
+    }
+
+    resp = client.post("/api/recovery-items/create", json=payload)
+    assert resp.status_code in (200, 201)
+    data = resp.json()
+
+    assert data["status"] == "stopped"
+    assert "fraud" in data["stopped_reason"].lower()
+

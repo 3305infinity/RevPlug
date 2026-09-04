@@ -991,6 +991,7 @@ export interface Customer360Profile {
   customer_value_tier: string;
   previous_opt_outs: boolean;
   current_subscription_state: string;
+  recovery_status: string;
   payment_methods_used: string[];
   previous_recovery_actions: string[];
   channel_performance: Array<{

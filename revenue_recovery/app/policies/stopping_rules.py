@@ -218,9 +218,10 @@ class StoppingRules:
 
     def _is_fraud_detected(self, item: RecoveryItem) -> bool:
         return (
-            item.root_cause in {"fraud", "security_or_fraud"}
+            item.root_cause in {"fraud", "security_or_fraud", "FRAUD_BLOCK"}
             or item.metadata.get("fraud_flag") is True
             or item.metadata.get("is_fraud") is True
+            or item.metadata.get("fraud_risk") is True
         )
 
     def _is_retry_budget_exhausted(self, item: RecoveryItem) -> bool:

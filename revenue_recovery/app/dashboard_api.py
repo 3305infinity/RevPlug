@@ -22,9 +22,9 @@ from app.agents.llm_agent import RealRecoveryDecisionAgent
 
 
 # Status sets — centralised so changes propagate everywhere
-_ACTIVE_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "pending_verification", "failed"})
-_TERMINAL_STATUSES = frozenset({"recovered", "stopped", "escalated"})
-_AT_RISK_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "pending_verification", "failed"})
+_ACTIVE_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "pending_verification"})
+_TERMINAL_STATUSES = frozenset({"recovered", "stopped", "failed", "escalated"})
+_AT_RISK_STATUSES = frozenset({"detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "pending_verification"})
 
 
 # ---------------------------------------------------------------------------
@@ -716,7 +716,7 @@ def build_customer_economics(container, customer_id: str) -> dict[str, Any]:
 
     total_cases = len(items)
     revenue_at_risk = sum(i.amount_minor for i in items if i.status.value in _AT_RISK_STATUSES)
-    expected_recovery = sum(i.expected_recovery_value or 0 for i in items)
+    expected_recovery = sum(i.expected_recovery_value or 0 for i in items if i.status.value in _AT_RISK_STATUSES)
     actually_recovered = _actual_recovered_from_outcomes(container, item_ids)
     recovery_rate = actually_recovered / sum(i.amount_minor for i in items) if items else 0.0
 

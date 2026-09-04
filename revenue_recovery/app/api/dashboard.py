@@ -76,12 +76,13 @@ async def api_evaluate_and_recover_item(
     from app.domain.failures import FailureCategory
     cat = FailureCategory.SOFT
     rc = str(item.root_cause or "").upper()
-    if "AUTH" in rc:
+    meta = item.metadata or {}
+    if "FRAUD" in rc or meta.get("fraud_risk") or meta.get("fraud_flag") or meta.get("is_fraud"):
+        cat = FailureCategory.FRAUD
+    elif "AUTH" in rc:
         cat = FailureCategory.AUTHENTICATION_REQUIRED
     elif "HARD" in rc or "EXPIRED" in rc:
         cat = FailureCategory.HARD
-    elif "FRAUD" in rc:
-        cat = FailureCategory.FRAUD
     elif "CONSENT" in rc:
         cat = FailureCategory.SOFT
     elif "MANDATE" in rc:
@@ -261,21 +262,16 @@ def api_create_recovery_item(payload: dict[str, Any], container: PersistenceCont
     }
     source_type = source_map.get(event_type, SourceType.PAYMENT_FAILURE)
 
-    item_id = f"rec_{int(time.time())}_{customer_id[-4:] if len(customer_id) >= 4 else customer_id}"
+    import uuid
+    item_id = f"rec_{uuid.uuid4().hex[:12]}"
 
     # Determine status & root cause
-    if consent_opt_out:
-        status = RecoveryStatus.STOPPED
-        stopped_reason = "Customer consent opt-out policy shield active"
-    elif fraud_risk or root_cause == "FRAUD_BLOCK":
-        status = RecoveryStatus.STOPPED
-        stopped_reason = "High fraud risk signal detected by safety gate"
-    else:
-        status = RecoveryStatus.QUEUED
-        stopped_reason = None
+    # All cases start QUEUED so evaluation & policy checks run in sequence
+    status = RecoveryStatus.QUEUED
+    stopped_reason = None
 
     # Calculate expected recovery & priority
-    prob = 0.15 if status == RecoveryStatus.STOPPED else (0.75 if "upi" in payment_method else 0.65)
+    prob = 0.15 if (fraud_risk or consent_opt_out) else (0.75 if "upi" in payment_method else 0.65)
     exp_val = int(amount_minor * prob)
     priority = "CRITICAL" if amount_minor >= 1000000 else ("HIGH" if amount_minor >= 500000 else "MEDIUM")
 
@@ -309,7 +305,9 @@ def api_create_recovery_item(payload: dict[str, Any], container: PersistenceCont
 
     container.recovery_items.save(item)
 
-    return JSONResponse(status_code=201, content=_item_to_dict(item))
+    resp_content = _item_to_dict(item)
+    resp_content["recovery_item_id"] = item.id
+    return JSONResponse(status_code=201, content=resp_content)
 
 def _make_item_stub_from_dict(item) -> Any:
     from datetime import datetime, timezone

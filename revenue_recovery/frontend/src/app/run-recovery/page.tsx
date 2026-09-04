@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api, RecoveryItem, SimulationResult } from "@/lib/api";
 import { getCustomerDisplayName } from "@/lib/customerDisplay";
 import DecisionTraceView from "@/components/recovery/DecisionTraceView";
@@ -10,6 +11,7 @@ import CreateCaseModal from "@/components/recovery/CreateCaseModal";
 type Phase = "idle" | "running" | "complete" | "error";
 
 export default function SingleCaseRecoveryControlPlane() {
+  const router = useRouter();
   const [items, setItems] = useState<RecoveryItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [selectedItemId, setSelectedItemId] = useState<string>("");
@@ -59,14 +61,26 @@ export default function SingleCaseRecoveryControlPlane() {
     return items.find((i) => i.id === selectedItemId) || null;
   }, [items, selectedItemId]);
 
+  const [liveTrace, setLiveTrace] = useState<CaseTrace | null>(null);
+
+  const fetchTrace = useCallback(async (id: string) => {
+    try {
+      const t = await api.caseTrace(id);
+      setLiveTrace(t);
+    } catch {
+      setLiveTrace(null);
+    }
+  }, []);
+
   const handleSelectCase = (id: string) => {
     setSelectedItemId(id);
     setPhase("idle");
     setResult(null);
     setErrorMsg("");
+    fetchTrace(id);
   };
 
-  const handleEvaluateAndRecover = async () => {
+  const handleEvaluateAndDispatch = async () => {
     if (!selectedItem) return;
 
     setPhase("running");
@@ -74,7 +88,6 @@ export default function SingleCaseRecoveryControlPlane() {
     setResult(null);
 
     try {
-      // Execute authentic backend recovery orchestration for selected item
       const res = await api.runSimulation({
         item_id: selectedItem.id,
         customer_id: selectedItem.customer_id,
@@ -86,10 +99,27 @@ export default function SingleCaseRecoveryControlPlane() {
 
       setResult(res);
       setPhase("complete");
-      // Reload items to reflect updated status in real-time
-      loadItems();
+      await loadItems();
+      await fetchTrace(selectedItem.id);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Recovery evaluation failed");
+      setPhase("error");
+    }
+  };
+
+  const handleVerifySettlement = async () => {
+    if (!selectedItem) return;
+
+    setPhase("running");
+    setErrorMsg("");
+    try {
+      const res = await api.simulateSettlement(selectedItem.id);
+      setResult(res as any);
+      setPhase("complete");
+      await loadItems();
+      await fetchTrace(selectedItem.id);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Settlement verification failed");
       setPhase("error");
     }
   };
@@ -109,64 +139,41 @@ export default function SingleCaseRecoveryControlPlane() {
             Single Case Evaluation & Execution
           </h1>
           <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>
-            Select an active recovery case from the backend queue to evaluate failure diagnostics, expected value (Net EV), policy shields, and closed-loop execution.
+            Select an active recovery case from the queue to evaluate root cause diagnostics, Net EV, deterministic policy shields, and closed-loop execution.
           </div>
         </div>
 
-        {/* AI REASONING SYSTEM CONFIGURATION */}
-        <div style={{ background: "var(--bg-primary)", padding: "0.65rem 0.85rem", borderRadius: 8, border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600 }}>
-            Reasoning Provider:
-          </div>
-          <select
-            value={aiProvider}
-            onChange={(e) => setAiProvider(e.target.value as any)}
+        {/* PRIMARY ENTRY POINT & QUICK NAVIGATION */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <Link
+            href="/recovery"
             style={{
-              background: "var(--bg-secondary)",
-              color: "var(--text-primary)",
-              border: "1px solid var(--border)",
+              padding: "0.45rem 0.85rem",
               borderRadius: 6,
+              border: "1px solid var(--border)",
+              background: "var(--bg-secondary)",
+              color: "var(--text-secondary)",
               fontSize: "0.75rem",
-              padding: "0.35rem 0.65rem",
-              fontFamily: "monospace",
-              cursor: "pointer",
+              fontWeight: 600,
+              textDecoration: "none",
             }}
           >
-            <option value="groq">Primary (Groq Llama-3.3 70B)</option>
-            <option value="gemini">Secondary (Google Gemini 1.5 Pro)</option>
-            <option value="fallback">Safety Fallback (Deterministic)</option>
-          </select>
-        </div>
-      </div>
+            ← Recovery Queue
+          </Link>
 
-      {/* SANDBOX / DEVELOPER TOOLS */}
-      <div className="card" style={{ padding: "1rem 1.25rem", marginBottom: "1.5rem", borderLeft: "3px solid var(--border)", background: "var(--bg-secondary)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
-          <div>
-            <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
-              Sandbox / Developer Tools
-            </div>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-              Inject synthetic failure events for judging and local simulation. Does not affect live operational data.
-            </div>
-          </div>
           <button
             onClick={() => setIsModalOpen(true)}
+            className="btn-primary"
             style={{
-              background: "transparent",
-              color: "var(--text-secondary)",
-              border: "1px solid var(--border)",
-              padding: "0.4rem 0.9rem",
-              borderRadius: 6,
-              fontWeight: 600,
               fontSize: "0.75rem",
-              cursor: "pointer",
+              padding: "0.45rem 0.9rem",
+              fontWeight: 700,
               display: "flex",
               alignItems: "center",
               gap: "0.4rem",
             }}
           >
-            <span>+</span> Inject Test Event
+            <span>+</span> Create Recovery Case
           </button>
         </div>
       </div>
@@ -312,15 +319,31 @@ export default function SingleCaseRecoveryControlPlane() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "1.25rem" }}>
               <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
                 {selectedItem.status === "recovered"
-                  ? "✓ Case is fully settled — no further recovery action required."
+                  ? "✓ Settlement verified — ₹" + (selectedItem.amount_minor / 100).toLocaleString() + " recovered via HMAC gateway evidence."
+                  : selectedItem.status === "pending_verification" || selectedItem.status === "intervention_executed"
+                  ? "Action dispatched (payment link sent). Awaiting authoritative settlement verification."
+                  : selectedItem.status === "stopped"
+                  ? "🛑 Recovery stopped by policy shield. Protected capital preserved."
                   : selectedItem.status === "escalated"
                   ? "⚠️ Escalated to human review queue due to policy constraint."
-                  : "Ready to run AI diagnosis, EV optimization, policy validation, and closed-loop execution."}
+                  : "Ready to run AI diagnosis, EV optimization, policy validation, and dispatch bounded action."}
               </div>
 
               {selectedItem.status === "recovered" ? (
                 <button disabled style={{ background: "rgba(16, 185, 129, 0.2)", color: "#10b981", border: "1px solid #10b981", padding: "0.6rem 1.25rem", borderRadius: 6, fontWeight: 700, fontSize: "0.875rem", cursor: "not-allowed" }}>
-                  Recovered — No Further Action Required
+                  ✓ Settlement Verified — Recovered
+                </button>
+              ) : selectedItem.status === "pending_verification" || selectedItem.status === "intervention_executed" ? (
+                <button
+                  onClick={handleVerifySettlement}
+                  disabled={phase === "running"}
+                  style={{ background: "#3b82f6", color: "#fff", border: "none", padding: "0.65rem 1.5rem", borderRadius: 6, fontWeight: 700, fontSize: "0.875rem", cursor: "pointer" }}
+                >
+                  {phase === "running" ? "Verifying Settlement..." : "Verify Settlement"}
+                </button>
+              ) : selectedItem.status === "stopped" ? (
+                <button disabled style={{ background: "rgba(239, 68, 68, 0.2)", color: "#ef4444", border: "1px solid #ef4444", padding: "0.6rem 1.25rem", borderRadius: 6, fontWeight: 700, fontSize: "0.875rem", cursor: "not-allowed" }}>
+                  🛑 Policy Blocked — Stopped
                 </button>
               ) : selectedItem.status === "escalated" ? (
                 <Link href="/review" style={{ background: "#f59e0b", color: "#000", padding: "0.6rem 1.25rem", borderRadius: 6, fontWeight: 700, fontSize: "0.875rem", textDecoration: "none" }}>
@@ -328,11 +351,11 @@ export default function SingleCaseRecoveryControlPlane() {
                 </Link>
               ) : (
                 <button
-                  onClick={handleEvaluateAndRecover}
+                  onClick={handleEvaluateAndDispatch}
                   disabled={phase === "running"}
                   style={{ background: "#10b981", color: "#fff", border: "none", padding: "0.65rem 1.5rem", borderRadius: 6, fontWeight: 700, fontSize: "0.875rem", cursor: "pointer" }}
                 >
-                  {phase === "running" ? "Evaluating & Executing..." : "Evaluate & Recover"}
+                  {phase === "running" ? "Evaluating & Dispatching..." : "Evaluate & Dispatch"}
                 </button>
               )}
             </div>
@@ -361,7 +384,7 @@ export default function SingleCaseRecoveryControlPlane() {
               </div>
 
               <DecisionTraceView
-                trace={null}
+                trace={liveTrace}
                 detail={{
                   id: selectedItem.id,
                   customer_id: selectedItem.customer_id,
@@ -388,7 +411,14 @@ export default function SingleCaseRecoveryControlPlane() {
       <CreateCaseModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={() => loadItems()}
+        onSuccess={(newItem: any) => {
+          const createdId = newItem?.id || newItem?.recovery_item_id;
+          if (createdId) {
+            router.push(`/recovery/${encodeURIComponent(createdId)}`);
+          } else {
+            loadItems();
+          }
+        }}
       />
     </div>
   );

@@ -78,6 +78,7 @@ class Customer360RecoveryProfile:
     active_incident_count: int
     recovery_pressure_summary: str
     why_this_matters: str
+    recovery_status: str = "No Active Exposure"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -94,6 +95,7 @@ class Customer360RecoveryProfile:
             "customer_value_tier": self.customer_value_tier,
             "previous_opt_outs": self.previous_opt_outs,
             "current_subscription_state": self.current_subscription_state,
+            "recovery_status": self.recovery_status,
             "payment_methods_used": self.payment_methods_used,
             "previous_recovery_actions": self.previous_recovery_actions,
             "channel_performance": self.channel_performance,
@@ -124,14 +126,14 @@ class CustomerRecoveryProfileService:
         self._container = container
 
     def get_profile(self, customer_id: str) -> Customer360RecoveryProfile:
-        from app.dashboard_api import _get_items, _get_attempts, _get_audit_events, _actual_recovered_from_outcomes, _item_to_dict
+        from app.dashboard_api import _get_items, _get_attempts, _get_audit_events, _actual_recovered_from_outcomes, _item_to_dict, _ACTIVE_STATUSES
 
         all_items = _get_items(self._container)
         items = [i for i in all_items if i.customer_id == customer_id]
         item_ids = {i.id for i in items}
 
         total_lifetime = sum(i.amount_minor for i in items)
-        active_items = [i for i in items if i.status.value in {"detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "pending_verification", "failed"}]
+        active_items = [i for i in items if i.status.value in _ACTIVE_STATUSES]
         at_risk = sum(i.amount_minor for i in active_items)
 
         recovered_items = [i for i in items if i.status.value == "recovered"]
@@ -278,16 +280,33 @@ class CustomerRecoveryProfileService:
                 })
         timeline.sort(key=lambda x: x["timestamp"], reverse=True)
 
-        # Dates
-        rec_dates = [i.created_at for i in recovered_items if i.created_at]
-        failed_dates = [i.created_at for i in items if i.status.value in {"failed", "stopped", "escalated"} and i.created_at]
+        # Dates & Last Failed Event (Rule 6: Last Failed shows latest failed event even if case is now terminal)
+        sorted_items = sorted(items, key=lambda x: x.created_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+        latest_item = sorted_items[0] if sorted_items else None
 
+        rec_dates = [i.created_at for i in recovered_items if i.created_at]
         last_succ = sorted(rec_dates, reverse=True)[0].isoformat() if rec_dates else None
-        last_failed = sorted(failed_dates, reverse=True)[0].isoformat() if failed_dates else (items[0].created_at.isoformat() if items and items[0].created_at else None)
-        last_reason = items[0].root_cause if items else None
+        last_failed = latest_item.created_at.isoformat() if latest_item and latest_item.created_at else None
+        last_reason = latest_item.root_cause if latest_item else None
 
         # Subscription State
-        sub_state = "Disputed" if any(i.metadata.get("disputed") for i in items) else "Overdue" if active_items else "Active"
+        sub_state = "Disputed" if any(i.metadata.get("disputed") for i in items) else ("Overdue" if active_items else "Active")
+
+        # Recovery Status: Rule 1 — If no open opportunities, do not label customer as actively under recovery pressure
+        if active_items:
+            if any(i.status.value in {"pending_verification", "intervention_executed"} for i in active_items):
+                recovery_status = "Awaiting Verification"
+            elif any(i.status.value == "escalated" for i in active_items):
+                recovery_status = "Escalated for Review"
+            else:
+                recovery_status = "Active Exposure"
+        elif items:
+            if len(recovered_items) == len(items):
+                recovery_status = "Settled & Clear"
+            else:
+                recovery_status = "No Active Exposure"
+        else:
+            recovery_status = "No Active Exposure"
 
         # --- New: Customer-level decision ---
         from app.domain.product_decision import resolve_decision
@@ -372,7 +391,7 @@ class CustomerRecoveryProfileService:
             pressure_parts.append(f"{contacts_24h} contact(s) today")
         if contacts_7d > 0:
             pressure_parts.append(f"{contacts_7d} this week")
-        if prev_actions:
+        if prev_actions and active_items:
             pressure_parts.append(f"actions tried: {', '.join(prev_actions[:3])}")
         recovery_pressure_summary = "; ".join(pressure_parts) if pressure_parts else "No recent recovery pressure"
 
@@ -406,6 +425,7 @@ class CustomerRecoveryProfileService:
             customer_value_tier=value_tier,
             previous_opt_outs=has_opt_out,
             current_subscription_state=sub_state,
+            recovery_status=recovery_status,
             payment_methods_used=methods,
             previous_recovery_actions=prev_actions,
             channel_performance=channel_perf,

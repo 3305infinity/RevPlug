@@ -52,6 +52,11 @@ class InterventionPolicy:
         max_retry_attempts: int = 3,
         autonomous_discount_minor: int = 0,
         opted_out_customer_ids: frozenset[str] = frozenset(),
+        max_contacts_per_24h: int = 2,
+        min_expected_net_ev_minor: int = 0,
+        max_intervention_cost_minor: int = 10000000,
+        escalation_thresholds_minor: int = 50000000,
+        failure_categories_blocked: frozenset[str] = frozenset(),
     ) -> None:
         if max_retry_attempts < 0:
             raise ValueError("max_retry_attempts must be non-negative")
@@ -60,6 +65,11 @@ class InterventionPolicy:
         self._max_retry_attempts = max_retry_attempts
         self._autonomous_discount_minor = autonomous_discount_minor
         self._opted_out_customer_ids = opted_out_customer_ids
+        self._max_contacts_per_24h = max_contacts_per_24h
+        self._min_expected_net_ev_minor = min_expected_net_ev_minor
+        self._max_intervention_cost_minor = max_intervention_cost_minor
+        self._escalation_thresholds_minor = escalation_thresholds_minor
+        self._failure_categories_blocked = failure_categories_blocked
 
     def evaluate(self, item: RecoveryItem, proposed_action: str) -> PolicyDecision:
         if proposed_action != "stop_recovery" and item.status.value in {"recovered", "stopped"}:
@@ -81,6 +91,51 @@ class InterventionPolicy:
                 action=proposed_action,
                 reason_code="customer_opted_out",
             )
+
+        if proposed_action != "stop_recovery" and self._escalation_thresholds_minor > 0 and item.amount_minor >= self._escalation_thresholds_minor:
+            return PolicyDecision(
+                allowed=False,
+                requires_human_approval=True,
+                reason=f"Opportunity amount ₹{item.amount_minor / 100:,.0f} exceeds escalation threshold ₹{self._escalation_thresholds_minor / 100:,.0f}",
+                policy_rule="escalation_threshold",
+                action=proposed_action,
+                reason_code="high_value_escalation",
+            )
+
+        rc = (item.root_cause or "").lower()
+        if proposed_action != "stop_recovery" and self._failure_categories_blocked and (rc in self._failure_categories_blocked or rc.upper() in self._failure_categories_blocked):
+            return PolicyDecision(
+                allowed=False,
+                requires_human_approval=True,
+                reason=f"Root cause '{item.root_cause}' is blocked by policy configuration",
+                policy_rule="failure_category_blocked",
+                action=proposed_action,
+                reason_code="category_blocked",
+            )
+
+        if proposed_action not in {"stop_recovery", "escalate_human"} and self._min_expected_net_ev_minor > 0:
+            net_ev = item.expected_recovery_value if item.expected_recovery_value is not None else int(item.amount_minor * 0.65)
+            if net_ev < self._min_expected_net_ev_minor:
+                return PolicyDecision(
+                    allowed=False,
+                    requires_human_approval=False,
+                    reason=f"Expected net EV ₹{net_ev / 100:,.0f} is below policy minimum ₹{self._min_expected_net_ev_minor / 100:,.0f}",
+                    policy_rule="min_expected_net_ev_gate",
+                    action=proposed_action,
+                    reason_code="ev_below_minimum",
+                )
+
+        if proposed_action not in {"stop_recovery", "escalate_human"} and self._max_intervention_cost_minor > 0:
+            cost = item.intervention_cost if item.intervention_cost is not None else int((item.metadata or {}).get("intervention_cost", 500))
+            if cost > self._max_intervention_cost_minor:
+                return PolicyDecision(
+                    allowed=False,
+                    requires_human_approval=False,
+                    reason=f"Intervention cost ₹{cost / 100:,.0f} exceeds policy maximum ₹{self._max_intervention_cost_minor / 100:,.0f}",
+                    policy_rule="max_intervention_cost_gate",
+                    action=proposed_action,
+                    reason_code="cost_exceeds_maximum",
+                )
 
         if proposed_action == "retry_payment" and item.metadata.get("systemic_suppress"):
             return PolicyDecision(
@@ -185,15 +240,35 @@ class InterventionPolicy:
 
     def _evaluate_outbound(self, item: RecoveryItem, proposed_action: str) -> PolicyDecision:
         recent_contacts = int(item.metadata.get("recent_contact_count", 0))
-        if recent_contacts >= 2:
+        if recent_contacts >= self._max_contacts_per_24h:
             return PolicyDecision(
                 allowed=False,
                 requires_human_approval=True,
-                reason="Contact frequency limit reached (2 contacts within 24h window)",
+                reason=f"Contact frequency limit reached ({recent_contacts}/{self._max_contacts_per_24h} contacts within 24h window)",
                 policy_rule="contact_frequency_limit",
                 action=proposed_action,
                 reason_code="CONTACT_FREQUENCY_LIMIT",
             )
+
+        attempt_count = int(item.metadata.get("contact_attempt_count", 0))
+        max_contacts = int(item.metadata.get("max_contacts", 5))
+        if attempt_count >= max_contacts:
+            return PolicyDecision(
+                allowed=False,
+                requires_human_approval=True,
+                reason=f"Contact budget exhausted ({attempt_count}/{max_contacts})",
+                policy_rule="contact_limit",
+                action=proposed_action,
+                reason_code="retry_budget_exhausted",
+            )
+        return PolicyDecision(
+            allowed=True,
+            requires_human_approval=False,
+            reason="Contact is within budget",
+            policy_rule="allow_outbound",
+            action=proposed_action,
+            reason_code="policy_allowed",
+        )
 
         attempt_count = int(item.metadata.get("contact_attempt_count", 0))
         max_contacts = int(item.metadata.get("max_contacts", 5))

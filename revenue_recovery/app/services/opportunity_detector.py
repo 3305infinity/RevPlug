@@ -139,7 +139,8 @@ class OpportunityDetector:
                 return updated_item
             else:
                 # Create completed item
-                item_id = f"rec_{int(time.time())}_{customer_id[-4:] if len(customer_id) >= 4 else customer_id}"
+                import uuid
+                item_id = f"rec_{uuid.uuid4().hex[:12]}"
                 item = RecoveryItem(
                     id=item_id,
                     source_type=SourceType.PAYMENT_FAILURE,
@@ -236,7 +237,8 @@ class OpportunityDetector:
             return updated_item
 
         # Create new RecoveryItem
-        item_id = f"rec_{int(time.time())}_{customer_id[-4:] if len(customer_id) >= 4 else customer_id}"
+        import uuid
+        item_id = f"rec_{uuid.uuid4().hex[:12]}"
         item = RecoveryItem(
             id=item_id,
             source_type=SourceType.PAYMENT_FAILURE,

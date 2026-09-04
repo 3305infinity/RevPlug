@@ -2,14 +2,15 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api, RecoveryItem, DashboardSummary } from "@/lib/api";
 import { getCustomerDisplayName } from "@/lib/customerDisplay";
 import CreateCaseModal from "@/components/recovery/CreateCaseModal";
-import CapitalProtectedPanel from "@/components/dashboard/CapitalProtectedPanel";
 
 type StatusFilter = "all" | "at_risk" | "recovering" | "awaiting_customer" | "recovered" | "escalated" | "stopped" | "failed";
 
 export default function RecoveryInboxPage() {
+  const router = useRouter();
   const [items, setItems] = useState<RecoveryItem[]>([]);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,7 +41,12 @@ export default function RecoveryInboxPage() {
   }, [loadData]);
 
   const handleCaseCreated = (newItem: any) => {
-    setItems((prev) => [newItem, ...prev]);
+    const createdId = newItem?.id || newItem?.recovery_item_id;
+    if (createdId) {
+      router.push(`/recovery/${encodeURIComponent(createdId)}`);
+    } else {
+      setItems((prev) => [newItem, ...prev]);
+    }
   };
 
   // Filter & sort primarily by Expected Net Recovery (EV_net) descending
@@ -50,7 +56,7 @@ export default function RecoveryInboxPage() {
     // Status filtering
     if (statusFilter !== "all") {
       result = result.filter((i) => {
-        if (statusFilter === "at_risk") return i.status === "queued" || i.status === "detected";
+        if (statusFilter === "at_risk") return i.status === "queued" || i.status === "detected" || i.status === "diagnosed";
         if (statusFilter === "recovering") return i.status === "intervention_pending" || i.status === "intervention_executed";
         if (statusFilter === "awaiting_customer") return i.status === "pending_verification";
         if (statusFilter === "recovered") return i.status === "recovered";
@@ -85,23 +91,61 @@ export default function RecoveryInboxPage() {
   const fmt = (minor: number) =>
     "₹" + (minor / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-  const totalAtRisk = useMemo(
-    () => items.filter((i) => i.status !== "recovered" && i.status !== "stopped").reduce((acc, i) => acc + i.amount_minor, 0),
-    [items]
+  const activeStatuses = useMemo(() => new Set(["detected", "diagnosed", "queued", "intervention_pending", "intervention_executed", "pending_verification"]), []);
+
+  const activeItems = useMemo(
+    () => items.filter((i) => activeStatuses.has(i.status)),
+    [items, activeStatuses]
   );
 
-  const totalRecovered = useMemo(
-    () => summary?.actually_recovered ?? items.reduce((acc, i) => acc + (i.actual_recovery_value || 0), 0),
-    [summary, items]
+  const totalAtRisk = useMemo(
+    () => activeItems.reduce((acc, i) => acc + i.amount_minor, 0),
+    [activeItems]
   );
 
   const expectedRecoverable = useMemo(
-    () =>
-      items
-        .filter((i) => i.status !== "recovered" && i.status !== "stopped")
-        .reduce((acc, i) => acc + (i.expected_recovery_value || 0), 0),
+    () => activeItems.reduce((acc, i) => acc + (i.expected_recovery_value || 0), 0),
+    [activeItems]
+  );
+
+  const totalRecovered = useMemo(
+    () => summary?.actually_recovered ?? items.filter((i) => i.status === "recovered").reduce((acc, i) => acc + (i.actual_recovery_value || 0), 0),
+    [summary, items]
+  );
+
+  const capitalProtected = useMemo(
+    () => items.filter((i) => i.status === "stopped").reduce((acc, i) => acc + i.amount_minor, 0),
     [items]
   );
+
+  const stoppedCount = useMemo(
+    () => items.filter((i) => i.status === "stopped").length,
+    [items]
+  );
+
+  const queueHeaderTitle = useMemo(() => {
+    const count = filteredAndSortedItems.length;
+    switch (statusFilter) {
+      case "all":
+        return `ALL RECOVERY CASES (${count} CASES)`;
+      case "at_risk":
+        return `ACTIVE QUEUE & AT RISK (${count} CASES)`;
+      case "recovering":
+        return `ACTIVE RECOVERING CASES (${count} CASES)`;
+      case "awaiting_customer":
+        return `AWAITING CUSTOMER VERIFICATION (${count} CASES)`;
+      case "recovered":
+        return `VERIFIED RECOVERED CASES (${count} CASES)`;
+      case "escalated":
+        return `HUMAN ESCALATED CASES (${count} CASES)`;
+      case "stopped":
+        return `POLICY BLOCKED / STOPPED CASES (${count} CASES)`;
+      case "failed":
+        return `FAILED CASES (${count} CASES)`;
+      default:
+        return `ACTIVE RECOVERY QUEUE (${count} CASES)`;
+    }
+  }, [statusFilter, filteredAndSortedItems.length]);
 
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", paddingBottom: "3rem" }}>
@@ -122,29 +166,33 @@ export default function RecoveryInboxPage() {
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
           <Link
             href="/run-recovery"
-            className="btn-primary"
-            style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}
+            style={{
+              padding: "0.45rem 0.85rem",
+              borderRadius: 6,
+              border: "1px solid var(--border)",
+              background: "var(--bg-secondary)",
+              color: "var(--text-secondary)",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
           >
             Single Case Control Plane →
           </Link>
 
           <button
             onClick={() => setIsModalOpen(true)}
+            className="btn-primary"
             style={{
-              background: "transparent",
-              color: "var(--text-secondary)",
-              border: "1px solid var(--border)",
-              padding: "0.4rem 0.85rem",
-              borderRadius: 6,
-              fontWeight: 500,
               fontSize: "0.75rem",
-              cursor: "pointer",
+              padding: "0.45rem 0.9rem",
+              fontWeight: 700,
               display: "flex",
               alignItems: "center",
               gap: "0.4rem",
             }}
           >
-            <span>+</span> Inject Test Event
+            <span>+</span> Create Recovery Case
           </button>
         </div>
       </div>
@@ -154,13 +202,13 @@ export default function RecoveryInboxPage() {
         <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>REVENUE AT RISK</div>
           <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#ef4444", marginTop: 4, fontFamily: "monospace" }}>{fmt(totalAtRisk)}</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>{items.filter((i) => i.status !== "recovered" && i.status !== "stopped").length} active cases</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>{activeItems.length} active open cases</div>
         </div>
 
         <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>EXPECTED RECOVERABLE</div>
           <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#3b82f6", marginTop: 4, fontFamily: "monospace" }}>{fmt(expectedRecoverable)}</div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>Based on Net EV scoring</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>Based on active opportunities Net EV</div>
         </div>
 
         <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
@@ -171,18 +219,9 @@ export default function RecoveryInboxPage() {
 
         <div style={{ padding: "1rem", background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "0.6875rem", color: "var(--warning)", textTransform: "uppercase", fontWeight: 700 }}>CAPITAL PROTECTED</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text-primary)", marginTop: 4, fontFamily: "monospace" }}>
-            {fmt(items.filter((i) => i.status === "stopped" || i.status === "escalated").reduce((acc, i) => acc + i.amount_minor, 0))}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>
-            {items.filter((i) => i.status === "stopped" || i.status === "escalated").length} policy-blocked cases
-          </div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text-primary)", marginTop: 4, fontFamily: "monospace" }}>{fmt(capitalProtected)}</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>{stoppedCount} policy-blocked cases</div>
         </div>
-      </div>
-
-      {/* CAPITAL PROTECTED DETAIL PANEL */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <CapitalProtectedPanel />
       </div>
 
       {/* FILTER TOOLBAR & SEARCH BAR */}
@@ -243,7 +282,7 @@ export default function RecoveryInboxPage() {
       {/* RECOVERY INBOX TABLE */}
       <div className="card" style={{ padding: "1.25rem" }}>
         <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "1rem" }}>
-          ACTIVE RECOVERY QUEUE ({filteredAndSortedItems.length} CASES)
+          {queueHeaderTitle}
         </div>
 
         {loading ? (

@@ -86,7 +86,7 @@ class RazorpayClient:
             "notify": {"sms": True, "email": True},
             "reminder_enable": True,
             "notes": notes or {"source": "RevPlug_AI_Recovery"},
-            "reference_id": reference_id[:40] if reference_id else f"rec_{int(time.time())}",
+            "reference_id": reference_id[:40] if reference_id else f"rec_{uuid.uuid4().hex[:12]}",
         }
 
         body = json.dumps(payload).encode("utf-8")

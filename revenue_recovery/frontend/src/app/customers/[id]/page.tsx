@@ -106,7 +106,7 @@ export default function CustomerDetail() {
         <div className="card" style={{ padding: "1.125rem", borderLeft: "3px solid #64748b" }}>
           <div className="metric-label">Recovery Status</div>
           <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 4 }}>
-            {p.current_subscription_state}
+            {p.recovery_status || (p.active_cases_count > 0 ? "Active Exposure" : "No Active Exposure")}
           </div>
           <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
             {(p.historical_recovery_rate * 100).toFixed(0)}% historical rate
