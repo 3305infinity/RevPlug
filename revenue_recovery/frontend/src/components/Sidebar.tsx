@@ -59,12 +59,15 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
 
   return (
     <aside style={{
-      width: 220,
+      width: 240,
       background: "var(--bg-secondary)",
       borderRight: "1px solid var(--border)",
       display: "flex",
       flexDirection: "column",
       position: "fixed",
+      top: 0,
+      left: 0,
+      bottom: 0,
       height: "100vh",
       zIndex: 100,
     }}>

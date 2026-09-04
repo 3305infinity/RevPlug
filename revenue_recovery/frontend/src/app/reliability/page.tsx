@@ -313,35 +313,49 @@ export default function ReliabilityFailureLab() {
               </tr>
             </thead>
             <tbody>
-              {report.results.map((r) => (
-                <tr key={r.scenario_name} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                  <Td style={{ fontWeight: 500, textTransform: "capitalize" }}>{r.scenario_name.replace(/_/g, " ")}</Td>
-                  <Td>
-                    <span style={{
-                      background: "var(--purple-subtle)", color: "var(--purple)",
-                      padding: "0.2rem 0.6rem", borderRadius: 4, fontSize: "0.75rem", fontWeight: 600, textTransform: "capitalize",
-                    }}>
-                      {r.proposal_action.replace(/_/g, " ")}
-                    </span>
-                  </Td>
-                  <Td>{(r.proposal_confidence * 100).toFixed(0)}%</Td>
-                  <Td style={{ color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "capitalize" }}>{r.expected_action?.replace(/_/g, " ") || "Any safe action"}</Td>
-                  <Td>
-                    {r.passed ? (
-                      <span className="status-badge status-recovered">PASS</span>
-                    ) : (
-                      <span className="status-badge status-escalated">FAIL</span>
-                    )}
-                  </Td>
-                  <Td>
-                    {r.issues.length > 0 ? (
-                      <span style={{ color: "var(--danger)", fontSize: "0.75rem" }}>{r.issues[0]}</span>
-                    ) : (
-                      <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>—</span>
-                    )}
-                  </Td>
-                </tr>
-              ))}
+              {report.results.map((r) => {
+                const actionStyle = getActionBadgeStyle(r.proposal_action);
+                return (
+                  <tr key={r.scenario_name} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                    <Td style={{ fontWeight: 600, color: "var(--text-primary)", textTransform: "capitalize" }}>
+                      {r.scenario_name.replace(/_/g, " ")}
+                    </Td>
+                    <Td>
+                      <span style={{
+                        ...actionStyle,
+                        padding: "0.25rem 0.625rem",
+                        borderRadius: 4,
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        textTransform: "capitalize",
+                        display: "inline-block",
+                      }}>
+                        {r.proposal_action.replace(/_/g, " ")}
+                      </span>
+                    </Td>
+                    <Td style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                      {(r.proposal_confidence * 100).toFixed(0)}%
+                    </Td>
+                    <Td style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", textTransform: "capitalize" }}>
+                      {r.expected_action?.replace(/_/g, " ") || "Any safe action"}
+                    </Td>
+                    <Td>
+                      {r.passed ? (
+                        <span className="status-badge status-recovered" style={{ padding: "0.25rem 0.6rem" }}>PASS</span>
+                      ) : (
+                        <span className="status-badge status-escalated" style={{ padding: "0.25rem 0.6rem" }}>FAIL</span>
+                      )}
+                    </Td>
+                    <Td>
+                      {r.issues.length > 0 ? (
+                        <span style={{ color: "var(--danger)", fontSize: "0.75rem", fontWeight: 500 }}>{r.issues[0]}</span>
+                      ) : (
+                        <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>—</span>
+                      )}
+                    </Td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -362,20 +376,63 @@ export default function ReliabilityFailureLab() {
   );
 }
 
+function getActionBadgeStyle(action: string) {
+  const norm = action.toLowerCase();
+  if (norm.includes("payment_link") || norm.includes("send_payment")) {
+    return {
+      background: "rgba(59, 130, 246, 0.18)",
+      color: "#60a5fa",
+      border: "1px solid rgba(59, 130, 246, 0.35)",
+    };
+  }
+  if (norm.includes("stop")) {
+    return {
+      background: "rgba(239, 68, 68, 0.18)",
+      color: "#f87171",
+      border: "1px solid rgba(239, 68, 68, 0.35)",
+    };
+  }
+  if (norm.includes("escalate") || norm.includes("human")) {
+    return {
+      background: "rgba(245, 158, 11, 0.18)",
+      color: "#fbbf24",
+      border: "1px solid rgba(245, 158, 11, 0.35)",
+    };
+  }
+  return {
+    background: "rgba(139, 92, 246, 0.18)",
+    color: "#c084fc",
+    border: "1px solid rgba(139, 92, 246, 0.35)",
+  };
+}
+
 function MetricCard({ label, value, sub, accent }: { label: string; value: string; sub: string; accent: string }) {
   return (
-    <div className="metric-card" style={{ borderLeft: `3px solid ${accent}` }}>
+    <div
+      className="card"
+      style={{
+        padding: "1.25rem 1.25rem",
+        borderLeft: `4px solid ${accent}`,
+        background: "var(--bg-card)",
+      }}
+    >
       <div className="metric-label">{label}</div>
-      <div className="metric-value" style={{ color: accent, marginTop: 4 }}>{value}</div>
-      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>{sub}</div>
+      <div className="metric-value" style={{ color: accent, marginTop: 6, fontSize: "1.75rem", fontWeight: 700 }}>
+        {value}
+      </div>
+      <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>{sub}</div>
     </div>
   );
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th style={{ padding: "0.75rem 1rem", textAlign: "left", fontSize: "0.6875rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{children}</th>;
+  return (
+    <th style={{ padding: "0.875rem 1rem", textAlign: "left", fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border)" }}>
+      {children}
+    </th>
+  );
 }
 
 function Td({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <td style={{ padding: "0.75rem 1rem", fontSize: "0.8125rem", ...style }}>{children}</td>;
+  return <td style={{ padding: "0.875rem 1rem", fontSize: "0.8125rem", ...style }}>{children}</td>;
 }
