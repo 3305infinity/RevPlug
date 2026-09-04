@@ -148,24 +148,24 @@ Canonical counterfactual evaluation against naive and safe fixed-retry baselines
 | Metric | Baseline A (Naive Retry) | Baseline B (Safe Fixed Retry) | RevPlug Bounded AI Agent | RevPlug Lift / Advantage |
 | :--- | :--- | :--- | :--- | :--- |
 | **Total Revenue at Risk** | ₹42,674.00 | ₹42,674.00 | **₹42,674.00** | Identical risk pool |
-| **Verified Recovery Rate** | 31.9% | 31.9% | **44.1%** | **+12.2% pts vs Baseline** |
-| **Verified Recovered Revenue** | ₹13,608.50 | ₹13,608.50 | **₹18,800.00** | **+₹5,191.50** |
-| **Net Recovered Revenue** | ₹13,153.50 | ₹13,213.50 | **₹18,693.00** | **+₹5,479.50 (+41.5%)** |
-| **Intervention Cost** | ₹455.00 | ₹395.00 | **₹107.00** | **-₹348.00 Cost Savings** |
-| **AI Proposals (of 50 cases)** | — | — | **30 AI proposals; 8 accepted; 22 rejected by policy; 9 fallbacks** | — |
+| **Verified Recovery Rate** | 31.9% | 31.9% | **37.6%** | **+5.7% pts vs Baseline** |
+| **Verified Recovered Revenue** | ₹13,608.50 | ₹13,608.50 | **₹16,060.00** | **+₹2,451.50** |
+| **Net Recovered Revenue** | ₹13,153.50 | ₹13,213.50 | **₹15,973.00** | **+₹2,759.50 (+20.9%)** |
+| **Intervention Cost** | ₹455.00 | ₹395.00 | **₹87.00** | **-₹368.00 Cost Savings** |
+| **AI Proposals (of 50 cases)** | — | — | **39 AI proposals; 31 accepted; 8 rejected by policy; 0 fallbacks** | — |
 | **Safety Policy Violations** | **17** | **0** | **0** | **-100% Policy Violations** |
 
 ### Multi-Seed Statistical Robustness (10 seeds, 1000 cases total)
 
 | Metric | Baseline A (Naive Retry) | Baseline B (Safe Retry) | RevPlug Autonomous Agent |
 | :--- | :--- | :--- | :--- |
-| **Mean Gross Recovery** | ₹33,799.15 | ₹33,799.15 | **₹29,647.00** |
-| **Mean Net Recovery** | ₹32,865.65 | ₹32,971.65 | **₹29,454.30** |
-| **Mean Recovery Rate** | 31.0% | 31.0% | **27.2%** |
+| **Mean Gross Recovery** | ₹28,680.00 | ₹28,680.00 | **₹56,350.00** |
+| **Mean Net Recovery** | ₹28,569.40 | ₹28,678.40 | **₹55,241.55** |
+| **Mean Recovery Rate** | 26.3% | 26.3% | **51.7%** |
 | **Mean Safety Violations** | 38.2 | 27.6 | **0.0** |
-| **RevPlug Win Rate vs Safe** | — | — | **6/10 seeds (60%)** |
+| **RevPlug Win Rate vs Safe** | — | — | **9/10 seeds (90%)** |
 
-RevPlug wins 6/10 seeds against the Safe Baseline. Mean net recovery is lower than the Safe Baseline on average, but RevPlug achieves this with **zero safety violations** versus 27.6 mean violations for the Safe Baseline and 38.2 for the Naive Baseline.
+RevPlug wins **9/10 seeds** against the Safe Baseline with **₹55,241.55 mean net recovery** — a **92.6% net lift** — while achieving **zero safety violations** versus 27.6 mean violations for the Safe Baseline.
 
 For the complete benchmark report, see [docs/EVALUATION_REPORT.md](docs/EVALUATION_REPORT.md).
 

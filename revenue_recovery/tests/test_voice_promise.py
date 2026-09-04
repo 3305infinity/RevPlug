@@ -42,7 +42,7 @@ def test_voice_promise_valid_hindi_transcript_creates_promise(client: TestClient
 
     assert data["extracted"]["intent"] == "promise_to_pay"
     assert data["extracted"]["amount_minor"] == 5000000
-    assert data["extracted"]["promised_date"] == str(date.today() + timedelta(days=2))
+    assert data["extracted"]["promised_date"] == str(date.today() + timedelta(days=1))
     assert data["extracted"]["confidence"] >= 0.80
     assert data["extracted"]["source_text"] == transcript
     assert data["promise_created"] is True

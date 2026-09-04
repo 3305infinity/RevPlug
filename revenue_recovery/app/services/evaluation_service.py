@@ -183,6 +183,17 @@ _CATEGORY_MAP: dict[str, FailureCategory] = {
     "fraud": FailureCategory.FRAUD,
     "authentication_required": FailureCategory.AUTHENTICATION_REQUIRED,
     "unknown": FailureCategory.UNKNOWN,
+    "mandate_failure": FailureCategory.MANDATE_FAILURE,
+    "mandate_failed": FailureCategory.MANDATE_FAILURE,
+    "checkout_abandoned": FailureCategory.CHECKOUT_ABANDONMENT,
+    "checkout_abandonment": FailureCategory.CHECKOUT_ABANDONMENT,
+    "invoice_overdue": FailureCategory.INVOICE_OVERDUE,
+    "overdue_receivable": FailureCategory.INVOICE_OVERDUE,
+    "subscription_failure": FailureCategory.SOFT,
+    "soft_exhausted": FailureCategory.SOFT,
+    "soft_optout": FailureCategory.SOFT,
+    "soft_promise_active": FailureCategory.SOFT,
+    "soft_promise_expired": FailureCategory.SOFT,
 }
 
 from app.scoring.cost import InterventionCostModel as _CostModel
@@ -549,6 +560,19 @@ class EvaluationService:
                 if case_result.unnecessary_intervention:
                     ros_result.unnecessary_interventions += 1
 
+                # Track intervention execution counters.
+                # "executed" means at least one intervention action was actually run
+                # (not just proposed). ORGANIC recoveries have no actions_executed
+                # and must NOT be counted here.
+                actions_executed = (case_result.metadata or {}).get("actions_executed") or []
+                had_executed_intervention = len(actions_executed) > 0
+                if had_executed_intervention:
+                    ros_result.executed_interventions += 1
+                    if case_result.outcome == "recovered":
+                        ros_result.successful_interventions += 1
+                    else:
+                        ros_result.failed_interventions += 1
+
                 # Track decision methods & AI metrics
                 ai = ros_result.ai_metrics_placeholders
                 method = case_result.decision_method
@@ -830,6 +854,8 @@ class EvaluationService:
                     "decision_method_reason": ros_case.decision_method_reason,
                     "audit_event_count": ros_case.audit_event_count,
                     "processing_error": ros_case.processing_error,
+                    "attribution": ros_case.metadata.get("attribution"),
+                    "actions_executed": ros_case.metadata.get("actions_executed", []),
                 },
                 "baseline": {
                     "proposed_action": "retry_payment" if bl_case else None,

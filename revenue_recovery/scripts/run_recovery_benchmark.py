@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Stage 14 — Recovery Economics & Batch Simulation CLI.
 
-Executes a canonical 100-case recovery evaluation batch over fixed seed 42.
-Measures financial recovery, baseline counterfactual comparison, safety stopping rules,
-and operational economics. Generates machine-readable JSON & CSV benchmark artifacts.
+LABEL: LEGACY STAGE SCRIPT (not canonical).
+- Produces artifacts/recovery_benchmark.json and artifacts/recovery_benchmark.csv.
+- Does NOT write evaluation_report.json.
+- Uses EvaluationService.run_batch_evaluation directly (no multi-seed aggregate, no safe baseline).
+- Superseded by: app/eval/run_benchmark.py (the canonical runner).
 
-Usage:
-    python scripts/run_recovery_benchmark.py --size 100 --seed 42
+Use this script only for Stage 14 batch economics snapshots and CSV export.
+For the canonical benchmark numbers quoted in README/PROJECT/docs, use app/eval/run_benchmark.py or
+scripts/regenerate_benchmark_docs.py.
 """
 from __future__ import annotations
 

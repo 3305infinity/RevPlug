@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import Any
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
@@ -11,6 +13,140 @@ router = APIRouter()
 def api_evaluations(container: PersistenceContainer = Depends(get_container)) -> dict[str, Any]:
     from app.dashboard_api import build_evaluation_report
     return build_evaluation_report(container)
+
+@router.get("/api/benchmark-summary")
+def api_benchmark_summary() -> Response:
+    """Serve the canonical benchmark summary from evaluation_report.json.
+
+    Reads the single source-of-truth JSON produced by app.eval.run_benchmark.
+    Returns a lightweight summary payload for frontend proof surfaces.
+    """
+    from pathlib import Path
+    try:
+        report_path = Path(__file__).resolve().parent.parent.parent / "evaluation_report.json"
+        with open(report_path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception as exc:
+        return JSONResponse(status_code=500, content={"error": f"Failed to load benchmark report: {exc}"})
+
+    ros = data.get("revplug", {})
+    bl = data.get("baseline", {})
+    sbl = data.get("safe_baseline", {})
+    comp = data.get("comparison", {})
+    agg = data.get("multi_seed_aggregate", {})
+    attr = ros.get("attribution_metrics", {})
+
+    def fmt_minor(minor):
+        try:
+            return f"₹{float(minor) / 100:,.2f}"
+        except (TypeError, ValueError):
+            return "₹0.00"
+
+    single_seed_label = f"Seed {data.get('seed', '?')} ({data.get('count', '?')} cases)"
+    multi_seed_label = (
+        f"{agg.get('total_seeds', 10)} seeds "
+        f"({agg.get('cases_per_seed', 100)} cases/seed, "
+        f"{agg.get('total_seeds', 10) * agg.get('cases_per_seed', 100)} total)"
+    )
+
+    return JSONResponse(status_code=200, content={
+        "source": "evaluation_report.json",
+        "evaluation_id": data.get("evaluation_id"),
+        "seed": data.get("seed"),
+        "count": data.get("count"),
+        "status": data.get("status"),
+        "dataset_version": data.get("dataset", {}).get("dataset_version", "v2-counterfactual"),
+        "evaluation_mode": data.get("benchmark_configuration", {}).get("evaluation_mode", "AI_ASSISTED"),
+        "single_seed_label": single_seed_label,
+        "multi_seed_label": multi_seed_label,
+        "single_seed": {
+            "total_amount_at_risk": ros.get("total_amount_at_risk"),
+            "total_amount_at_risk_rs": fmt_minor(ros.get("total_amount_at_risk")),
+            "actual_recovered": ros.get("actual_recovered"),
+            "actual_recovered_rs": fmt_minor(ros.get("actual_recovered")),
+            "net_recovered": ros.get("net_recovered"),
+            "net_recovered_rs": fmt_minor(ros.get("net_recovered")),
+            "recovery_rate_pct": round(ros.get("recovery_rate", 0) * 100, 1),
+            "intervention_cost": ros.get("intervention_cost"),
+            "intervention_cost_rs": fmt_minor(ros.get("intervention_cost")),
+            "recovered_count": ros.get("recovered_count"),
+            "stopped_count": ros.get("stopped_count"),
+            "escalated_count": ros.get("escalated_count"),
+            "ai_proposals": ros.get("ai_metrics", {}).get("ai_proposals"),
+            "ai_proposals_accepted": ros.get("ai_metrics", {}).get("ai_proposals_accepted"),
+            "ai_proposals_rejected_by_policy": ros.get("ai_metrics", {}).get("policy_blocked_proposals"),
+            "ai_fallback_cases": ros.get("ai_metrics", {}).get("ai_fallback_cases"),
+            "safety_violations": ros.get("safety_violations", {}).get("total_safety_violations", 0),
+            "baseline_actual_recovered": bl.get("actual_recovered"),
+            "baseline_actual_recovered_rs": fmt_minor(bl.get("actual_recovered")),
+            "baseline_intervention_cost": bl.get("intervention_cost"),
+            "baseline_intervention_cost_rs": fmt_minor(bl.get("intervention_cost")),
+            "baseline_policy_violations": bl.get("baseline_policy_violations", {}).get("total_policy_violations", 0),
+            "safe_baseline_actual_recovered": sbl.get("actual_recovered"),
+            "safe_baseline_actual_recovered_rs": fmt_minor(sbl.get("actual_recovered")),
+            "safe_baseline_intervention_cost": sbl.get("intervention_cost"),
+            "safe_baseline_intervention_cost_rs": fmt_minor(sbl.get("intervention_cost")),
+            "safe_baseline_policy_violations": sbl.get("baseline_policy_violations", {}).get("total_policy_violations", 0),
+            "absolute_recovery_difference": comp.get("absolute_recovery_difference"),
+            "absolute_recovery_difference_rs": fmt_minor(comp.get("absolute_recovery_difference")),
+            "recovery_rate_difference_pct": round(comp.get("recovery_rate_difference", 0) * 100, 1),
+            "safe_lift_pct": comp.get("safe_lift_pct"),
+            "naive_lift_pct": comp.get("naive_lift_pct"),
+            "revplug_net": comp.get("revplug_net"),
+            "safe_baseline_net": comp.get("safe_baseline_net"),
+            "naive_baseline_net": comp.get("naive_baseline_net"),
+            "attribution": {
+                "DIRECT_AGENT_cases": attr.get("DIRECT_AGENT_cases", 0),
+                "DIRECT_AGENT_recovered_rs": fmt_minor(attr.get("DIRECT_AGENT_recovered_minor", 0)),
+                "AGENT_ASSISTED_cases": attr.get("AGENT_ASSISTED_cases", 0),
+                "AGENT_ASSISTED_recovered_rs": fmt_minor(attr.get("AGENT_ASSISTED_recovered_minor", 0)),
+                "ORGANIC_cases": attr.get("ORGANIC_cases", 0),
+                "ORGANIC_recovered_rs": fmt_minor(attr.get("ORGANIC_recovered_minor", 0)),
+                "UNKNOWN_cases": attr.get("UNKNOWN_cases", 0),
+                "UNKNOWN_recovered_rs": fmt_minor(attr.get("UNKNOWN_recovered_minor", 0)),
+            },
+        },
+        "multi_seed": {
+            "total_seeds": agg.get("total_seeds"),
+            "cases_per_seed": agg.get("cases_per_seed"),
+            "total_cases": agg.get("total_seeds", 0) * agg.get("cases_per_seed", 0),
+            "revplug_wins_vs_safe": agg.get("revplug_wins_vs_safe"),
+            "safe_wins_vs_revplug": agg.get("safe_wins_vs_revplug"),
+            "naive_wins_vs_revplug": agg.get("naive_wins_vs_revplug"),
+            "ties_vs_safe": agg.get("ties_vs_safe"),
+            "revplug_win_rate_pct": agg.get("revplug_win_rate_pct"),
+            "mean_amount_at_risk": agg.get("mean_amount_at_risk"),
+            "mean_amount_at_risk_rs": fmt_minor(agg.get("mean_amount_at_risk")),
+            "naive_mean_gross": agg.get("naive_mean_gross"),
+            "naive_mean_gross_rs": fmt_minor(agg.get("naive_mean_gross")),
+            "naive_mean_net": agg.get("naive_mean_net"),
+            "naive_mean_net_rs": fmt_minor(agg.get("naive_mean_net")),
+            "naive_mean_violations": agg.get("naive_mean_violations"),
+            "safe_mean_gross": agg.get("safe_mean_gross"),
+            "safe_mean_gross_rs": fmt_minor(agg.get("safe_mean_gross")),
+            "safe_mean_net": agg.get("safe_mean_net"),
+            "safe_mean_net_rs": fmt_minor(agg.get("safe_mean_net")),
+            "safe_mean_violations": agg.get("safe_mean_violations"),
+            "revplug_mean_gross": agg.get("revplug_mean_gross"),
+            "revplug_mean_gross_rs": fmt_minor(agg.get("revplug_mean_gross")),
+            "revplug_mean_net": agg.get("revplug_mean_net"),
+            "revplug_mean_net_rs": fmt_minor(agg.get("revplug_mean_net")),
+            "revplug_mean_violations": agg.get("revplug_mean_violations"),
+            "revplug_mean_decision_quality": agg.get("revplug_mean_decision_quality"),
+            "gross_lift_pct": agg.get("gross_lift_pct"),
+            "net_lift_pct": agg.get("net_lift_pct"),
+            "net_lift_vs_naive_pct": agg.get("net_lift_vs_naive_pct"),
+            "net_diff_mean": agg.get("net_diff_mean"),
+            "net_diff_mean_rs": fmt_minor(agg.get("net_diff_mean")),
+            "confidence_interval_95_lower": agg.get("confidence_interval_95_lower"),
+            "confidence_interval_95_lower_rs": fmt_minor(agg.get("confidence_interval_95_lower")),
+            "confidence_interval_95_upper": agg.get("confidence_interval_95_upper"),
+            "confidence_interval_95_upper_rs": fmt_minor(agg.get("confidence_interval_95_upper")),
+            "best_seed": agg.get("best_seed"),
+            "worst_seed": agg.get("worst_seed"),
+            "per_seed_summaries": agg.get("per_seed_summaries", []),
+        },
+    })
 
 @router.get("/api/evaluations/canonical")
 def api_canonical_evaluation() -> Response:

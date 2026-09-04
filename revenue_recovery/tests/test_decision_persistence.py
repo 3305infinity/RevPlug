@@ -111,7 +111,7 @@ class TestWebhookDecisionPersistence:
         # Exactly one decision persisted
         decisions_list = decisions.list_by_recovery_item_id("pay_test_001")
         assert len(decisions_list) == 1
-        assert decisions_list[0]["proposed_action"] == "retry_payment"
+        assert decisions_list[0]["proposed_action"] == "send_payment_link"
         assert decisions_list[0]["policy_allowed"] is True
 
     def test_duplicate_webhook_no_second_decision(self):
@@ -185,8 +185,8 @@ class TestWebhookDecisionPersistence:
         audit = container.audit_log
         decisions = container.decisions
         agent = MockRecoveryDecisionAgent()
-        # No retries allowed
-        policy = InterventionPolicy(max_retry_attempts=0)
+        opted_out_id = "cust_optout_denied"
+        policy = InterventionPolicy(max_retry_attempts=0, opted_out_customer_ids=frozenset({opted_out_id}))
         orchestrator = RecoveryAgentOrchestrator(
             agent=agent, policy_engine=policy, audit_log=audit, validator=ProposalValidator(),
         )
@@ -211,6 +211,7 @@ class TestWebhookDecisionPersistence:
                 "status": "failed", "method": "card", "error_code": "BAD_REQUEST_ERROR",
                 "error_description": "Payment failed", "error_source": "bank",
                 "error_step": "payment_authorization", "error_reason": "payment_timed_out",
+                "customer_id": opted_out_id,
                 "created_at": 1700000000,
             }}},
         }
@@ -221,7 +222,7 @@ class TestWebhookDecisionPersistence:
         decisions_list = decisions.list_by_recovery_item_id("pay_denied_test")
         assert len(decisions_list) == 1
         assert decisions_list[0]["policy_allowed"] is False
-        assert decisions_list[0]["proposed_action"] == "retry_payment"
+        assert decisions_list[0]["proposed_action"] == "send_payment_link"
 
 
 def test_major_state_transitions_create_audit_events():

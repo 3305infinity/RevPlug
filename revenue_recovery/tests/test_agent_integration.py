@@ -104,7 +104,7 @@ class TestAgentWebhookIntegration:
         assert item is not None
         assert item.root_cause == "soft"
         assert svc.last_proposal is not None
-        assert svc.last_proposal.action.value == "retry_payment"
+        assert svc.last_proposal.action.value == "send_payment_link"
         assert svc.last_decision.allowed is True
 
     def test_hard_failure_agent_cannot_retry(self, service):
@@ -161,7 +161,7 @@ class TestAgentWebhookIntegration:
         item, events, status = svc.process_webhook(body, sig)
         assert item is not None
         assert item.expected_recovery_value is not None
-        assert item.expected_recovery_value == 34500  # 50000 * 0.70 - 500
+        assert item.expected_recovery_value == 39800  # 50000 * 0.80 - 200
 
     def test_audit_trail_is_complete(self, service):
         svc, audit = service
@@ -213,7 +213,7 @@ class TestAgentWebhookIntegration:
         assert svc.last_decision.allowed is False
 
     def test_retry_limit_enforced(self):
-        """Retry policy still wins even if agent proposes retry."""
+        """With max_retry_attempts=0, retry is blocked but send_payment_link is allowed."""
         container = create_persistence_container("memory")
         agent = MockRecoveryDecisionAgent()
         audit = container.audit_log
@@ -242,7 +242,10 @@ class TestAgentWebhookIntegration:
         sig = _sign(body)
         item, events, status = svc.process_webhook(body, sig)
         assert status == "processed"
-        assert svc.last_decision.allowed is False
+        # Agent proposes send_payment_link (higher EV than retry for soft failures).
+        # Policy allows it since send_payment_link is not a retry; retry_limit only blocks RETRY_PAYMENT.
+        assert svc.last_decision.allowed is True
+        assert svc.last_proposal.action.value == "send_payment_link"
 
 
 # ---------------------------------------------------------------------------
@@ -269,8 +272,8 @@ class TestEndpointWithAgent:
         assert data["status"] == "processed"
         assert data["recovery_item_id"] == "pay_endpoint"
         assert data["failure_category"] == "soft"
-        assert data["expected_recovery_value"] == 34500  # 50000 * 0.70 - 500
-        assert data["proposed_action"] == "retry_payment"
+        assert data["expected_recovery_value"] == 39800  # 50000 * 0.80 - 200
+        assert data["proposed_action"] == "send_payment_link"
         assert data["policy_allowed"] is True
         assert data["agent_model"] == "deterministic-mock"
 

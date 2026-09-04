@@ -1,5 +1,14 @@
 """Benchmark Runner for Reproducible Counterfactual Batch Evaluation.
 
+LABEL: CANONICAL BENCHMARK RUNNER — produces evaluation_report.json.
+- Executes single-seed detailed trace (Seed 42, Count 50) via EvaluationService.run_batch_evaluation.
+- Executes multi-seed statistical aggregate suite (10 seeds x 100 cases = 1,000 cases total).
+- Writes evaluation_report.json (machine-readable canonical JSON report).
+- Writes docs/EVALUATION_REPORT.md via render_markdown_report().
+
+To update docs/EVALUATION_REPORT.md without re-running the benchmark, use:
+    python scripts/regenerate_benchmark_docs.py
+
 Executes:
 1. Multi-seed statistical benchmark suite (10 seeds x 100 cases = 1,000 cases total)
 2. Detailed per-case trace for canonical Seed 42
@@ -47,6 +56,11 @@ def render_markdown_report(data: dict) -> str:
     total_seeds = agg.get("total_seeds", 10)
     ci_lower = agg.get("confidence_interval_95_lower", 0.0)
     ci_upper = agg.get("confidence_interval_95_upper", 0.0)
+
+    # Confidence interval values are in minor currency units; convert to percentage points
+    ci_denominator = max(1.0, safe_mean_net)
+    ci_lower_pct = (ci_lower / ci_denominator) * 100.0
+    ci_upper_pct = (ci_upper / ci_denominator) * 100.0
 
     # Single-seed comparison numbers
     safe_lift_pct = comp.get("safe_lift_pct")
@@ -119,7 +133,7 @@ def render_markdown_report(data: dict) -> str:
         f"| **Mean Decision Quality** | — | — | **{agg.get('revplug_mean_decision_quality', 0.0):.1f}%** | — |",
         "",
         f"- **RevPlug Win Count vs Safe Baseline:** {revplug_wins}/{total_seeds} seeds ({revplug_win_rate:.0f}%)",
-        f"- **95% Confidence Interval (Net Lift):** [{ci_lower:+,.2f}%, {ci_upper:+,.2f}%]",
+        f"- **95% Confidence Interval (Net Lift):** [{ci_lower_pct:+,.2f}%, {ci_upper_pct:+,.2f}%]",
         f"- **Mean Net Recovery per Seed:** {fmt(revplug_mean_net)}",
         f"- **Safe Baseline Mean Net per Seed:** {fmt(safe_mean_net)}",
         f"- **Net Difference (RevPlug − Safe):** {fmt(revplug_mean_net - safe_mean_net)}",

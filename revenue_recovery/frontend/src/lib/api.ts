@@ -663,6 +663,19 @@ export const api = {
   naiveBaseline: (id: string) => fetchAPI<NaiveBaselineResult>(`/api/recovery-items/${id}/naive-baseline`),
   batchSummary: (id: string) => fetchAPI<any>(`/api/batches/${id}/summary`),
   latestBenchmark: () => fetchAPI<ScientificBenchmarkReport>("/api/benchmark/latest"),
+  benchmarkSummary: () => fetchAPI<{
+    source: string;
+    evaluation_id: string;
+    seed: number;
+    count: number;
+    status: string;
+    dataset_version: string;
+    evaluation_mode: string;
+    single_seed_label: string;
+    multi_seed_label: string;
+    single_seed: Record<string, any>;
+    multi_seed: Record<string, any>;
+  }>("/api/benchmark-summary"),
   portfolioNextBestActions: () => fetchAPI<OpportunityItem[]>("/api/portfolio/next-best-actions"),
   capitalProtected: () => fetchAPI<CapitalProtected>("/api/portfolio/capital-protected"),
   dashboardActivity: () => fetchAPI<DashboardActivityEvent[]>("/api/dashboard/activity"),

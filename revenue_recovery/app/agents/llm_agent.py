@@ -192,26 +192,19 @@ class RealRecoveryDecisionAgent:
                 )
 
             # Augment proposal with EV-ranked full candidate list
-            eligible = _eligible_candidates(context)
+            eligible = self._generate_candidate_actions(context)
             if selected_act_str not in eligible:
                 eligible.insert(0, selected_act_str)
             scored_candidates = _score_candidates(context, eligible)
             top_candidate = scored_candidates[0] if scored_candidates else None
 
-            # Domain-override policy: if LLM confidence is HIGH (>= 0.75) it can override
-            # the top EV candidate; otherwise final action MUST be the top-scored candidate.
-            # This prevents LLM hallucinations from overriding sound EV-based rankings.
-            HIGH_CONFIDENCE_THRESHOLD = 0.75
-            if conf_val >= HIGH_CONFIDENCE_THRESHOLD and top_candidate is not None:
-                final_action = selected_act
-                final_reason = parsed.get("reasoning_summary") or parsed.get("reasoning") or "AI high-confidence override"
-                override_applied = (selected_act_str != top_candidate.action)
-            else:
-                final_action = RecoveryAction(top_candidate.action) if top_candidate else selected_act
-                final_reason = f"Top EV-ranked action selected (LLM confidence {conf_val:.2f} below override threshold)"
-                override_applied = False
+            # Final action is always the top EV-ranked candidate.
+            # Domain knowledge is expressed via probability/Eligibility, not LLM override.
+            final_action = RecoveryAction(top_candidate.action) if top_candidate else selected_act
+            final_reason = f"Top EV-ranked action selected from {len(scored_candidates)} candidates"
+            override_applied = False
 
-            # Proposal construction — LLM high-confidence overrides are reflected in reasoning
+            # Proposal construction
             proposal = RecoveryProposal(
                 action=final_action,
                 reason=final_reason,

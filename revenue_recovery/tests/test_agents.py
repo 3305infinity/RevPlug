@@ -115,13 +115,13 @@ class TestRecoveryProposal:
 # ---------------------------------------------------------------------------
 
 class TestMockAgent:
-    def test_soft_failure_proposes_retry(self, agent):
+    def test_soft_failure_proposes_link(self, agent):
         ctx = _ctx(failure_category=FailureCategory.SOFT, attempt_count=0)
         proposal = agent.propose(ctx)
-        assert proposal.action == RecoveryAction.RETRY_PAYMENT
-        assert proposal.proposed_retry is True
+        assert proposal.action == RecoveryAction.SEND_PAYMENT_LINK
+        assert proposal.proposed_retry is False
         assert len(proposal.candidates) >= 3
-        assert any(c.action == RecoveryAction.RETRY_PAYMENT for c in proposal.candidates)
+        assert any(c.action == RecoveryAction.SEND_PAYMENT_LINK for c in proposal.candidates)
 
     def test_soft_failure_exhausted_budget_proposes_link(self, agent):
         ctx = _ctx(failure_category=FailureCategory.SOFT, attempt_count=3, max_attempts=3)
@@ -277,7 +277,7 @@ class TestOrchestrator:
     def test_soft_failure_end_to_end(self, orchestrator):
         ctx = _ctx(failure_category=FailureCategory.SOFT, attempt_count=0)
         result = orchestrator.decide(ctx)
-        assert result.proposal.action == RecoveryAction.RETRY_PAYMENT
+        assert result.proposal.action == RecoveryAction.SEND_PAYMENT_LINK
         assert result.policy_decision.allowed is True
         assert len(result.audit_events) >= 3
 
@@ -331,8 +331,10 @@ class TestOrchestrator:
         )
         ctx = _ctx(failure_category=FailureCategory.SOFT, attempt_count=1)
         result = orch.decide(ctx)
-        # Agent proposes RETRY_PAYMENT but attempt_count >= max_attempts.
-        assert result.policy_decision.allowed is False
+        # Agent proposes SEND_PAYMENT_LINK (higher EV than RETRY_PAYMENT for soft failures).
+        # Policy allows send_payment_link since it's not a retry; retry_limit only blocks RETRY_PAYMENT.
+        assert result.policy_decision.allowed is True
+        assert result.policy_decision.action == "send_payment_link"
 
 
 # ---------------------------------------------------------------------------

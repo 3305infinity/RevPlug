@@ -233,7 +233,61 @@ export default function ProofLab() {
 
   const loadBenchmark = async () => {
     try {
-      const bench = await api.latestBenchmark();
+      const summary = await api.benchmarkSummary();
+      const ms = summary?.multi_seed || {};
+      const bench: ScientificBenchmarkReport = {
+        cases_per_seed: ms.cases_per_seed ?? 100,
+        seeds: ms.per_seed_summaries?.map((s: any) => s.seed) ?? [],
+        total_seeds: ms.total_seeds ?? 10,
+        revplug_wins_vs_safe: ms.revplug_wins_vs_safe ?? 0,
+        safe_wins_vs_revplug: ms.safe_wins_vs_revplug ?? 0,
+        naive_wins_vs_revplug: ms.naive_wins_vs_revplug ?? 0,
+        ties_vs_safe: ms.ties_vs_safe ?? 0,
+        revplug_win_rate_pct: ms.revplug_win_rate_pct ?? 0,
+        mean_amount_at_risk: ms.mean_amount_at_risk ?? 0,
+        naive_mean_gross: ms.naive_mean_gross ?? 0,
+        naive_mean_net: ms.naive_mean_net ?? 0,
+        naive_mean_violations: ms.naive_mean_violations ?? 0,
+        safe_mean_gross: ms.safe_mean_gross ?? 0,
+        safe_mean_net: ms.safe_mean_net ?? 0,
+        safe_median_net: 0,
+        safe_std_net: 0,
+        safe_mean_violations: ms.safe_mean_violations ?? 0,
+        revplug_mean_gross: ms.revplug_mean_gross ?? 0,
+        revplug_mean_net: ms.revplug_mean_net ?? 0,
+        revplug_median_net: 0,
+        revplug_std_net: 0,
+        revplug_mean_cost: 0,
+        revplug_mean_violations: ms.revplug_mean_violations ?? 0,
+        revplug_mean_decision_quality: ms.revplug_mean_decision_quality ?? 0,
+        gross_lift_pct: ms.gross_lift_pct ?? 0,
+        net_lift_pct: ms.net_lift_pct ?? 0,
+        net_lift_vs_naive_pct: ms.net_lift_vs_naive_pct ?? 0,
+        net_diff_mean: ms.net_diff_mean ?? 0,
+        confidence_interval_95_lower: ms.confidence_interval_95_lower ?? 0,
+        confidence_interval_95_upper: ms.confidence_interval_95_upper ?? 0,
+        best_seed: ms.best_seed ?? null,
+        worst_seed: ms.worst_seed ?? null,
+        per_seed_summaries: (ms.per_seed_summaries ?? []).map((s: any) => ({
+          seed: s.seed,
+          cases: s.cases,
+          amount_at_risk: s.amount_at_risk,
+          baseline_naive_gross: s.baseline_naive_gross,
+          baseline_naive_net: s.baseline_naive_net,
+          baseline_naive_violations: s.baseline_naive_violations,
+          baseline_safe_gross: s.baseline_safe_gross,
+          baseline_safe_net: s.baseline_safe_net,
+          baseline_safe_violations: s.baseline_safe_violations,
+          revplug_gross: s.revplug_gross,
+          revplug_net: s.revplug_net,
+          revplug_cost: s.revplug_cost,
+          revplug_violations: s.revplug_violations,
+          revplug_win_vs_safe: s.revplug_win_vs_safe,
+          revplug_win_vs_naive: s.revplug_win_vs_naive,
+          tie_vs_safe: s.tie_vs_safe,
+          decision_quality_score: s.decision_quality_score,
+        })),
+      };
       setBenchReport(bench);
       setProofResult(computeProofResult(bench));
       setBreakdown(computeBreakdown(bench));
@@ -348,7 +402,7 @@ export default function ProofLab() {
         <div className="card" style={{ padding: "3rem", textAlign: "center", marginBottom: "1.5rem" }}>
           <div style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem" }}>Loading benchmark data...</div>
           <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontFamily: "monospace" }}>
-            Fetching latest 10-seed statistical benchmark report.
+            Fetching seeded counterfactual evaluation report from evaluation_report.json.
           </p>
         </div>
       )}

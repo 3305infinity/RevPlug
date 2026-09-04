@@ -60,9 +60,9 @@ def test_highest_probability_not_highest_priority():
         proposed_action="send_payment_link",
     )
     # Case A: 30000 * 0.7 - 500 = 20500 (HIGH)
-    # Case B: 60000 * 0.45 - 200 = 26800 (HIGH)
+    # Case B: 60000 * 0.55 - 200 = 32800 (HIGH)
     assert case_a.expected_recovery_value == 20_500
-    assert case_b.expected_recovery_value == 26_800
+    assert case_b.expected_recovery_value == 32_800
     assert case_b.expected_recovery_value > case_a.expected_recovery_value
     assert case_a.priority == "HIGH"
     assert case_b.priority == "HIGH"

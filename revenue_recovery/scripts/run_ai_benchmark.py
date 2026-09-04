@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Stage 13 — AI Judgment Engine & Multi-Provider Benchmark CLI.
 
-Evaluates and compares recovery decisions across 4 configurations:
-  1. Baseline A — Deterministic (Non-AI fixed rules)
-  2. Baseline B — Groq (Groq LLM proposal -> Policy Gate)
-  3. Baseline C — Gemini (Gemini LLM proposal -> Policy Gate)
-  4. System D   — RevPlug Hybrid (AIRouter ambiguity classification -> AI proposal -> Policy Gate)
+LABEL: LEGACY STAGE SCRIPT (not canonical).
+- Produces artifacts/ai_benchmark.json (per-provider comparison only).
+- Does NOT write evaluation_report.json.
+- Does NOT include baseline/safe_baseline counterfactual comparison.
+- Superseded by: app/eval/run_benchmark.py (the canonical runner).
 
-Usage:
-    python scripts/run_ai_benchmark.py --provider all --count 50 --seed 42
+Use this script only for per-provider AI quality diagnostics (deterministic vs Groq vs Gemini vs hybrid).
+For the canonical benchmark numbers quoted in README/PROJECT/docs, use app/eval/run_benchmark.py or
+scripts/regenerate_benchmark_docs.py.
 """
 from __future__ import annotations
 

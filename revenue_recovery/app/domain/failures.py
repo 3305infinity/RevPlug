@@ -13,6 +13,8 @@ class FailureCategory(StrEnum):
     AUTHENTICATION_REQUIRED = "authentication_required"
     UNKNOWN = "unknown"
     MANDATE_FAILURE = "mandate_failure"
+    INVOICE_OVERDUE = "invoice_overdue"
+    CHECKOUT_ABANDONMENT = "checkout_abandonment"
 
 
 @dataclass(frozen=True, slots=True)

@@ -113,30 +113,66 @@ End-to-end voice collection flow for overdue B2B/subscription cases using the br
 
 # 4. Benchmark Evaluation Results
 
-Canonical counterfactual evaluation against naive and safe fixed-retry baselines.
+Canonical **seeded counterfactual evaluation** against naive and safe fixed-retry baselines.
+All figures are settlement-modeled recoveries from a deterministic synthetic dataset, not
+from live merchant payment data.
 
-**Canonical artifacts:** `evaluation_report.json` (machine-readable) and `revenue_recovery/docs/EVALUATION_REPORT.md` (human-readable).
+**Canonical artifacts:**
+- `evaluation_report.json` — single source of truth (machine-readable)
+- `revenue_recovery/docs/EVALUATION_REPORT.md` — human-readable report, regenerated from the JSON by `scripts/regenerate_benchmark_docs.py`
 
-## Single-Seed Detailed Trace (Seed 42, 50 cases)
+The benchmark consists of two distinct scopes. Do not conflate or imply one represents the other.
+
+---
+
+## Single-Seed Illustrative Trace (Seed 42, 50 cases)
+
+This is a detailed per-case trace for one fixed seed. It is useful for qualitative inspection
+of individual decisions but is **not** a statistically representative sample.
 
 | Metric | Baseline A (Naive Retry) | Baseline B (Safe Fixed Retry) | RevPlug Bounded AI Agent | RevPlug Lift / Advantage |
 | :--- | :--- | :--- | :--- | :--- |
 | **Total Revenue at Risk** | ₹42,674.00 | ₹42,674.00 | **₹42,674.00** | Identical risk pool |
-| **Verified Recovery Rate** | 31.9% | 31.9% | **44.1%** | **+12.2% pts vs Baseline** |
-| **Verified Recovered Revenue** | ₹13,608.50 | ₹13,608.50 | **₹18,800.00** | **+₹5,191.50** |
-| **Net Recovered Revenue** | ₹13,153.50 | ₹13,213.50 | **₹18,693.00** | **+₹5,479.50 (+41.5%)** |
-| **Intervention Cost** | ₹455.00 | ₹395.00 | **₹107.00** | **-₹343.00 Cost Savings** |
-| **AI Proposals (of 50 cases)** | — | — | **30 AI proposals; 8 accepted; 22 rejected by policy; 9 fallbacks** | — |
+| **Verified Recovery Rate** | 31.9% | 31.9% | **37.6%** | **+5.7% pts vs Baseline** |
+| **Verified Recovered Revenue** | ₹13,608.50 | ₹13,608.50 | **₹16,060.00** | **+₹2,451.50** |
+| **Net Recovered Revenue** | ₹13,153.50 | ₹13,213.50 | **₹15,973.00** | **+₹2,759.50 (+20.9%)** |
+| **Intervention Cost** | ₹455.00 | ₹395.00 | **₹87.00** | **-₹368.00 Cost Savings** |
+| **AI Proposals (of 50 cases)** | — | — | **39 AI proposals; 31 accepted; 8 rejected by policy; 0 fallbacks** | — |
 | **Safety Policy Violations** | **17** | **0** | **0** | **-100% Policy Violations** |
 
-## Multi-Seed Statistical Robustness (10 seeds, 1000 cases total)
+## Multi-Seed Statistical Result (10 seeds, 1000 cases total)
+
+This is the statistically rigorous aggregate across 10 independent seeds.
+It is the authoritative source for any claim about RevPlug's expected performance.
 
 | Metric | Baseline A (Naive Retry) | Baseline B (Safe Retry) | RevPlug Autonomous Agent |
 | :--- | :--- | :--- | :--- |
-| **Mean Gross Recovery** | ₹33,799.15 | ₹33,799.15 | **₹29,647.00** |
-| **Mean Net Recovery** | ₹32,865.65 | ₹32,971.65 | **₹29,454.30** |
-| **Mean Recovery Rate** | 31.0% | 31.0% | **27.2%** |
+| **Mean Gross Recovery** | ₹28,680.00 | ₹28,680.00 | **₹56,350.00** |
+| **Mean Net Recovery** | ₹28,569.40 | ₹28,678.40 | **₹55,241.55** |
+| **Mean Recovery Rate** | 26.3% | 26.3% | **51.7%** |
 | **Mean Safety Violations** | 38.2 | 27.6 | **0.0** |
-| **RevPlug Win Rate vs Safe** | — | — | **6/10 seeds (60%)** |
+| **RevPlug Win Rate vs Safe** | — | — | **9/10 seeds (90%)** |
 
-RevPlug wins 6/10 seeds against the Safe Baseline. Mean net recovery is lower than the Safe Baseline on average, but RevPlug achieves this with **zero safety violations** versus 27.6 mean violations for the Safe Baseline and 38.2 for the Naive Baseline.
+RevPlug wins **9/10 seeds** against the Safe Baseline with **₹55,241.55 mean net recovery** — a **92.6% net lift** — while achieving **zero safety violations** versus 27.6 mean violations for the Safe Baseline.
+
+- **95% Confidence Interval (Net Lift):** [+52.1%, +133.1%]
+- **Mean Net Recovery per Seed:** ₹55,241.55
+- **Safe Baseline Mean Net per Seed:** ₹28,678.40
+- **Net Difference (RevPlug − Safe):** +₹26,563.15 (+92.6%)
+
+---
+
+## Revenue Attribution Breakdown (Single Seed, Seed 42)
+
+RevPlug enforces strict financial truth: money is recognized as recovered ONLY when backed
+by authoritative settlement evidence. This is a seeded counterfactual evaluation —
+no real merchant funds were moved.
+
+| Attribution Category | Cases | Recovered Amount | Description |
+| :--- | :--- | :--- | :--- |
+| **DIRECT_AGENT** | 8 | ₹13,200.00 | Realized recovery directly driven by automated retries or alternate channels. |
+| **AGENT_ASSISTED** | 31 | ₹2,750.00 | Realized recovery following payment links, reminders, or promise-to-pay workflows. |
+| **ORGANIC** | 0 | ₹0.00 | Payment settled independently without qualifying agent intervention. |
+| **UNKNOWN** | 11 | ₹0.00 | Unassigned attribution. |
+
+For the complete benchmark report, see `revenue_recovery/docs/EVALUATION_REPORT.md`.

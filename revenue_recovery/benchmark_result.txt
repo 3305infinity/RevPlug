@@ -1,0 +1,10 @@
+﻿python :   File "<string>", line 9
+At line:4 char:73
++ ... shtha\OneDrive\Desktop\revenue_recovery\revenue_recovery; python -c "
++                                                               ~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (  File "<string>", line 9:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    print(f'Total Seeds: {result[" total_seeds\]}')
+                                 ^
+SyntaxError: unterminated string literal (detected at line 9)

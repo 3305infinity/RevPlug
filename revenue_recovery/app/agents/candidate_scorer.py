@@ -24,6 +24,9 @@ def _eligible_candidates(context: RecoveryContext) -> list[str]:
     is_hard = category == FailureCategory.HARD
     is_soft = category == FailureCategory.SOFT
     is_unknown = category == FailureCategory.UNKNOWN
+    is_mandate = category == FailureCategory.MANDATE_FAILURE
+    is_checkout = category == FailureCategory.CHECKOUT_ABANDONMENT
+    is_invoice_overdue = category == FailureCategory.INVOICE_OVERDUE
     prev = set(context.previous_actions)
     last_obs = context.last_observation or {}
     last_status = last_obs.get("status")
@@ -68,10 +71,7 @@ def _eligible_candidates(context: RecoveryContext) -> list[str]:
         ]
         if context.attempt_count >= 2:
             eligible = [RecoveryAction.ESCALATE_HUMAN.value]
-    elif (
-        context.failure_category == FailureCategory.MANDATE_FAILURE
-        or context.metadata.get("source_type") == SourceType.MANDATE_FAILURE.value
-    ):
+    elif is_mandate:
         rep_count = int(context.metadata.get("representation_count", 0))
         max_reps = int(context.metadata.get("max_representations", 3))
         next_rep_str = context.metadata.get("next_representation_date")
@@ -105,6 +105,38 @@ def _eligible_candidates(context: RecoveryContext) -> list[str]:
                 RecoveryAction.SEND_CUSTOMER_MESSAGE.value,
                 RecoveryAction.WAIT.value,
             ]
+    elif is_checkout:
+        checkout_age = int(context.metadata.get("checkout_age_minutes", context.metadata.get("abandoned_minutes", 30)))
+        if checkout_age > 10080:
+            eligible = [RecoveryAction.STOP_RECOVERY.value]
+        else:
+            eligible = [RecoveryAction.SEND_PAYMENT_LINK.value]
+    elif is_invoice_overdue:
+        days = int(context.metadata.get("days_overdue", 1))
+        if days < 3:
+            eligible = [
+                RecoveryAction.SEND_REMINDER.value,
+                RecoveryAction.SEND_PAYMENT_LINK.value,
+                RecoveryAction.SEND_CUSTOMER_MESSAGE.value,
+                RecoveryAction.ESCALATE_HUMAN.value,
+            ]
+        elif days < 7:
+            eligible = [
+                RecoveryAction.SEND_PAYMENT_LINK.value,
+                RecoveryAction.SEND_REMINDER.value,
+                RecoveryAction.ALTERNATE_CHANNEL.value,
+                RecoveryAction.ESCALATE_HUMAN.value,
+            ]
+        elif days < 14:
+            eligible = [
+                RecoveryAction.ALTERNATE_CHANNEL.value,
+                RecoveryAction.SEND_PAYMENT_LINK.value,
+                RecoveryAction.ESCALATE_HUMAN.value,
+            ]
+        else:
+            eligible = [RecoveryAction.ESCALATE_HUMAN.value]
+    elif is_unknown:
+        eligible = [RecoveryAction.ESCALATE_HUMAN.value]
     else:
         eligible = [
             RecoveryAction.SEND_PAYMENT_LINK.value,
@@ -112,9 +144,6 @@ def _eligible_candidates(context: RecoveryContext) -> list[str]:
             RecoveryAction.ALTERNATE_CHANNEL.value,
             RecoveryAction.ESCALATE_HUMAN.value,
         ]
-
-    if is_unknown:
-        eligible = [RecoveryAction.ESCALATE_HUMAN.value]
 
     # Deduplicate while preserving order
     seen: set[str] = set()

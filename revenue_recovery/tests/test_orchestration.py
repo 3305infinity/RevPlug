@@ -134,7 +134,7 @@ def test_payment_failure_workflow_distinguishes_failure_types():
     )
     res_soft = orchestrator.run(item_soft, ctx_soft)
     assert res_soft.safety_decision == "ALLOWED"
-    assert res_soft.proposed_action == "retry_payment"
+    assert res_soft.proposed_action == "send_payment_link"
 
     item_fraud = RecoveryItem(
         id="fraud_wf_1", source_type=SourceType.PAYMENT_FAILURE, external_id="e2", customer_id="c2",
@@ -164,7 +164,7 @@ def test_checkout_abandonment_workflow_fresh_vs_stale():
         metadata={"checkout_age_minutes": 120}
     )
     ctx_fresh = RecoveryContext(
-        item_id=item_fresh.id, failure_category=FailureCategory.UNKNOWN, retryable=False, attempt_count=0,
+        item_id=item_fresh.id, failure_category=FailureCategory.CHECKOUT_ABANDONMENT, retryable=False, attempt_count=0,
         amount_minor=5000, currency="INR", expected_recovery_value=2500, customer_opt_out=False,
         metadata={"source_type": "checkout_abandonment", "checkout_age_minutes": 120}
     )

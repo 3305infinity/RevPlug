@@ -131,6 +131,51 @@ def test_financial_invariants_across_batch_evaluation():
     assert ros.safety_violations["total_safety_violations"] == 0
 
 
+def test_attribution_intervention_consistency():
+    """Every recovered outcome must have a traceable attribution and valid
+    intervention/execution relationship.
+
+    - ORGANIC recoveries may have executed_interventions == 0 (customer resolved independently).
+    - DIRECT_AGENT and AGENT_ASSISTED recoveries MUST have at least one executed intervention.
+    - successful_interventions must equal recovered cases that had an executed intervention.
+    - failed_interventions must equal non-recovered cases that had an executed intervention.
+    """
+    eval_svc = EvaluationService(ai_enabled=True)
+    res = eval_svc.run_batch_evaluation(count=50, seed=42)
+
+    ros = res.revplug
+    assert ros.executed_interventions == (ros.successful_interventions + ros.failed_interventions), (
+        f"executed_interventions ({ros.executed_interventions}) must equal "
+        f"successful ({ros.successful_interventions}) + failed ({ros.failed_interventions})"
+    )
+
+    organic_recovered = 0
+    agent_recovered = 0
+    for case in res.per_case:
+        revplug = case.get("revplug") or {}
+        attr = revplug.get("attribution")
+        outcome = revplug.get("outcome")
+        actions = revplug.get("actions_executed") or []
+        had_intervention = len(actions) > 0
+
+        if outcome == "recovered":
+            if attr == "ORGANIC":
+                organic_recovered += 1
+                assert not had_intervention, (
+                    f"Case {case.get('case_id')}: ORGANIC recovery should have no actions_executed, got {actions}"
+                )
+            elif attr in ("DIRECT_AGENT", "AGENT_ASSISTED"):
+                agent_recovered += 1
+                assert had_intervention, (
+                    f"Case {case.get('case_id')}: {attr} recovery must have at least one executed intervention"
+                )
+
+    assert ros.recovered_count == (organic_recovered + agent_recovered), (
+        f"recovered_count ({ros.recovered_count}) must equal organic ({organic_recovered}) + "
+        f"agent-attributed ({agent_recovered})"
+    )
+
+
 def test_benchmark_json_matches_markdown_report():
     """Verify evaluation_report.json numbers match docs/EVALUATION_REPORT.md numbers."""
     from app.eval.run_benchmark import run_benchmark

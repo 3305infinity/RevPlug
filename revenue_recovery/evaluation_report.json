@@ -1,10 +1,10 @@
 {
-  "evaluation_id": "b5eb88e2-d50b-4e3d-a4ec-19006c0adcef",
+  "evaluation_id": "7800f4aa-ef0d-4ff4-8f20-848a96ac2b0d",
   "seed": 42,
   "count": 50,
   "status": "completed",
-  "started_at": "2026-09-03T20:33:44.038865+00:00",
-  "completed_at": "2026-09-03T20:33:44.189872+00:00",
+  "started_at": "2026-09-04T06:26:56.548185+00:00",
+  "completed_at": "2026-09-04T06:26:56.608577+00:00",
   "benchmark_configuration": {
     "ai_enabled": true,
     "ai_routing": "contextual",
@@ -86,48 +86,48 @@
       "eval_42_0049"
     ],
     "safety_statistics": {
-      "ALLOWED": 19,
+      "ALLOWED": 35,
       "STOPPED": 0,
-      "DENY": 5,
-      "ESCALATE": 0,
-      "STOP": 26
+      "DENY": 1,
+      "ESCALATE": 1,
+      "STOP": 13
     },
     "calibration_buckets": {
       "0.0-0.2": {
-        "count": 15,
-        "avg_predicted_probability": 0.06,
-        "actual_recovery_rate": 0.2667,
+        "count": 11,
+        "avg_predicted_probability": 0.05,
+        "actual_recovery_rate": 0.3636,
         "insufficient_sample": false
       },
       "0.2-0.4": {
-        "count": 5,
-        "avg_predicted_probability": 0.2,
+        "count": 0,
+        "avg_predicted_probability": 0.0,
         "actual_recovery_rate": 0.0,
         "insufficient_sample": true
       },
       "0.4-0.6": {
         "count": 5,
-        "avg_predicted_probability": 0.45,
+        "avg_predicted_probability": 0.55,
         "actual_recovery_rate": 0.8,
         "insufficient_sample": true
       },
       "0.6-0.8": {
-        "count": 25,
-        "avg_predicted_probability": 0.68,
-        "actual_recovery_rate": 0.16,
+        "count": 13,
+        "avg_predicted_probability": 0.7154,
+        "actual_recovery_rate": 0.6154,
         "insufficient_sample": false
       },
       "0.8-1.0": {
-        "count": 0,
-        "avg_predicted_probability": 0.0,
-        "actual_recovery_rate": 0.0,
-        "insufficient_sample": true
+        "count": 21,
+        "avg_predicted_probability": 0.8,
+        "actual_recovery_rate": 0.5238,
+        "insufficient_sample": false
       }
     },
     "economic_metrics": {
-      "net_revenue_recovered": 1581500,
-      "roi": 117.1481,
-      "expected_vs_actual_error": 33672.2
+      "net_revenue_recovered": 1597300,
+      "roi": 183.5977,
+      "expected_vs_actual_error": 48713.0
     }
   },
   "revplug": {
@@ -136,31 +136,31 @@
     "cases_failed_processing": 0,
     "eligible_cases": 39,
     "total_amount_at_risk": 4267400,
-    "expected_recovery": 1170244,
-    "actual_recovered": 1595000,
-    "net_recovered": 1581500,
-    "recovery_rate": 0.373764,
-    "case_recovery_rate": 0.307692,
-    "recovered_count": 12,
-    "stopped_count": 26,
-    "escalated_count": 12,
+    "expected_recovery": 2083575,
+    "actual_recovered": 1606000,
+    "net_recovered": 1597300,
+    "recovery_rate": 0.376342,
+    "case_recovery_rate": 0.692308,
+    "recovered_count": 27,
+    "stopped_count": 13,
+    "escalated_count": 10,
     "pending_verification_count": 0,
     "failed_count": 0,
-    "total_interventions": 28,
-    "executed_interventions": 0,
-    "successful_interventions": 0,
-    "failed_interventions": 0,
-    "intervention_cost": 13500,
-    "cost_per_recovery": 1125.0,
-    "cost_per_rupee_recovered": 0.0085,
-    "net_recovery_margin": 0.9915,
-    "unnecessary_interventions": 9,
-    "no_action_cases": 31,
-    "negative_ev_no_action_cases": 9,
-    "policy_stop_cases": 31,
+    "total_interventions": 36,
+    "executed_interventions": 36,
+    "successful_interventions": 27,
+    "failed_interventions": 9,
+    "intervention_cost": 8700,
+    "cost_per_recovery": 322.22,
+    "cost_per_rupee_recovered": 0.0054,
+    "net_recovery_margin": 0.9946,
+    "unnecessary_interventions": 0,
+    "no_action_cases": 14,
+    "negative_ev_no_action_cases": 6,
+    "policy_stop_cases": 14,
     "rules_classified_count": 11,
-    "llm_classified_count": 30,
-    "llm_fallback_count": 9,
+    "llm_classified_count": 39,
+    "llm_fallback_count": 0,
     "safety_violations": {
       "fraud_retry_violations": 0,
       "hard_decline_retry_violations": 0,
@@ -175,48 +175,48 @@
       "total_safety_violations": 0
     },
     "ai_metrics_placeholders": {
-      "ai_cases": 30,
+      "ai_cases": 39,
       "deterministic_cases": 11,
-      "ai_proposals": 30,
-      "ai_proposals_accepted": 8,
-      "ai_proposals_rejected_by_policy": 22,
-      "ai_fallback_cases": 9,
-      "human_escalations": 12
+      "ai_proposals": 39,
+      "ai_proposals_accepted": 31,
+      "ai_proposals_rejected_by_policy": 8,
+      "ai_fallback_cases": 0,
+      "human_escalations": 10
     },
     "ai_metrics": {
       "ai_provider": "mock",
       "ai_model": "mock-llm-v1",
       "total_cases": 50,
-      "ai_assisted_cases": 30,
+      "ai_assisted_cases": 39,
       "deterministic_cases": 11,
-      "ai_proposals": 30,
-      "ai_proposals_accepted": 8,
-      "ai_proposals_rejected_by_policy": 22,
-      "ai_fallback_cases": 9,
+      "ai_proposals": 39,
+      "ai_proposals_accepted": 31,
+      "ai_proposals_rejected_by_policy": 8,
+      "ai_fallback_cases": 0,
       "ai_unsafe_proposals": 0,
-      "policy_blocked_proposals": 22,
+      "policy_blocked_proposals": 8,
       "actual_executed_unsafe_actions": 0,
-      "ai_failure_rate": 0.18,
+      "ai_failure_rate": 0.0,
       "diagnosis_accuracy": 1.0,
-      "action_selection_accuracy": 0.48
+      "action_selection_accuracy": 0.5
     },
     "decision_quality": {
       "root_cause_accuracy": 1.0,
-      "proposal_action_accuracy": 0.82,
-      "final_action_accuracy": 0.48,
-      "intervention_accuracy": 0.48,
-      "escalation_precision": 0.2,
-      "stopping_rule_compliance": 0.8182,
+      "proposal_action_accuracy": 0.6,
+      "final_action_accuracy": 0.5,
+      "intervention_accuracy": 0.5,
+      "escalation_precision": 0.0,
+      "stopping_rule_compliance": 0.5455,
       "prevented_unsafe_actions": 0
     },
     "unnecessary_intervention_definition": "action=retry_payment AND outcome!=recovered",
     "attribution_metrics": {
-      "DIRECT_AGENT_cases": 8,
-      "AGENT_ASSISTED_cases": 31,
+      "DIRECT_AGENT_cases": 31,
+      "AGENT_ASSISTED_cases": 8,
       "ORGANIC_cases": 0,
       "UNKNOWN_cases": 11,
-      "DIRECT_AGENT_recovered_minor": 1320000,
-      "AGENT_ASSISTED_recovered_minor": 275000,
+      "DIRECT_AGENT_recovered_minor": 1606000,
+      "AGENT_ASSISTED_recovered_minor": 0,
       "ORGANIC_recovered_minor": 0,
       "UNKNOWN_recovered_minor": 0
     }
@@ -227,31 +227,31 @@
     "cases_failed_processing": 0,
     "eligible_cases": 39,
     "total_amount_at_risk": 4267400,
-    "expected_recovery": 1170244,
-    "actual_recovered": 1595000,
-    "net_recovered": 1581500,
-    "recovery_rate": 0.373764,
-    "case_recovery_rate": 0.307692,
-    "recovered_count": 12,
-    "stopped_count": 26,
-    "escalated_count": 12,
+    "expected_recovery": 2083575,
+    "actual_recovered": 1606000,
+    "net_recovered": 1597300,
+    "recovery_rate": 0.376342,
+    "case_recovery_rate": 0.692308,
+    "recovered_count": 27,
+    "stopped_count": 13,
+    "escalated_count": 10,
     "pending_verification_count": 0,
     "failed_count": 0,
-    "total_interventions": 28,
-    "executed_interventions": 0,
-    "successful_interventions": 0,
-    "failed_interventions": 0,
-    "intervention_cost": 13500,
-    "cost_per_recovery": 1125.0,
-    "cost_per_rupee_recovered": 0.0085,
-    "net_recovery_margin": 0.9915,
-    "unnecessary_interventions": 9,
-    "no_action_cases": 31,
-    "negative_ev_no_action_cases": 9,
-    "policy_stop_cases": 31,
+    "total_interventions": 36,
+    "executed_interventions": 36,
+    "successful_interventions": 27,
+    "failed_interventions": 9,
+    "intervention_cost": 8700,
+    "cost_per_recovery": 322.22,
+    "cost_per_rupee_recovered": 0.0054,
+    "net_recovery_margin": 0.9946,
+    "unnecessary_interventions": 0,
+    "no_action_cases": 14,
+    "negative_ev_no_action_cases": 6,
+    "policy_stop_cases": 14,
     "rules_classified_count": 11,
-    "llm_classified_count": 30,
-    "llm_fallback_count": 9,
+    "llm_classified_count": 39,
+    "llm_fallback_count": 0,
     "safety_violations": {
       "fraud_retry_violations": 0,
       "hard_decline_retry_violations": 0,
@@ -266,48 +266,48 @@
       "total_safety_violations": 0
     },
     "ai_metrics_placeholders": {
-      "ai_cases": 30,
+      "ai_cases": 39,
       "deterministic_cases": 11,
-      "ai_proposals": 30,
-      "ai_proposals_accepted": 8,
-      "ai_proposals_rejected_by_policy": 22,
-      "ai_fallback_cases": 9,
-      "human_escalations": 12
+      "ai_proposals": 39,
+      "ai_proposals_accepted": 31,
+      "ai_proposals_rejected_by_policy": 8,
+      "ai_fallback_cases": 0,
+      "human_escalations": 10
     },
     "ai_metrics": {
       "ai_provider": "mock",
       "ai_model": "mock-llm-v1",
       "total_cases": 50,
-      "ai_assisted_cases": 30,
+      "ai_assisted_cases": 39,
       "deterministic_cases": 11,
-      "ai_proposals": 30,
-      "ai_proposals_accepted": 8,
-      "ai_proposals_rejected_by_policy": 22,
-      "ai_fallback_cases": 9,
+      "ai_proposals": 39,
+      "ai_proposals_accepted": 31,
+      "ai_proposals_rejected_by_policy": 8,
+      "ai_fallback_cases": 0,
       "ai_unsafe_proposals": 0,
-      "policy_blocked_proposals": 22,
+      "policy_blocked_proposals": 8,
       "actual_executed_unsafe_actions": 0,
-      "ai_failure_rate": 0.18,
+      "ai_failure_rate": 0.0,
       "diagnosis_accuracy": 1.0,
-      "action_selection_accuracy": 0.48
+      "action_selection_accuracy": 0.5
     },
     "decision_quality": {
       "root_cause_accuracy": 1.0,
-      "proposal_action_accuracy": 0.82,
-      "final_action_accuracy": 0.48,
-      "intervention_accuracy": 0.48,
-      "escalation_precision": 0.2,
-      "stopping_rule_compliance": 0.8182,
+      "proposal_action_accuracy": 0.6,
+      "final_action_accuracy": 0.5,
+      "intervention_accuracy": 0.5,
+      "escalation_precision": 0.0,
+      "stopping_rule_compliance": 0.5455,
       "prevented_unsafe_actions": 0
     },
     "unnecessary_intervention_definition": "action=retry_payment AND outcome!=recovered",
     "attribution_metrics": {
-      "DIRECT_AGENT_cases": 8,
-      "AGENT_ASSISTED_cases": 31,
+      "DIRECT_AGENT_cases": 31,
+      "AGENT_ASSISTED_cases": 8,
       "ORGANIC_cases": 0,
       "UNKNOWN_cases": 11,
-      "DIRECT_AGENT_recovered_minor": 1320000,
-      "AGENT_ASSISTED_recovered_minor": 275000,
+      "DIRECT_AGENT_recovered_minor": 1606000,
+      "AGENT_ASSISTED_recovered_minor": 0,
       "ORGANIC_recovered_minor": 0,
       "UNKNOWN_recovered_minor": 0
     }
@@ -369,17 +369,17 @@
     "unnecessary_intervention_definition": "action=retry_payment AND outcome!=recovered"
   },
   "comparison": {
-    "absolute_recovery_difference": 234150,
-    "recovery_rate_difference": 0.054869,
-    "relative_improvement": 0.1721,
+    "absolute_recovery_difference": 245150,
+    "recovery_rate_difference": 0.057447,
+    "relative_improvement": 0.1801,
     "revplug_beat_baseline": true,
     "revplug_beat_safe": true,
-    "honest_summary": "RevPlug net recovery \u20b92662 higher than baseline (Net \u20b915815 vs \u20b913154).",
+    "honest_summary": "RevPlug net recovery \u20b92820 higher than baseline (Net \u20b915973 vs \u20b913154).",
     "safe_baseline_net": 1321350,
     "naive_baseline_net": 1315350,
-    "revplug_net": 1581500,
-    "safe_lift_pct": 19.6882,
-    "naive_lift_pct": 20.2342
+    "revplug_net": 1597300,
+    "safe_lift_pct": 20.8839,
+    "naive_lift_pct": 21.4354
   },
   "per_case": [
     {
@@ -458,28 +458,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_no_positive_action",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "escalated",
         "actual_recovered": 0,
-        "expected_recovery": 34500,
-        "intervention_cost": 500,
-        "net_recovered": -500,
-        "unnecessary_intervention": true,
-        "stop_reason": "no_positive_action",
-        "escalation_reason": null,
+        "expected_recovery": 39800,
+        "intervention_cost": 200,
+        "net_recovered": -200,
+        "unnecessary_intervention": false,
+        "stop_reason": "human_escalation_required",
+        "escalation_reason": "human_escalation_required",
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 15,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -590,7 +594,7 @@
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
         "actual_recovered": 100000,
-        "expected_recovery": 44800,
+        "expected_recovery": 54800,
         "intervention_cost": 200,
         "net_recovered": 99800,
         "unnecessary_intervention": false,
@@ -600,7 +604,11 @@
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
         "audit_event_count": 10,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -720,7 +728,9 @@
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
         "audit_event_count": 7,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "AGENT_ASSISTED",
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -841,7 +851,9 @@
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
         "audit_event_count": 8,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": null,
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -940,28 +952,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_no_positive_action",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
-        "actual_recovered": 0,
-        "expected_recovery": 17000,
-        "intervention_cost": 500,
-        "net_recovered": -500,
-        "unnecessary_intervention": true,
-        "stop_reason": "no_positive_action",
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 25000,
+        "expected_recovery": 19800,
+        "intervention_cost": 200,
+        "net_recovered": 24800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 15,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -1060,28 +1076,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_no_positive_action",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "escalated",
         "actual_recovered": 0,
-        "expected_recovery": 6500,
-        "intervention_cost": 500,
-        "net_recovered": -500,
-        "unnecessary_intervention": true,
-        "stop_reason": "no_positive_action",
-        "escalation_reason": null,
+        "expected_recovery": 7800,
+        "intervention_cost": 200,
+        "net_recovered": -200,
+        "unnecessary_intervention": false,
+        "stop_reason": "human_escalation_required",
+        "escalation_reason": "human_escalation_required",
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 15,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -1192,7 +1212,7 @@
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
         "actual_recovered": 50000,
-        "expected_recovery": 22300,
+        "expected_recovery": 27300,
         "intervention_cost": 200,
         "net_recovered": 49800,
         "unnecessary_intervention": false,
@@ -1202,7 +1222,11 @@
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
         "audit_event_count": 10,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -1301,12 +1325,12 @@
           }
         }
       },
-      "decision_method": "AI_FALLBACK",
-      "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
-      "fallback_used": true,
-      "fallback_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "ai_success": true,
+      "fallback_used": false,
+      "fallback_reason": null,
       "revplug": {
         "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
@@ -1318,11 +1342,15 @@
         "unnecessary_intervention": false,
         "stop_reason": null,
         "escalation_reason": null,
-        "diagnosis_path": "fallback",
-        "decision_method": "AI_FALLBACK",
-        "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 11,
-        "processing_error": null
+        "diagnosis_path": "llm",
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -1428,13 +1456,13 @@
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
+        "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
         "actual_recovered": 100000,
-        "expected_recovery": 54499,
-        "intervention_cost": 500,
-        "net_recovered": 99500,
+        "expected_recovery": 64800,
+        "intervention_cost": 200,
+        "net_recovered": 99800,
         "unnecessary_intervention": false,
         "stop_reason": null,
         "escalation_reason": null,
@@ -1442,7 +1470,11 @@
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
         "audit_event_count": 10,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -1541,12 +1573,12 @@
           }
         }
       },
-      "decision_method": "AI_FALLBACK",
-      "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
-      "fallback_used": true,
-      "fallback_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "ai_success": true,
+      "fallback_used": false,
+      "fallback_reason": null,
       "revplug": {
         "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
@@ -1558,11 +1590,15 @@
         "unnecessary_intervention": false,
         "stop_reason": null,
         "escalation_reason": null,
-        "diagnosis_path": "fallback",
-        "decision_method": "AI_FALLBACK",
-        "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 11,
-        "processing_error": null
+        "diagnosis_path": "llm",
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -1683,7 +1719,9 @@
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_policy_blocked",
         "audit_event_count": 7,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "AGENT_ASSISTED",
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -1804,7 +1842,9 @@
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
         "audit_event_count": 8,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": null,
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -1903,28 +1943,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_no_positive_action",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
-        "actual_recovered": 0,
-        "expected_recovery": 26999,
-        "intervention_cost": 500,
-        "net_recovered": -500,
-        "unnecessary_intervention": true,
-        "stop_reason": "no_positive_action",
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "expected_recovery": 32300,
+        "intervention_cost": 200,
+        "net_recovered": 49800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 15,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -2023,12 +2067,12 @@
           }
         }
       },
-      "decision_method": "AI_FALLBACK",
-      "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
-      "fallback_used": true,
-      "fallback_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "ai_success": true,
+      "fallback_used": false,
+      "fallback_reason": null,
       "revplug": {
         "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
@@ -2040,11 +2084,15 @@
         "unnecessary_intervention": false,
         "stop_reason": null,
         "escalation_reason": null,
-        "diagnosis_path": "fallback",
-        "decision_method": "AI_FALLBACK",
-        "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 11,
-        "processing_error": null
+        "diagnosis_path": "llm",
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -2156,7 +2204,7 @@
         "safety_decision": "ALLOWED",
         "outcome": "escalated",
         "actual_recovered": 0,
-        "expected_recovery": 14800,
+        "expected_recovery": 34800,
         "intervention_cost": 200,
         "net_recovered": -200,
         "unnecessary_intervention": false,
@@ -2166,7 +2214,11 @@
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
         "audit_event_count": 11,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": null,
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -2287,7 +2339,9 @@
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
         "audit_event_count": 8,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": null,
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -2408,7 +2462,9 @@
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
         "audit_event_count": 8,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": null,
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -2514,13 +2570,13 @@
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
+        "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
         "actual_recovered": 50000,
-        "expected_recovery": 26999,
-        "intervention_cost": 500,
-        "net_recovered": 49500,
+        "expected_recovery": 32300,
+        "intervention_cost": 200,
+        "net_recovered": 49800,
         "unnecessary_intervention": false,
         "stop_reason": null,
         "escalation_reason": null,
@@ -2528,7 +2584,11 @@
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
         "audit_event_count": 10,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -2628,28 +2688,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_policy_blocked",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "DENY",
-        "outcome": "escalated",
-        "actual_recovered": 0,
-        "expected_recovery": 9500,
-        "intervention_cost": 0,
-        "net_recovered": 0,
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "expected_recovery": 37300,
+        "intervention_cost": 200,
+        "net_recovered": 49800,
         "unnecessary_intervention": false,
-        "stop_reason": "policy_blocked",
-        "escalation_reason": "policy_blocked",
+        "stop_reason": null,
+        "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_policy_blocked",
-        "audit_event_count": 7,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -2748,28 +2812,32 @@
           }
         }
       },
-      "decision_method": "AI_FALLBACK",
-      "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "decision_method": "AI_REJECTED_BY_POLICY",
+      "decision_method_reason": "policy_rule_no_positive_action",
       "ai_attempted": true,
       "ai_success": false,
-      "fallback_used": true,
-      "fallback_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "fallback_used": false,
+      "fallback_reason": null,
       "revplug": {
-        "proposed_action": "escalate_human",
-        "safety_decision": "ALLOWED",
-        "outcome": "escalated",
+        "proposed_action": "send_reminder",
+        "safety_decision": "STOP",
+        "outcome": "stopped",
         "actual_recovered": 0,
-        "expected_recovery": 1500,
-        "intervention_cost": 1000,
-        "net_recovered": -1000,
+        "expected_recovery": 17000,
+        "intervention_cost": 500,
+        "net_recovered": -500,
         "unnecessary_intervention": false,
-        "stop_reason": "human_escalation_required",
-        "escalation_reason": "human_escalation_required",
-        "diagnosis_path": "fallback",
-        "decision_method": "AI_FALLBACK",
-        "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 11,
-        "processing_error": null
+        "stop_reason": "no_positive_action",
+        "escalation_reason": null,
+        "diagnosis_path": "llm",
+        "decision_method": "AI_REJECTED_BY_POLICY",
+        "decision_method_reason": "policy_rule_no_positive_action",
+        "audit_event_count": 15,
+        "processing_error": null,
+        "attribution": "AGENT_ASSISTED",
+        "actions_executed": [
+          "send_reminder"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -2878,20 +2946,24 @@
       "fallback_reason": null,
       "revplug": {
         "proposed_action": "send_payment_link",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
+        "safety_decision": "ALLOWED",
+        "outcome": "escalated",
         "actual_recovered": 0,
-        "expected_recovery": 0,
-        "intervention_cost": 0,
-        "net_recovered": 0,
+        "expected_recovery": 199800,
+        "intervention_cost": 200,
+        "net_recovered": -200,
         "unnecessary_intervention": false,
-        "stop_reason": "ev_gate_enforcement",
-        "escalation_reason": null,
+        "stop_reason": "human_escalation_required",
+        "escalation_reason": "human_escalation_required",
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 8,
-        "processing_error": null
+        "audit_event_count": 11,
+        "processing_error": null,
+        "attribution": null,
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -3012,7 +3084,9 @@
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
         "audit_event_count": 8,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": null,
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -3111,28 +3185,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_ev_gate_enforcement",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
-        "actual_recovered": 0,
-        "expected_recovery": 0,
-        "intervention_cost": 0,
-        "net_recovered": 0,
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 500,
+        "expected_recovery": 200,
+        "intervention_cost": 200,
+        "net_recovered": 300,
         "unnecessary_intervention": false,
-        "stop_reason": "ev_gate_enforcement",
+        "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_ev_gate_enforcement",
-        "audit_event_count": 7,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -3231,28 +3309,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_no_positive_action",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
-        "actual_recovered": 0,
-        "expected_recovery": 17000,
-        "intervention_cost": 500,
-        "net_recovered": -500,
-        "unnecessary_intervention": true,
-        "stop_reason": "no_positive_action",
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 25000,
+        "expected_recovery": 19800,
+        "intervention_cost": 200,
+        "net_recovered": 24800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 15,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -3351,28 +3433,32 @@
           }
         }
       },
-      "decision_method": "AI_FALLBACK",
-      "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
-      "fallback_used": true,
-      "fallback_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "ai_success": true,
+      "fallback_used": false,
+      "fallback_reason": null,
       "revplug": {
-        "proposed_action": "escalate_human",
+        "proposed_action": "send_reminder",
         "safety_decision": "ALLOWED",
-        "outcome": "escalated",
-        "actual_recovered": 0,
-        "expected_recovery": 24000,
-        "intervention_cost": 1000,
-        "net_recovered": -1000,
+        "outcome": "recovered",
+        "actual_recovered": 250000,
+        "expected_recovery": 174500,
+        "intervention_cost": 500,
+        "net_recovered": 249500,
         "unnecessary_intervention": false,
-        "stop_reason": "human_escalation_required",
-        "escalation_reason": "human_escalation_required",
-        "diagnosis_path": "fallback",
-        "decision_method": "AI_FALLBACK",
-        "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 11,
-        "processing_error": null
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "llm",
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_reminder"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -3481,20 +3567,22 @@
       "fallback_reason": null,
       "revplug": {
         "proposed_action": "send_payment_link",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
+        "safety_decision": "ESCALATE",
+        "outcome": "escalated",
         "actual_recovered": 0,
         "expected_recovery": 0,
         "intervention_cost": 0,
         "net_recovered": 0,
         "unnecessary_intervention": false,
-        "stop_reason": "ev_gate_enforcement",
-        "escalation_reason": null,
+        "stop_reason": "confidence_below_minimum",
+        "escalation_reason": "confidence_below_minimum",
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 8,
-        "processing_error": null
+        "audit_event_count": 6,
+        "processing_error": null,
+        "attribution": null,
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -3615,7 +3703,9 @@
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
         "audit_event_count": 7,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "AGENT_ASSISTED",
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -3715,28 +3805,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_policy_blocked",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "DENY",
-        "outcome": "escalated",
-        "actual_recovered": 0,
-        "expected_recovery": 99500,
-        "intervention_cost": 0,
-        "net_recovered": 0,
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 500000,
+        "expected_recovery": 374800,
+        "intervention_cost": 200,
+        "net_recovered": 499800,
         "unnecessary_intervention": false,
-        "stop_reason": "policy_blocked",
-        "escalation_reason": "policy_blocked",
+        "stop_reason": null,
+        "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_policy_blocked",
-        "audit_event_count": 7,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -3836,28 +3930,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_policy_blocked",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "DENY",
-        "outcome": "escalated",
-        "actual_recovered": 0,
-        "expected_recovery": 1500,
-        "intervention_cost": 0,
-        "net_recovered": 0,
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "expected_recovery": 7300,
+        "intervention_cost": 200,
+        "net_recovered": 9800,
         "unnecessary_intervention": false,
-        "stop_reason": "policy_blocked",
-        "escalation_reason": "policy_blocked",
+        "stop_reason": null,
+        "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_policy_blocked",
-        "audit_event_count": 7,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -3956,28 +4054,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_no_positive_action",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "escalated",
         "actual_recovered": 0,
-        "expected_recovery": 4999,
-        "intervention_cost": 500,
-        "net_recovered": -500,
-        "unnecessary_intervention": true,
-        "stop_reason": "no_positive_action",
-        "escalation_reason": null,
+        "expected_recovery": 6300,
+        "intervention_cost": 200,
+        "net_recovered": -200,
+        "unnecessary_intervention": false,
+        "stop_reason": "human_escalation_required",
+        "escalation_reason": "human_escalation_required",
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 15,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -4076,12 +4178,12 @@
           }
         }
       },
-      "decision_method": "AI_FALLBACK",
-      "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
-      "fallback_used": true,
-      "fallback_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "ai_success": true,
+      "fallback_used": false,
+      "fallback_reason": null,
       "revplug": {
         "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
@@ -4093,11 +4195,15 @@
         "unnecessary_intervention": false,
         "stop_reason": null,
         "escalation_reason": null,
-        "diagnosis_path": "fallback",
-        "decision_method": "AI_FALLBACK",
-        "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 11,
-        "processing_error": null
+        "diagnosis_path": "llm",
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -4196,28 +4302,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_no_positive_action",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
-        "actual_recovered": 0,
-        "expected_recovery": 6500,
-        "intervention_cost": 500,
-        "net_recovered": -500,
-        "unnecessary_intervention": true,
-        "stop_reason": "no_positive_action",
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "expected_recovery": 7800,
+        "intervention_cost": 200,
+        "net_recovered": 9800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 15,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -4328,7 +4438,7 @@
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
         "actual_recovered": 5000,
-        "expected_recovery": 2050,
+        "expected_recovery": 2550,
         "intervention_cost": 200,
         "net_recovered": 4800,
         "unnecessary_intervention": false,
@@ -4338,7 +4448,11 @@
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
         "audit_event_count": 10,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -4447,20 +4561,24 @@
       "fallback_reason": null,
       "revplug": {
         "proposed_action": "send_payment_link",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
+        "safety_decision": "ALLOWED",
+        "outcome": "escalated",
         "actual_recovered": 0,
-        "expected_recovery": 0,
-        "intervention_cost": 0,
-        "net_recovered": 0,
+        "expected_recovery": 9800,
+        "intervention_cost": 200,
+        "net_recovered": -200,
         "unnecessary_intervention": false,
-        "stop_reason": "ev_gate_enforcement",
-        "escalation_reason": null,
+        "stop_reason": "human_escalation_required",
+        "escalation_reason": "human_escalation_required",
         "diagnosis_path": "rules",
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
-        "audit_event_count": 8,
-        "processing_error": null
+        "audit_event_count": 11,
+        "processing_error": null,
+        "attribution": null,
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -4560,28 +4678,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_policy_blocked",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "DENY",
-        "outcome": "escalated",
-        "actual_recovered": 0,
-        "expected_recovery": 9500,
-        "intervention_cost": 0,
-        "net_recovered": 0,
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 50000,
+        "expected_recovery": 37300,
+        "intervention_cost": 200,
+        "net_recovered": 49800,
         "unnecessary_intervention": false,
-        "stop_reason": "policy_blocked",
-        "escalation_reason": "policy_blocked",
+        "stop_reason": null,
+        "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_policy_blocked",
-        "audit_event_count": 7,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -4680,28 +4802,32 @@
           }
         }
       },
-      "decision_method": "AI_FALLBACK",
-      "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
-      "fallback_used": true,
-      "fallback_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "ai_success": true,
+      "fallback_used": false,
+      "fallback_reason": null,
       "revplug": {
-        "proposed_action": "escalate_human",
+        "proposed_action": "send_reminder",
         "safety_decision": "ALLOWED",
-        "outcome": "escalated",
-        "actual_recovered": 0,
-        "expected_recovery": 0,
-        "intervention_cost": 1000,
-        "net_recovered": -1000,
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "expected_recovery": 6500,
+        "intervention_cost": 500,
+        "net_recovered": 9500,
         "unnecessary_intervention": false,
-        "stop_reason": "human_escalation_required",
-        "escalation_reason": "human_escalation_required",
-        "diagnosis_path": "fallback",
-        "decision_method": "AI_FALLBACK",
-        "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 11,
-        "processing_error": null
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "llm",
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_reminder"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -4807,21 +4933,25 @@
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
+        "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
-        "outcome": "recovered",
-        "actual_recovered": 1000000,
-        "expected_recovery": 699500,
-        "intervention_cost": 500,
-        "net_recovered": 999500,
+        "outcome": "escalated",
+        "actual_recovered": 0,
+        "expected_recovery": 799800,
+        "intervention_cost": 200,
+        "net_recovered": -200,
         "unnecessary_intervention": false,
-        "stop_reason": null,
-        "escalation_reason": null,
+        "stop_reason": "human_escalation_required",
+        "escalation_reason": "human_escalation_required",
         "diagnosis_path": "llm",
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
         "audit_event_count": 10,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -4927,13 +5057,13 @@
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
+        "proposed_action": "send_payment_link",
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
         "actual_recovered": 5000,
-        "expected_recovery": 3000,
-        "intervention_cost": 500,
-        "net_recovered": 4500,
+        "expected_recovery": 3800,
+        "intervention_cost": 200,
+        "net_recovered": 4800,
         "unnecessary_intervention": false,
         "stop_reason": null,
         "escalation_reason": null,
@@ -4941,7 +5071,11 @@
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
         "audit_event_count": 10,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -5040,28 +5174,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_ev_gate_enforcement",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
-        "actual_recovered": 0,
-        "expected_recovery": 0,
-        "intervention_cost": 0,
-        "net_recovered": 0,
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 500,
+        "expected_recovery": 125,
+        "intervention_cost": 200,
+        "net_recovered": 300,
         "unnecessary_intervention": false,
-        "stop_reason": "ev_gate_enforcement",
+        "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_ev_gate_enforcement",
-        "audit_event_count": 7,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -5182,7 +5320,9 @@
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
         "audit_event_count": 8,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": null,
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -5293,7 +5433,7 @@
         "safety_decision": "ALLOWED",
         "outcome": "recovered",
         "actual_recovered": 10000,
-        "expected_recovery": 2800,
+        "expected_recovery": 3800,
         "intervention_cost": 200,
         "net_recovered": 9800,
         "unnecessary_intervention": false,
@@ -5303,7 +5443,11 @@
         "decision_method": "AI_ASSISTED",
         "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
         "audit_event_count": 10,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -5423,7 +5567,9 @@
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
         "audit_event_count": 7,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "AGENT_ASSISTED",
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -5522,28 +5668,32 @@
           }
         }
       },
-      "decision_method": "AI_FALLBACK",
-      "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
-      "fallback_used": true,
-      "fallback_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "ai_success": true,
+      "fallback_used": false,
+      "fallback_reason": null,
       "revplug": {
-        "proposed_action": "escalate_human",
+        "proposed_action": "send_reminder",
         "safety_decision": "ALLOWED",
-        "outcome": "escalated",
-        "actual_recovered": 0,
-        "expected_recovery": 0,
-        "intervention_cost": 1000,
-        "net_recovered": -1000,
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "expected_recovery": 6500,
+        "intervention_cost": 500,
+        "net_recovered": 9500,
         "unnecessary_intervention": false,
-        "stop_reason": "human_escalation_required",
-        "escalation_reason": "human_escalation_required",
-        "diagnosis_path": "fallback",
-        "decision_method": "AI_FALLBACK",
-        "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 11,
-        "processing_error": null
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "llm",
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_reminder"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -5663,7 +5813,9 @@
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
         "audit_event_count": 7,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "AGENT_ASSISTED",
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -5769,11 +5921,11 @@
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
+        "proposed_action": "send_payment_link",
         "safety_decision": "STOP",
         "outcome": "stopped",
         "actual_recovered": 0,
-        "expected_recovery": 4999,
+        "expected_recovery": 6300,
         "intervention_cost": 0,
         "net_recovered": 0,
         "unnecessary_intervention": false,
@@ -5783,7 +5935,9 @@
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_promise_expired",
         "audit_event_count": 7,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "AGENT_ASSISTED",
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -5882,28 +6036,32 @@
           }
         }
       },
-      "decision_method": "AI_FALLBACK",
-      "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
-      "fallback_used": true,
-      "fallback_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
+      "ai_success": true,
+      "fallback_used": false,
+      "fallback_reason": null,
       "revplug": {
-        "proposed_action": "escalate_human",
+        "proposed_action": "send_reminder",
         "safety_decision": "ALLOWED",
-        "outcome": "escalated",
-        "actual_recovered": 0,
-        "expected_recovery": 0,
-        "intervention_cost": 1000,
-        "net_recovered": -1000,
+        "outcome": "recovered",
+        "actual_recovered": 10000,
+        "expected_recovery": 6500,
+        "intervention_cost": 500,
+        "net_recovered": 9500,
         "unnecessary_intervention": false,
-        "stop_reason": "human_escalation_required",
-        "escalation_reason": "human_escalation_required",
-        "diagnosis_path": "fallback",
-        "decision_method": "AI_FALLBACK",
-        "decision_method_reason": "Low AI confidence (0.45 < 0.5) \u2014 safe fallback triggered",
-        "audit_event_count": 11,
-        "processing_error": null
+        "stop_reason": null,
+        "escalation_reason": null,
+        "diagnosis_path": "llm",
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_reminder"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -6015,7 +6173,7 @@
         "safety_decision": "ALLOWED",
         "outcome": "escalated",
         "actual_recovered": 0,
-        "expected_recovery": 3550,
+        "expected_recovery": 8550,
         "intervention_cost": 200,
         "net_recovered": -200,
         "unnecessary_intervention": false,
@@ -6025,7 +6183,11 @@
         "decision_method": "DETERMINISTIC",
         "decision_method_reason": "deterministic_safety_bypass",
         "audit_event_count": 11,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": null,
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -6145,7 +6307,9 @@
         "decision_method": "AI_REJECTED_BY_POLICY",
         "decision_method_reason": "policy_rule_ev_gate_enforcement",
         "audit_event_count": 7,
-        "processing_error": null
+        "processing_error": null,
+        "attribution": "AGENT_ASSISTED",
+        "actions_executed": []
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -6244,28 +6408,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_no_positive_action",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
-        "actual_recovered": 0,
-        "expected_recovery": 2249,
-        "intervention_cost": 500,
-        "net_recovered": -500,
-        "unnecessary_intervention": true,
-        "stop_reason": "no_positive_action",
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 5000,
+        "expected_recovery": 3050,
+        "intervention_cost": 200,
+        "net_recovered": 4800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 15,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -6364,28 +6532,32 @@
           }
         }
       },
-      "decision_method": "AI_REJECTED_BY_POLICY",
-      "decision_method_reason": "policy_rule_no_positive_action",
+      "decision_method": "AI_ASSISTED",
+      "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
       "ai_attempted": true,
-      "ai_success": false,
+      "ai_success": true,
       "fallback_used": false,
       "fallback_reason": null,
       "revplug": {
-        "proposed_action": "retry_payment",
-        "safety_decision": "STOP",
-        "outcome": "stopped",
-        "actual_recovered": 0,
-        "expected_recovery": 3000,
-        "intervention_cost": 500,
-        "net_recovered": -500,
-        "unnecessary_intervention": true,
-        "stop_reason": "no_positive_action",
+        "proposed_action": "send_payment_link",
+        "safety_decision": "ALLOWED",
+        "outcome": "recovered",
+        "actual_recovered": 5000,
+        "expected_recovery": 3800,
+        "intervention_cost": 200,
+        "net_recovered": 4800,
+        "unnecessary_intervention": false,
+        "stop_reason": null,
         "escalation_reason": null,
         "diagnosis_path": "llm",
-        "decision_method": "AI_REJECTED_BY_POLICY",
-        "decision_method_reason": "policy_rule_no_positive_action",
-        "audit_event_count": 15,
-        "processing_error": null
+        "decision_method": "AI_ASSISTED",
+        "decision_method_reason": "Ambiguous case detected (free_text_failure_reason, multiple_valid_interventions_require_contextual_ranking) \u2014 routing to AI",
+        "audit_event_count": 10,
+        "processing_error": null,
+        "attribution": "DIRECT_AGENT",
+        "actions_executed": [
+          "send_payment_link"
+        ]
       },
       "baseline": {
         "proposed_action": "retry_payment",
@@ -6411,7 +6583,7 @@
   ],
   "error": null,
   "benchmark_metadata": {
-    "generated_at": "2026-09-03 20:33:46 UTC",
+    "generated_at": "2026-09-04 06:26:58 UTC",
     "evaluation_id": "REC-CANONICAL-2026-S42-C50",
     "dataset_version": "v2-counterfactual",
     "canonical_scale": "50-case seed 42 detailed trace + 1000-case multi-seed suite"
@@ -6431,11 +6603,11 @@
       51
     ],
     "total_seeds": 10,
-    "revplug_wins_vs_safe": 1,
-    "safe_wins_vs_revplug": 9,
-    "naive_wins_vs_revplug": 9,
+    "revplug_wins_vs_safe": 9,
+    "safe_wins_vs_revplug": 1,
+    "naive_wins_vs_revplug": 1,
     "ties_vs_safe": 0,
-    "revplug_win_rate_pct": 10.0,
+    "revplug_win_rate_pct": 90.0,
     "mean_amount_at_risk": 10343460.0,
     "naive_mean_gross": 2949940.0,
     "naive_mean_net": 2856940.0,
@@ -6445,21 +6617,21 @@
     "safe_median_net": 2929475.0,
     "safe_std_net": 1125784.5515708392,
     "safe_mean_violations": 28.4,
-    "revplug_mean_gross": 2116200.0,
-    "revplug_mean_net": 2090550.0,
-    "revplug_median_net": 2152650.0,
-    "revplug_std_net": 935278.12411306,
-    "revplug_mean_cost": 25650.0,
+    "revplug_mean_gross": 5538075.0,
+    "revplug_mean_net": 5524155.0,
+    "revplug_median_net": 5733750.0,
+    "revplug_std_net": 1903481.7655855457,
+    "revplug_mean_cost": 13920.0,
     "revplug_mean_violations": 0.0,
-    "revplug_mean_decision_quality": 37.9,
-    "gross_lift_pct": -28.262947720970594,
-    "net_lift_pct": -27.103673845123854,
-    "net_lift_vs_naive_pct": -26.825554614377623,
-    "net_diff_mean": -777290.0,
-    "confidence_interval_95_lower": -1189180.4858028095,
-    "confidence_interval_95_upper": -365399.5141971906,
-    "best_seed": 46,
-    "worst_seed": 44,
+    "revplug_mean_decision_quality": 63.9,
+    "gross_lift_pct": 87.73517427473101,
+    "net_lift_pct": 92.62423984601651,
+    "net_lift_vs_naive_pct": 93.3591534998985,
+    "net_diff_mean": 2656315.0,
+    "confidence_interval_95_lower": 1394146.7967311519,
+    "confidence_interval_95_upper": 3918483.2032688484,
+    "best_seed": 45,
+    "worst_seed": 42,
     "per_seed_summaries": [
       {
         "seed": 42,
@@ -6471,14 +6643,14 @@
         "baseline_safe_gross": 3521500,
         "baseline_safe_net": 3435500,
         "baseline_safe_violations": 34,
-        "revplug_gross": 2150000,
-        "revplug_net": 2127500,
-        "revplug_cost": 22500,
+        "revplug_gross": 2686000,
+        "revplug_net": 2671950,
+        "revplug_cost": 14050,
         "revplug_violations": 0,
         "revplug_win_vs_safe": false,
         "revplug_win_vs_naive": false,
         "tie_vs_safe": false,
-        "decision_quality_score": 42.0
+        "decision_quality_score": 65.0
       },
       {
         "seed": 43,
@@ -6490,14 +6662,14 @@
         "baseline_safe_gross": 2612150,
         "baseline_safe_net": 2528150,
         "baseline_safe_violations": 26,
-        "revplug_gross": 1720000,
-        "revplug_net": 1690100,
-        "revplug_cost": 29900,
+        "revplug_gross": 4682000,
+        "revplug_net": 4667750,
+        "revplug_cost": 14250,
         "revplug_violations": 0,
-        "revplug_win_vs_safe": false,
-        "revplug_win_vs_naive": false,
+        "revplug_win_vs_safe": true,
+        "revplug_win_vs_naive": true,
         "tie_vs_safe": false,
-        "decision_quality_score": 31.0
+        "decision_quality_score": 56.00000000000001
       },
       {
         "seed": 44,
@@ -6509,14 +6681,14 @@
         "baseline_safe_gross": 1077150,
         "baseline_safe_net": 1000150,
         "baseline_safe_violations": 31,
-        "revplug_gross": 555500,
-        "revplug_net": 524600,
-        "revplug_cost": 30900,
+        "revplug_gross": 5021500,
+        "revplug_net": 5006200,
+        "revplug_cost": 15300,
         "revplug_violations": 0,
-        "revplug_win_vs_safe": false,
-        "revplug_win_vs_naive": false,
+        "revplug_win_vs_safe": true,
+        "revplug_win_vs_naive": true,
         "tie_vs_safe": false,
-        "decision_quality_score": 40.0
+        "decision_quality_score": 71.0
       },
       {
         "seed": 45,
@@ -6528,14 +6700,14 @@
         "baseline_safe_gross": 3415800,
         "baseline_safe_net": 3330800,
         "baseline_safe_violations": 33,
-        "revplug_gross": 2390000,
-        "revplug_net": 2365800,
-        "revplug_cost": 24200,
+        "revplug_gross": 7890000,
+        "revplug_net": 7876400,
+        "revplug_cost": 13600,
         "revplug_violations": 0,
-        "revplug_win_vs_safe": false,
-        "revplug_win_vs_naive": false,
+        "revplug_win_vs_safe": true,
+        "revplug_win_vs_naive": true,
         "tie_vs_safe": false,
-        "decision_quality_score": 37.0
+        "decision_quality_score": 63.0
       },
       {
         "seed": 46,
@@ -6547,14 +6719,14 @@
         "baseline_safe_gross": 4191100,
         "baseline_safe_net": 4105100,
         "baseline_safe_violations": 28,
-        "revplug_gross": 3935500,
-        "revplug_net": 3911100,
-        "revplug_cost": 24400,
+        "revplug_gross": 6652250,
+        "revplug_net": 6638600,
+        "revplug_cost": 13650,
         "revplug_violations": 0,
-        "revplug_win_vs_safe": false,
-        "revplug_win_vs_naive": false,
+        "revplug_win_vs_safe": true,
+        "revplug_win_vs_naive": true,
         "tie_vs_safe": false,
-        "decision_quality_score": 36.0
+        "decision_quality_score": 61.0
       },
       {
         "seed": 47,
@@ -6566,14 +6738,14 @@
         "baseline_safe_gross": 4640950,
         "baseline_safe_net": 4558950,
         "baseline_safe_violations": 25,
-        "revplug_gross": 2635000,
-        "revplug_net": 2611100,
-        "revplug_cost": 23900,
+        "revplug_gross": 6475000,
+        "revplug_net": 6461300,
+        "revplug_cost": 13700,
         "revplug_violations": 0,
-        "revplug_win_vs_safe": false,
-        "revplug_win_vs_naive": false,
+        "revplug_win_vs_safe": true,
+        "revplug_win_vs_naive": true,
         "tie_vs_safe": false,
-        "decision_quality_score": 36.0
+        "decision_quality_score": 63.0
       },
       {
         "seed": 48,
@@ -6585,14 +6757,14 @@
         "baseline_safe_gross": 2316550,
         "baseline_safe_net": 2235550,
         "baseline_safe_violations": 28,
-        "revplug_gross": 1745500,
-        "revplug_net": 1718700,
-        "revplug_cost": 26800,
+        "revplug_gross": 7396750,
+        "revplug_net": 7383250,
+        "revplug_cost": 13500,
         "revplug_violations": 0,
-        "revplug_win_vs_safe": false,
-        "revplug_win_vs_naive": false,
+        "revplug_win_vs_safe": true,
+        "revplug_win_vs_naive": true,
         "tie_vs_safe": false,
-        "decision_quality_score": 40.0
+        "decision_quality_score": 66.0
       },
       {
         "seed": 49,
@@ -6604,14 +6776,14 @@
         "baseline_safe_gross": 1836750,
         "baseline_safe_net": 1751750,
         "baseline_safe_violations": 25,
-        "revplug_gross": 1085000,
-        "revplug_net": 1061500,
-        "revplug_cost": 23500,
+        "revplug_gross": 3401000,
+        "revplug_net": 3387500,
+        "revplug_cost": 13500,
         "revplug_violations": 0,
-        "revplug_win_vs_safe": false,
-        "revplug_win_vs_naive": false,
+        "revplug_win_vs_safe": true,
+        "revplug_win_vs_naive": true,
         "tie_vs_safe": false,
-        "decision_quality_score": 32.0
+        "decision_quality_score": 62.0
       },
       {
         "seed": 50,
@@ -6623,14 +6795,14 @@
         "baseline_safe_gross": 2160950,
         "baseline_safe_net": 2081950,
         "baseline_safe_violations": 29,
-        "revplug_gross": 2205000,
-        "revplug_net": 2177800,
-        "revplug_cost": 27200,
+        "revplug_gross": 3615500,
+        "revplug_net": 3600400,
+        "revplug_cost": 15100,
         "revplug_violations": 0,
         "revplug_win_vs_safe": true,
         "revplug_win_vs_naive": true,
         "tie_vs_safe": false,
-        "decision_quality_score": 45.0
+        "decision_quality_score": 66.0
       },
       {
         "seed": 51,
@@ -6642,14 +6814,14 @@
         "baseline_safe_gross": 3726500,
         "baseline_safe_net": 3650500,
         "baseline_safe_violations": 25,
-        "revplug_gross": 2740500,
-        "revplug_net": 2717300,
-        "revplug_cost": 23200,
+        "revplug_gross": 7560750,
+        "revplug_net": 7548200,
+        "revplug_cost": 12550,
         "revplug_violations": 0,
-        "revplug_win_vs_safe": false,
-        "revplug_win_vs_naive": false,
+        "revplug_win_vs_safe": true,
+        "revplug_win_vs_naive": true,
         "tie_vs_safe": false,
-        "decision_quality_score": 40.0
+        "decision_quality_score": 66.0
       }
     ]
   }

@@ -145,7 +145,7 @@ class TestRealAgent:
             item_id="pay_001",
         )
         proposal = agent.propose(ctx)
-        assert proposal.action == RecoveryAction.RETRY_PAYMENT
+        assert proposal.action == RecoveryAction.SEND_PAYMENT_LINK
         assert proposal.confidence > 0.5
         assert agent.last_trace is not None
         assert agent.last_trace.validation_passed is True
@@ -233,8 +233,8 @@ class TestFallback:
             item_id="pay_001",
         )
         proposal = agent.propose(ctx)
-        # Fallback mock agent proposes retry for SOFT
-        assert proposal.action == RecoveryAction.RETRY_PAYMENT
+        # Fallback mock agent proposes send_payment_link for SOFT (higher EV than retry)
+        assert proposal.action == RecoveryAction.SEND_PAYMENT_LINK
         assert agent.last_trace.fallback_used is True
 
     def test_malformed_json_falls_back(self):
@@ -259,8 +259,8 @@ class TestFallback:
             item_id="pay_soft_001",
         )
         proposal = agent.propose(ctx)
-        # Fallback mock agent proposes RETRY_PAYMENT for SOFT
-        assert proposal.action == RecoveryAction.RETRY_PAYMENT
+        # Fallback mock agent proposes SEND_PAYMENT_LINK for SOFT (higher EV than retry)
+        assert proposal.action == RecoveryAction.SEND_PAYMENT_LINK
         assert agent.last_trace.fallback_used is True
 
 

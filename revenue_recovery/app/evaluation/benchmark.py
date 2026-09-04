@@ -1,5 +1,10 @@
 """Scientific Benchmark CLI Runner & Multi-Seed Statistical Evaluation Suite.
 
+LABEL: CANONICAL MULTI-SEED RUNNER.
+- Called by app/eval/run_benchmark.py which produces evaluation_report.json.
+- Produces MultiSeedAggregateReport (10-seed statistical summary).
+- This module does NOT write artifacts directly; run_benchmark.py orchestrates and persists.
+
 Evaluates 5 system variants across reproducible deterministic seeds:
 1. Baseline A: Naive Fixed Retry (no policy checks)
 2. Baseline B: Safe Fixed Retry (100% policy compliance, non-adaptive)

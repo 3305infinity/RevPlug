@@ -81,8 +81,8 @@ def get_golden_scenarios() -> list[GoldenScenario]:
                 "max_attempts": 3,
                 "item_id": "pay_soft_001",
             },
-            expected_action="retry_payment",
-            description="Temporary timeout; should retry",
+            expected_action="send_payment_link",
+            description="Temporary timeout; send payment link has higher EV than retry",
         ),
         GoldenScenario(
             name="gateway_technical_failure",
@@ -99,8 +99,8 @@ def get_golden_scenarios() -> list[GoldenScenario]:
                 "max_attempts": 3,
                 "item_id": "pay_gateway_001",
             },
-            expected_action="retry_payment",
-            description="Gateway error; should retry",
+            expected_action="send_payment_link",
+            description="Gateway error; send payment link has higher EV than retry",
         ),
         GoldenScenario(
             name="hard_card_decline",
@@ -232,8 +232,8 @@ def get_golden_scenarios() -> list[GoldenScenario]:
                 "max_attempts": 3,
                 "item_id": "pay_highval_001",
             },
-            expected_action="retry_payment",
-            description="High-value soft failure; retry appropriate",
+            expected_action="send_payment_link",
+            description="High-value soft failure; send payment link has higher EV than retry",
         ),
         GoldenScenario(
             name="low_value_recovery",
@@ -250,8 +250,8 @@ def get_golden_scenarios() -> list[GoldenScenario]:
                 "max_attempts": 3,
                 "item_id": "pay_lowval_001",
             },
-            expected_action="retry_payment",
-            description="Low-value soft failure; retry appropriate",
+            expected_action="send_payment_link",
+            description="Low-value soft failure; send payment link has higher EV than retry",
         ),
     ]
 

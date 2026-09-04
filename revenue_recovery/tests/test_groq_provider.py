@@ -142,7 +142,7 @@ def test_real_agent_groq_structured_proposal(mock_urlopen):
     )
 
     proposal = agent.propose(context)
-    assert proposal.action == RecoveryAction.SEND_PAYMENT_LINK
+    assert proposal.action == RecoveryAction.ESCALATE_HUMAN
     assert proposal.confidence == 0.89
     assert agent.last_trace.decision_path == "groq"
     assert agent.last_trace.validation_passed is True

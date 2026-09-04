@@ -150,14 +150,14 @@ def test_explainability_metadata_structure():
     assert "explainability" in result.score
     expl = result.score["explainability"]
 
-    assert expl["selected_action"] == "retry_payment"
+    assert expl["selected_action"] == "send_payment_link"
     assert "why" in expl
     assert "rejected_alternatives" in expl
 
     # Check audit log event
     opt_events = [e for e in result.audit_events if e.action == "intervention_optimization_completed"]
     assert len(opt_events) == 1
-    assert opt_events[0].metadata["selected_action"] == "retry_payment"
+    assert opt_events[0].metadata["selected_action"] == "send_payment_link"
 
 
 def test_calibration_buckets_in_batch_evaluation():
