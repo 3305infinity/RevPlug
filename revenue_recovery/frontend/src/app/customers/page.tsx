@@ -79,7 +79,17 @@ export default function Customers() {
         </div>
       )}
 
-      <div style={{ display: "grid", gap: "0.75rem" }}>
+      {customers.length === 0 ? (
+        <div style={{ padding: "3rem 1.5rem", textAlign: "center", border: "1px dashed var(--border)", borderRadius: 8, background: "var(--bg-primary)" }}>
+          <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)" }}>
+            No Active Customer Recovery Profiles
+          </div>
+          <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: 4 }}>
+            Customer recovery profiles and risk histories will appear here when recovery cases are ingested.
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: "0.75rem" }}>
         {(selectedCustomer ? [selectedCustomer] : customers).map((customer) => (
           <div
             key={customer.customer_id}
@@ -138,6 +148,7 @@ export default function Customers() {
           </div>
         ))}
       </div>
+      )}
 
       {selectedCustomer && (
         <div style={{ marginTop: "1.5rem" }}>

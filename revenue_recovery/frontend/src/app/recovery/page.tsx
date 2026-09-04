@@ -290,7 +290,26 @@ export default function RecoveryInboxPage() {
         ) : errorMsg ? (
           <div style={{ padding: "2rem", textAlign: "center", color: "#ef4444" }}>{errorMsg}</div>
         ) : filteredAndSortedItems.length === 0 ? (
-          <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>No recovery cases match criteria.</div>
+          <div style={{ padding: "3rem 1.5rem", textAlign: "center", border: "1px dashed var(--border)", borderRadius: 8, background: "var(--bg-primary)" }}>
+            <div style={{ display: "inline-flex", padding: "0.5rem", borderRadius: "50%", background: "rgba(16, 185, 129, 0.1)", color: "#10b981", marginBottom: "0.75rem" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-primary)" }}>
+              Operational Recovery Queue is Clean
+            </div>
+            <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: 4, maxWidth: 480, margin: "4px auto 0 auto" }}>
+              Ready for live event ingestion. Click <strong style={{ color: "var(--accent)" }}>"+ Create Recovery Case"</strong> above to ingest a payment failure, checkout drop-off, or subscription renewal event.
+            </div>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="btn-primary"
+              style={{ fontSize: "0.8125rem", marginTop: "1rem", padding: "0.5rem 1.25rem" }}
+            >
+              + Create Recovery Case
+            </button>
+          </div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
             <thead>

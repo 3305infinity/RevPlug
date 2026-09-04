@@ -463,33 +463,23 @@ class PersistenceContainer:
         return count
 
     def reset_demo_data(self) -> int:
-        """Permanently deletes synthetic and existing recovery items and cleans all stores."""
+        """Permanently deletes synthetic and existing recovery items and cleans all operational stores."""
         count = self.purge_batch_items()
 
         # 1. PostgreSQL Deletion Path (if configured)
         if hasattr(self.recovery_items, "_conn") and getattr(self.recovery_items, "_conn") is not None:
             db_conn = getattr(self.recovery_items, "_conn")
             try:
-                rows = db_conn.fetchall("SELECT id FROM recovery_items")
-                if rows:
-                    item_ids = [r["id"] for r in rows if isinstance(r, dict) and "id" in r]
-                    count = max(count, len(item_ids))
-
-                    if item_ids:
-                        for table in ["recovery_outcomes", "promises", "audit_log", "attempts", "recovery_decisions", "recovery_jobs"]:
-                            try:
-                                db_conn.execute(f"DELETE FROM {table} WHERE recovery_item_id = ANY(%(ids)s)", {"ids": item_ids})
-                            except Exception:
-                                pass
-
-                        db_conn.execute("DELETE FROM recovery_items WHERE id = ANY(%(ids)s)", {"ids": item_ids})
-
+                # Atomically truncate all tables with CASCADE to handle foreign keys
+                db_conn.execute("TRUNCATE TABLE recovery_items, recovery_outcomes, promises, provider_events, recovery_decisions, audit_log, idempotency_keys, attempts, recovery_jobs, recovery_batches CASCADE;")
+            except Exception as exc:
+                print(f"[reset_demo_data] PostgreSQL truncate CASCADE info: {exc}")
+                # Fallback: Delete table by table in reverse dependency order
+                for table in ["recovery_outcomes", "promises", "audit_log", "attempts", "recovery_decisions", "recovery_jobs", "provider_events", "idempotency_keys", "recovery_batches", "recovery_items"]:
                     try:
-                        db_conn.execute("DELETE FROM recovery_batches WHERE true")
+                        db_conn.execute(f"DELETE FROM {table}")
                     except Exception:
                         pass
-            except Exception as exc:
-                print(f"[reset_demo_data] PostgreSQL deletion warning: {exc}")
 
         # 2. In-Memory Deletion Path (cleans all in-memory repository caches)
         if hasattr(self.recovery_items, "_items"):
@@ -520,6 +510,21 @@ class PersistenceContainer:
         if hasattr(self.promises, "_by_id"):
             promises_by_id = getattr(self.promises, "_by_id")
             promises_by_id.clear()
+
+        if hasattr(self, "idempotency") and self.idempotency is not None and hasattr(self.idempotency, "_processed"):
+            idempotency_repo = getattr(self.idempotency, "_processed")
+            idempotency_repo.clear()
+
+        if hasattr(self, "provider_events") and self.provider_events is not None and hasattr(self.provider_events, "_events"):
+            pe_repo = getattr(self.provider_events, "_events")
+            pe_repo.clear()
+
+        if hasattr(self, "jobs") and self.jobs is not None and hasattr(self.jobs, "_jobs"):
+            jobs_repo = getattr(self.jobs, "_jobs")
+            if isinstance(jobs_repo, dict):
+                jobs_repo.clear()
+            elif isinstance(jobs_repo, list):
+                jobs_repo.clear()
 
         if hasattr(self, "batches") and self.batches is not None and hasattr(self.batches, "_batches"):
             batches_repo = getattr(self.batches, "_batches")

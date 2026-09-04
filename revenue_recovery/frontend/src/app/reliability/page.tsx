@@ -159,16 +159,46 @@ export default function ReliabilityFailureLab() {
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", paddingBottom: "3rem" }}>
       {/* HEADER */}
-      <div style={{ marginBottom: "1.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "1rem" }}>
-        <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-          DEVELOPER &amp; JUDGING SANDBOX
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "1.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "1rem" }}>
+        <div>
+          <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            DEVELOPER &amp; JUDGING SANDBOX
+          </div>
+          <h1 style={{ marginTop: 2, fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em" }}>
+            Reliability / Failure Lab
+          </h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>
+            Controlled sandbox environment for failure scenario testing, LLM fallback validation, idempotency guards, and golden scenario evaluations.
+          </p>
         </div>
-        <h1 style={{ marginTop: 2, fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.03em" }}>
-          Reliability / Failure Lab
-        </h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.8125rem", marginTop: 4 }}>
-          Controlled sandbox environment for failure scenario testing, LLM fallback validation, idempotency guards, and golden scenario evaluations.
-        </p>
+
+        <button
+          onClick={async () => {
+            if (confirm("Reset operational state? All stale test cases and settlement records will be permanently purged.")) {
+              try {
+                const res = await fetch(`${apiHost}/api/demo/reset`, { method: "POST" });
+                if (res.ok) {
+                  alert("Operational state clean. Zero stale items in recovery queue.");
+                  window.location.reload();
+                }
+              } catch (e) {
+                alert("Failed to reset operational state.");
+              }
+            }
+          }}
+          style={{
+            background: "transparent",
+            color: "#ef4444",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            padding: "0.45rem 0.85rem",
+            borderRadius: 6,
+            fontSize: "0.75rem",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Reset Operational State
+        </button>
       </div>
 
       {/* ── SECTION 1: INTERACTIVE FAILURE INJECTION LAB ── */}
