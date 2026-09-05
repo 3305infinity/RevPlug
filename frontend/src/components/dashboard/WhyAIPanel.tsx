@@ -34,7 +34,7 @@ export default function WhyAIPanel() {
         </p>
         <ul style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", paddingLeft: "1.25rem", lineHeight: 1.6, margin: 0 }}>
           <li><strong>Deterministic Policies:</strong> Retry limits, opt-outs, and fraud blocks cannot be overridden</li>
-          <li><strong>Expected Value Gate:</strong> Interventions execute only if deterministic EV &gt; 0</li>
+          <li><strong>Expected Value Gate:</strong> Interventions execute only if deterministic EV {">"} 0</li>
           <li><strong>Settlement Verification:</strong> Money is declared recovered ONLY with provider evidence</li>
         </ul>
       </div>

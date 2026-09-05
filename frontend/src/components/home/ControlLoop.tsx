@@ -137,7 +137,7 @@ export default function ControlLoop() {
             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>High-intent cart abandonment, checkout payment drop-offs, and dynamic recovery links.</div>
           </div>
           <div style={{ background: "var(--bg-primary)", padding: "1rem", borderRadius: 8, border: "1px solid var(--border)" }}>
-            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#10b981" }}>🔄 Subscriptions &amp; Mandates</div>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#10b981" }}>🔄 Subscriptions & Mandates</div>
             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 4 }}>SaaS subscription renewals, UPI AutoPay, eNACH mandate failures, and bounded retry budgets.</div>
           </div>
           <div style={{ background: "var(--bg-primary)", padding: "1rem", borderRadius: 8, border: "1px solid var(--border)" }}>

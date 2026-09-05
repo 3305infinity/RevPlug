@@ -330,13 +330,13 @@ export default function RecoveryInboxPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
             <thead>
               <tr style={{ background: "var(--bg-primary)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>CASE &amp; CUSTOMER</th>
+                <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>CASE & CUSTOMER</th>
                 <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>AMOUNT AT RISK</th>
                 <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>FAILURE / CAUSE</th>
                 <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>EXPECTED NET EV</th>
                 <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>PRIORITY</th>
                 <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>STATUS</th>
-                <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>POLICY &amp; ACTION</th>
+                <th style={{ padding: "0.75rem", color: "var(--text-muted)" }}>POLICY & ACTION</th>
               </tr>
             </thead>
             <tbody>

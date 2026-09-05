@@ -466,7 +466,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSuccess }: CreateCa
           {/* POLICY & SAFETY GOVERNANCE SHIELDS */}
           <div style={{ gridColumn: "span 2", display: "flex", flexDirection: "column", gap: "0.75rem", background: "var(--bg-primary)", padding: "0.875rem 1rem", borderRadius: 8, border: "1px solid var(--border)", marginTop: "0.25rem" }}>
             <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              POLICY &amp; SAFETY GOVERNANCE SHIELDS
+              POLICY & SAFETY GOVERNANCE SHIELDS
             </div>
 
             <label style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem", fontSize: "0.78125rem", color: "var(--text-secondary)", cursor: "pointer" }}>

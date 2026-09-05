@@ -207,7 +207,7 @@ export default function CaseWorkspace() {
           <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", flex: 1 }}>
             This opportunity is affected by:{' '}
             <strong style={{ color: "var(--text-primary)" }}>{incident.title}</strong>
-            {' '}({incident.payment_method} &middot; {incident.failure_category.replace(/_/g, " ")})
+            {' '}({incident.payment_method} · {incident.failure_category.replace(/_/g, " ")})
           </span>
           <Link href={`/incidents/${incident.incident_id}`} style={{
             fontSize: "0.6875rem", fontWeight: 600, color: "#f59e0b",

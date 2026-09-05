@@ -164,7 +164,7 @@ export default function OperationsDashboard() {
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", paddingBottom: "3rem" }}>
 
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "1.5rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.875rem" }}>
         <div>
           <h1 style={{ fontSize: "1.375rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
@@ -181,7 +181,7 @@ export default function OperationsDashboard() {
         </div>
       </div>
 
-      {/* ── PRIMARY FINANCIAL SUMMARY ── */}
+      {/* PRIMARY FINANCIAL SUMMARY */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
         <div className="card" style={{ padding: "1.25rem", borderLeft: "3px solid #ef4444" }}>
           <div style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
@@ -246,7 +246,7 @@ export default function OperationsDashboard() {
             {incidents.active_incidents_count} ACTIVE INCIDENT{incidents.active_incidents_count > 1 ? "S" : ""}
           </span>
           <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", flex: 1 }}>
-            <strong style={{ color: "#f59e0b" }}>{fmt(incidents.total_revenue_at_risk_minor)}</strong> at risk across {incidents.total_affected_customers} customers &middot; {fmt(incidents.revenue_protected_by_waiting_minor)} protected by waiting
+            <strong style={{ color: "#f59e0b" }}>{fmt(incidents.total_revenue_at_risk_minor)}</strong> at risk across {incidents.total_affected_customers} customers · {fmt(incidents.revenue_protected_by_waiting_minor)} protected by waiting
           </span>
           <Link href="/incidents" style={{
             fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b",
@@ -258,7 +258,7 @@ export default function OperationsDashboard() {
         </div>
       )}
 
-      {/* ── PROMISE SUMMARY ── */}
+      {/* PROMISE SUMMARY */}
       {promiseSummary && promiseSummary.active_count > 0 && (
         <div style={{
           display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap",
@@ -276,12 +276,12 @@ export default function OperationsDashboard() {
           </span>
           {promiseSummary.due_soon_count > 0 && (
             <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-              &middot; <strong style={{ color: "#f59e0b" }}>{promiseSummary.due_soon_count}</strong> due soon
+              · <strong style={{ color: "#f59e0b" }}>{promiseSummary.due_soon_count}</strong> due soon
             </span>
           )}
           {promiseSummary.fulfilled_count > 0 && (
             <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-              &middot; <strong style={{ color: "#10b981" }}>{promiseSummary.fulfilled_count}</strong> fulfilled ({fmt(promiseSummary.fulfilled_amount_minor)} settled)
+              · <strong style={{ color: "#10b981" }}>{promiseSummary.fulfilled_count}</strong> fulfilled ({fmt(promiseSummary.fulfilled_amount_minor)} settled)
             </span>
           )}
           <Link href="/recovery" style={{

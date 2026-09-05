@@ -272,7 +272,7 @@ export default function VoiceCallPage() {
               Customer & Case ID
             </div>
             <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--text-primary)", marginTop: "0.15rem" }}>
-              {getCustomerDisplayName(caseDetail.customer_id)} &middot; <span style={{ fontFamily: "monospace", fontSize: "0.875rem", color: "var(--text-secondary)" }}>{caseDetail.id}</span>
+              {getCustomerDisplayName(caseDetail.customer_id)} · <span style={{ fontFamily: "monospace", fontSize: "0.875rem", color: "var(--text-secondary)" }}>{caseDetail.id}</span>
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
