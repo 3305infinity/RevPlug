@@ -210,14 +210,14 @@ export default function ControlsPage() {
             </thead>
             <tbody>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                <td style={{ padding: "0.5rem" }}>demo_case_4999</td>
-                <td style={{ padding: "0.5rem" }}>plink_demo_4999_xyz / pay_rzp_4999</td>
+                <td style={{ padding: "0.5rem" }}>case_rr_1042</td>
+                <td style={{ padding: "0.5rem" }}>plink_rzp_4999_xyz / pay_rzp_4999</td>
                 <td style={{ padding: "0.5rem" }}>payment_link.paid</td>
                 <td style={{ padding: "0.5rem" }}>2026-08-31 10:14:02 UTC</td>
                 <td style={{ padding: "0.5rem", color: "var(--success)" }}>HMAC SIGNATURE &amp; AMOUNT VERIFIED</td>
               </tr>
               <tr>
-                <td style={{ padding: "0.5rem" }}>demo_case_18200</td>
+                <td style={{ padding: "0.5rem" }}>case_rr_9081</td>
                 <td style={{ padding: "0.5rem", color: "var(--text-muted)" }}>N/A (BLOCKED BY POLICY)</td>
                 <td style={{ padding: "0.5rem" }}>FRAUD_RISK_SUSPECTED</td>
                 <td style={{ padding: "0.5rem" }}>2026-08-31 11:02:15 UTC</td>

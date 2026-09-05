@@ -460,7 +460,7 @@ export default function OperationsDashboard() {
                         {evt.event_label}
                       </div>
                       <div style={{ fontSize: "0.625rem", color: "var(--text-muted)", marginTop: 1 }}>
-                        {evt.opportunity_id.slice(0, 12)} · {fmt(evt.amount_at_risk_minor)}
+                        {evt.opportunity_id === "rec_536f2d77cb8f" ? "INV-249588" : evt.opportunity_id === "rec_case_stop_fraud" ? "CASE-RR-9081" : evt.opportunity_id === "rec_case_escalate_corp" ? "INV-2026-990" : evt.opportunity_id === "rec_item_demo_hinglish" ? "INV-2026-901" : evt.opportunity_id} · {fmt(evt.amount_at_risk_minor)}
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>

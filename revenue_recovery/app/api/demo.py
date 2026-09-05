@@ -11,9 +11,10 @@ router = APIRouter()
 
 @router.post("/api/demo/reset")
 def api_demo_reset(container: PersistenceContainer = Depends(get_container)):
-    """Reset all synthetic data for a clean demo state."""
-    count = container.reset_demo_data()
-    return {"status": "success", "message": f"Deleted {count} synthetic items and their related data."}
+    """Reset operational data and re-seed canonical video demo state."""
+    from app.dashboard_api import seed_demo_state
+    seed_demo_state(container)
+    return {"status": "success", "message": "Reset and seeded canonical demo cases."}
 
 @router.post("/api/demo/purge-batch-items")
 def api_purge_batch_items(container: PersistenceContainer = Depends(get_container)):

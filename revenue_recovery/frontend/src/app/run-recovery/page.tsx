@@ -161,6 +161,22 @@ export default function SingleCaseRecoveryControlPlane() {
             ← Recovery Queue
           </Link>
 
+          <Link
+            href="/recovery/rec_item_demo_hinglish/voice-call"
+            style={{
+              padding: "0.45rem 0.85rem",
+              borderRadius: 6,
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              background: "rgba(56, 189, 248, 0.1)",
+              color: "#38bdf8",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            🎙️ Voice PTP Lab →
+          </Link>
+
           <button
             onClick={() => setIsModalOpen(true)}
             className="btn-primary"
@@ -287,9 +303,9 @@ export default function SingleCaseRecoveryControlPlane() {
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.6875rem", color: selectedItem.expected_recovery_value ? "#10b981" : "var(--text-muted)", fontWeight: 700 }}>EXPECTED NET RECOVERY</div>
-                  <div style={{ fontSize: "1.5rem", fontWeight: 800, color: selectedItem.expected_recovery_value ? "#10b981" : "var(--text-muted)", fontFamily: "monospace" }}>
-                    {selectedItem.expected_recovery_value ? fmt(selectedItem.expected_recovery_value) : "—"}
+                  <div style={{ fontSize: "0.6875rem", color: (liveTrace?.expected_recovery_minor ?? selectedItem.expected_recovery_value) ? "#10b981" : "var(--text-muted)", fontWeight: 700 }}>EXPECTED NET RECOVERY</div>
+                  <div style={{ fontSize: "1.5rem", fontWeight: 800, color: (liveTrace?.expected_recovery_minor ?? selectedItem.expected_recovery_value) ? "#10b981" : "var(--text-muted)", fontFamily: "monospace" }}>
+                    {(liveTrace?.expected_recovery_minor ?? selectedItem.expected_recovery_value) ? fmt(liveTrace?.expected_recovery_minor ?? selectedItem.expected_recovery_value!) : "—"}
                   </div>
                 </div>
               </div>
@@ -306,8 +322,8 @@ export default function SingleCaseRecoveryControlPlane() {
                 <div style={{ color: "var(--text-primary)", fontWeight: 700, marginTop: 2, textTransform: "uppercase" }}>{selectedItem.source_type || "payment_failure"}</div>
               </div>
               <div>
-                <div style={{ color: "var(--text-muted)", fontWeight: 700 }}>CONTACT BUDGET</div>
-                <div style={{ color: "#10b981", fontWeight: 700, marginTop: 2 }}>0 / 2 Used (24h Window)</div>
+                <div style={{ color: "var(--text-muted)", fontWeight: 700 }}>ACTION CONTACT BUDGET</div>
+                <div style={{ color: "#10b981", fontWeight: 700, marginTop: 2 }}>0 Consumed (This Case)</div>
               </div>
               <div>
                 <div style={{ color: "var(--text-muted)", fontWeight: 700 }}>POLICY SHIELD</div>

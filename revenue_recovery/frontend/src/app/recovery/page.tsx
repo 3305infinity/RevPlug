@@ -165,6 +165,22 @@ export default function RecoveryInboxPage() {
 
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
           <Link
+            href="/recovery/rec_item_demo_hinglish/voice-call"
+            style={{
+              padding: "0.45rem 0.85rem",
+              borderRadius: 6,
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              background: "rgba(56, 189, 248, 0.1)",
+              color: "#38bdf8",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            🎙️ Hinglish Voice PTP →
+          </Link>
+
+          <Link
             href="/run-recovery"
             style={{
               padding: "0.45rem 0.85rem",
@@ -177,7 +193,7 @@ export default function RecoveryInboxPage() {
               textDecoration: "none",
             }}
           >
-            Single Case Control Plane →
+            Single Case Control →
           </Link>
 
           <button
@@ -342,7 +358,7 @@ export default function RecoveryInboxPage() {
                         {getCustomerDisplayName(item.customer_id, (item as any).customer_name || item.metadata?.customer_name)}
                       </div>
                       <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
-                        Ref: <Link href={`/recovery/${item.id}`} style={{ color: "var(--accent)", fontFamily: "monospace" }}>{item.id}</Link>
+                        Ref: <Link href={`/recovery/${item.id}`} style={{ color: "var(--accent)", fontFamily: "monospace" }}>{item.external_id || (item.metadata?.invoice_number as string) || item.id}</Link>
                       </div>
                     </td>
 

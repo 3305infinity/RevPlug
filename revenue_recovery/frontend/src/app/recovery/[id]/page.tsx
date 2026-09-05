@@ -13,7 +13,6 @@ import {
 import { getCustomerDisplayName } from "@/lib/customerDisplay";
 
 import RecoveryDecisionCard from "@/components/recovery/RecoveryDecisionCard";
-import StrategyEvidence from "@/components/recovery/StrategyEvidence";
 import RecoveryWhy from "@/components/recovery/RecoveryWhy";
 import SelectedIntervention from "@/components/recovery/SelectedIntervention";
 import AlternativesTable from "@/components/recovery/AlternativesTable";
@@ -22,9 +21,7 @@ import RecoveryEconomics from "@/components/recovery/RecoveryEconomics";
 import RecoveryReceipt from "@/components/recovery/RecoveryReceipt";
 import CaseTimeline from "@/components/recovery/CaseTimeline";
 import CustomerContext from "@/components/recovery/CustomerContext";
-import DecisionTraceView from "@/components/recovery/DecisionTraceView";
 import TrustPanel from "@/components/recovery/TrustPanel";
-import PromiseCommitment from "@/components/recovery/PromiseCommitment";
 
 export default function CaseWorkspace() {
   const params = useParams();
@@ -122,7 +119,7 @@ export default function CaseWorkspace() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "3rem 1rem", textAlign: "center", color: "var(--text-muted)" }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "3rem 1rem", textAlign: "center", color: "var(--text-muted)" }}>
         <div style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: "0.5rem" }}>
           Loading recovery decision workspace...
         </div>
@@ -133,7 +130,7 @@ export default function CaseWorkspace() {
 
   if (error || (!liveDetail && !liveTrace)) {
     return (
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "3rem 1rem", textAlign: "center" }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "3rem 1rem", textAlign: "center" }}>
         <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#ef4444", marginBottom: "0.5rem" }}>
           Case Not Found
         </div>
@@ -156,21 +153,40 @@ export default function CaseWorkspace() {
   const customerName = getCustomerDisplayName(customerId, (liveDetail as any)?.customer_name);
 
   return (
-    <div style={{ maxWidth: 1080, margin: "0 auto", paddingBottom: "3rem" }}>
+    <div style={{ maxWidth: 1180, margin: "0 auto", paddingBottom: "3rem" }}>
 
-      {/* ── NAVIGATION BAR & CASE CONTROL ───────────────────────────── */}
+      {/* ── NAVIGATION BAR & ACTION TOOLBAR ───────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-        <Link href="/recovery" style={{ fontSize: "0.75rem", color: "var(--text-muted)", textDecoration: "none" }}>
-          ← Back to Recovery Queue
+        <Link href="/recovery" style={{ fontSize: "0.75rem", color: "var(--text-muted)", textDecoration: "none", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+          <span>←</span> Back to Recovery Queue
         </Link>
 
-        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "0.625rem", alignItems: "center" }}>
+          <Link
+            href={`/recovery/${id}/voice-call`}
+            style={{
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              color: "#38bdf8",
+              background: "rgba(56, 189, 248, 0.08)",
+              border: "1px solid rgba(56, 189, 248, 0.25)",
+              padding: "0.3rem 0.75rem",
+              borderRadius: 6,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.35rem",
+              transition: "all 0.12s ease",
+            }}
+          >
+            <span>🎙️</span> Hinglish Voice Assistant
+          </Link>
           <button
             onClick={handleOpenClearModal}
             className="btn-ghost"
-            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.25)", borderRadius: 4 }}
+            style={{ fontSize: "0.75rem", padding: "0.3rem 0.75rem", color: "#f87171", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: 6 }}
           >
-            Clear recovery case
+            Clear Case
           </button>
         </div>
       </div>
@@ -179,12 +195,12 @@ export default function CaseWorkspace() {
       {incident && (
         <div style={{
           display: "flex", alignItems: "center", gap: "0.875rem", flexWrap: "wrap",
-          padding: "0.75rem 1rem", background: "rgba(245,158,11,0.08)",
-          border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, marginBottom: "1rem",
+          padding: "0.75rem 1rem", background: "rgba(245,158,11,0.06)",
+          border: "1px solid rgba(245,158,11,0.25)", borderRadius: 8, marginBottom: "1rem",
         }}>
           <span style={{
             fontSize: "0.625rem", fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-            background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.4)",
+            background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)",
           }}>
             {incident.severity} INCIDENT
           </span>
@@ -194,60 +210,18 @@ export default function CaseWorkspace() {
             {' '}({incident.payment_method} &middot; {incident.failure_category.replace(/_/g, " ")})
           </span>
           <Link href={`/incidents/${incident.incident_id}`} style={{
-            fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b",
+            fontSize: "0.6875rem", fontWeight: 600, color: "#f59e0b",
             textDecoration: "none", padding: "0.3rem 0.65rem", borderRadius: 4,
-            border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.08)",
+            border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)",
           }}>
             View Incident →
           </Link>
         </div>
       )}
 
-      {/* ── SURFACE-SPECIFIC CONTEXT BANNER ── */}
+      {/* ── UNIFIED EXECUTIVE HEADER & PIPELINE STEPPER ── */}
       {(() => {
-        const srcType = liveDetail?.source_type || liveDetail?.metadata?.event_type;
-        if (srcType === "checkout_abandonment") {
-          return (
-            <div className="card" style={{ padding: "0.875rem 1.25rem", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 8, marginBottom: "1rem" }}>
-              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase" }}>REVENUE SURFACE: CHECKOUT ABANDONMENT</div>
-              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>Cart Value: ₹{(amountAtRiskMinor / 100).toLocaleString()}</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Context: {liveDetail?.metadata?.abandonment_context || "Cart timeout at payment step"}</div>
-            </div>
-          );
-        }
-        if (srcType === "subscription_failure" || srcType === "subscription_payment_failed") {
-          return (
-            <div className="card" style={{ padding: "0.875rem 1.25rem", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 8, marginBottom: "1rem" }}>
-              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#10b981", textTransform: "uppercase" }}>REVENUE SURFACE: SUBSCRIPTION RENEWAL</div>
-              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>Subscription ID: {liveDetail?.metadata?.subscription_id || "sub_saas_pro_901"} · Renewal: ₹{(amountAtRiskMinor / 100).toLocaleString()}</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Bounded B2B retry count: {(liveDetail as any)?.retry_count || 1} / 3 Max Retries</div>
-            </div>
-          );
-        }
-        if (srcType === "mandate_failure" || srcType === "mandate_failed") {
-          return (
-            <div className="card" style={{ padding: "0.875rem 1.25rem", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 8, marginBottom: "1rem" }}>
-              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#f59e0b", textTransform: "uppercase" }}>REVENUE SURFACE: MANDATE / AUTOPAY FAILURE</div>
-              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>Mandate Ref: {liveDetail?.metadata?.mandate_ref || "man_nach_autopay_771"} · Amount: ₹{(amountAtRiskMinor / 100).toLocaleString()}</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Bounded retry sequencing active · eNACH / UPI AutoPay</div>
-            </div>
-          );
-        }
-        if (srcType === "overdue_receivable" || srcType === "invoice_overdue") {
-          return (
-            <div className="card" style={{ padding: "0.875rem 1.25rem", background: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.25)", borderRadius: 8, marginBottom: "1rem" }}>
-              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#06b6d4", textTransform: "uppercase" }}>REVENUE SURFACE: B2B OVERDUE RECEIVABLE</div>
-              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>Invoice: {liveDetail?.metadata?.invoice_number || liveDetail?.external_id || "INV-2026-901"} · Amount: ₹{(amountAtRiskMinor / 100).toLocaleString()}</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>Days Overdue: {liveDetail?.metadata?.days_overdue || 15} days · Outreach &amp; Promise-to-Pay Workflow</div>
-            </div>
-          );
-        }
-        return null;
-      })()}
-
-      {/* ── LIFECYCLE PROGRESS BANNER ── */}
-      {(() => {
-        const curStatus = liveDetail?.status || liveTrace?.status || "queued";
+        const curStatus = (liveDetail?.status || liveTrace?.status || "queued").toLowerCase();
         const isRecovered = curStatus === "recovered";
         const isPendingVer = curStatus === "pending_verification" || curStatus === "intervention_executed";
         const isStopped = curStatus === "stopped";
@@ -255,21 +229,132 @@ export default function CaseWorkspace() {
 
         const currentStep = isRecovered || isPendingVer ? 5 : (curStatus === "intervention_pending" ? 4 : (curStatus === "queued" ? 3 : 2));
 
+        const srcType = liveDetail?.source_type || liveDetail?.metadata?.event_type || "payment_failure";
+        const surfaceLabel =
+          srcType === "checkout_abandonment" ? "CHECKOUT ABANDONMENT" :
+          srcType === "subscription_failure" || srcType === "subscription_payment_failed" ? "SUBSCRIPTION RENEWAL" :
+          srcType === "mandate_failure" || srcType === "mandate_failed" ? "MANDATE / AUTOPAY" :
+          srcType === "overdue_receivable" || srcType === "invoice_overdue" ? "B2B OVERDUE RECEIVABLE" :
+          "PAYMENT FAILURE";
+
+        const surfaceDetail =
+          liveDetail?.metadata?.invoice_number || liveDetail?.external_id || liveDetail?.metadata?.subscription_id || null;
+
         const steps = [
-          { num: 1, label: "DETECTED", desc: "Risk Event" },
-          { num: 2, label: "DIAGNOSED", desc: "Root Cause" },
-          { num: 3, label: "DECISION", desc: "Net EV & Policy" },
-          { num: 4, label: "ACTION", desc: "Bounded Dispatch" },
-          { num: 5, label: "VERIFICATION", desc: "Settlement Proof" },
+          { num: 1, label: "Detect", desc: "Risk Event" },
+          { num: 2, label: "Diagnose", desc: "Root Cause" },
+          { num: 3, label: "Decision", desc: "Net EV & Policy" },
+          { num: 4, label: "Action", desc: "Bounded Dispatch" },
+          { num: 5, label: "Verify", desc: "Settlement Proof" },
         ];
 
         return (
-          <div className="card" style={{ padding: "1.25rem", marginBottom: "1.5rem", background: "var(--bg-secondary)" }}>
-            <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "1rem" }}>
-              CASE RECOVERY LIFECYCLE
+          <div
+            className="card"
+            style={{
+              padding: "1.25rem 1.5rem",
+              marginBottom: "1.25rem",
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+            }}
+          >
+            {/* TOP METADATA & OUTCOME STRIP */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                <span
+                  style={{
+                    fontSize: "0.625rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    color: "var(--accent)",
+                    background: "rgba(56, 189, 248, 0.08)",
+                    border: "1px solid rgba(56, 189, 248, 0.2)",
+                    padding: "0.2rem 0.55rem",
+                    borderRadius: 4,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {surfaceLabel}
+                </span>
+                {surfaceDetail && (
+                  <span style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--text-muted)" }}>
+                    Ref: <span className="font-mono" style={{ color: "var(--text-primary)", fontWeight: 600 }}>{surfaceDetail}</span>
+                  </span>
+                )}
+                <span style={{ color: "var(--border)" }}>·</span>
+                <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
+                  Customer: <strong style={{ color: "var(--text-primary)" }}>{customerName}</strong>
+                </span>
+              </div>
+
+              {/* OUTCOME STATUS PILL */}
+              <div>
+                {isRecovered && (
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      color: "#10b981",
+                      background: "rgba(16, 185, 129, 0.08)",
+                      border: "1px solid rgba(16, 185, 129, 0.25)",
+                      padding: "0.3rem 0.75rem",
+                      borderRadius: 6,
+                    }}
+                  >
+                    ✓ SETTLEMENT VERIFIED — ₹{(amountAtRiskMinor / 100).toLocaleString()} RECOVERED
+                  </span>
+                )}
+                {isPendingVer && (
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      color: "#38bdf8",
+                      background: "rgba(56, 189, 248, 0.08)",
+                      border: "1px solid rgba(56, 189, 248, 0.25)",
+                      padding: "0.3rem 0.75rem",
+                      borderRadius: 6,
+                    }}
+                  >
+                    ⏳ PENDING SETTLEMENT VERIFICATION
+                  </span>
+                )}
+                {isEscalated && (
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      color: "#f59e0b",
+                      background: "rgba(245, 158, 11, 0.08)",
+                      border: "1px solid rgba(245, 158, 11, 0.25)",
+                      padding: "0.3rem 0.75rem",
+                      borderRadius: 6,
+                    }}
+                  >
+                    ⚑ HUMAN REVIEW REQUIRED
+                  </span>
+                )}
+                {isStopped && (
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      color: "#f87171",
+                      background: "rgba(239, 68, 68, 0.08)",
+                      border: "1px solid rgba(239, 68, 68, 0.25)",
+                      padding: "0.3rem 0.75rem",
+                      borderRadius: 6,
+                    }}
+                  >
+                    🛑 POLICY STOPPED — CAPITAL PROTECTED
+                  </span>
+                )}
+              </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.5rem", position: "relative" }}>
+            {/* STEPPER TRACK PIPELINE */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.625rem" }}>
               {steps.map((st) => {
                 const isActive = st.num === currentStep;
                 const isPassed = st.num < currentStep || isRecovered;
@@ -277,148 +362,133 @@ export default function CaseWorkspace() {
                   <div
                     key={st.num}
                     style={{
-                      padding: "0.75rem",
-                      borderRadius: 8,
-                      textAlign: "center",
-                      background: isActive ? "rgba(59, 130, 246, 0.15)" : isPassed ? "rgba(16, 185, 129, 0.1)" : "var(--bg-primary)",
-                      border: `1.5px solid ${isActive ? "var(--accent)" : isPassed ? "#10b981" : "var(--border)"}`,
+                      padding: "0.625rem 0.75rem",
+                      borderRadius: 6,
+                      background: isActive
+                        ? "rgba(56, 189, 248, 0.06)"
+                        : isPassed
+                        ? "rgba(16, 185, 129, 0.04)"
+                        : "var(--bg-primary)",
+                      border: isActive
+                        ? "1px solid rgba(56, 189, 248, 0.3)"
+                        : isPassed
+                        ? "1px solid rgba(16, 185, 129, 0.18)"
+                        : "1px solid var(--border)",
+                      transition: "all 0.15s ease",
                     }}
                   >
-                    <div style={{ fontSize: "0.625rem", fontWeight: 800, color: isActive ? "var(--accent)" : isPassed ? "#10b981" : "var(--text-muted)" }}>
-                      STEP 0{st.num}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+                      <span style={{ fontSize: "0.5625rem", fontWeight: 700, color: isActive ? "var(--accent)" : isPassed ? "#10b981" : "var(--text-muted)", letterSpacing: "0.05em" }}>
+                        0{st.num}
+                      </span>
+                      {isPassed && <span style={{ fontSize: "0.6875rem", color: "#10b981", fontWeight: 800 }}>✓</span>}
                     </div>
-                    <div style={{ fontSize: "0.8125rem", fontWeight: 700, color: isActive ? "var(--text-primary)" : isPassed ? "#10b981" : "var(--text-secondary)", marginTop: 2 }}>
+                    <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: isActive ? "var(--text-primary)" : isPassed ? "#10b981" : "var(--text-secondary)" }}>
                       {st.label}
                     </div>
-                    <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 2 }}>
+                    <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 1 }}>
                       {st.desc}
                     </div>
                   </div>
                 );
               })}
             </div>
-
-            {/* STATUS HIGHLIGHT BANNER */}
-            <div style={{ marginTop: "1rem" }}>
-              {isRecovered && (
-                <div style={{ background: "rgba(16, 185, 129, 0.12)", border: "1px solid #10b981", color: "#34d399", padding: "0.875rem 1.125rem", borderRadius: 8, fontSize: "0.8125rem" }}>
-                  <strong style={{ fontSize: "0.875rem" }}>✓ SETTLEMENT VERIFIED — RECOVERED</strong>
-                  <div style={{ color: "var(--text-secondary)", marginTop: 2 }}>
-                    ₹{(amountAtRiskMinor / 100).toLocaleString()} verified recovered via webhook HMAC evidence. Settlement confirmed and logged in audit ledger.
-                  </div>
-                </div>
-              )}
-
-              {isPendingVer && (
-                <div style={{ background: "rgba(59, 130, 246, 0.12)", border: "1px solid #3b82f6", color: "#60a5fa", padding: "0.875rem 1.125rem", borderRadius: 8, fontSize: "0.8125rem" }}>
-                  <strong style={{ fontSize: "0.875rem" }}>PENDING VERIFICATION</strong>
-                  <div style={{ color: "var(--text-secondary)", marginTop: 2 }}>
-                    Payment link dispatched. Waiting for settlement evidence. Autonomous action executed; revenue will count as VERIFIED RECOVERED only after gateway settlement evidence is received.
-                  </div>
-                </div>
-              )}
-
-              {isEscalated && (
-                <div style={{ background: "rgba(245, 158, 11, 0.12)", border: "1px solid #f59e0b", color: "#fbbf24", padding: "0.875rem 1.125rem", borderRadius: 8, fontSize: "0.8125rem" }}>
-                  <strong style={{ fontSize: "0.875rem" }}>HUMAN REVIEW REQUIRED (ESCALATED)</strong>
-                  <div style={{ color: "var(--text-secondary)", marginTop: 2 }}>
-                    Automated recovery blocked by policy constraint ({liveDetail?.stopped_reason || liveTrace?.safety_decision?.reason || "Policy threshold exceeded"}). Routed to human review queue.
-                  </div>
-                </div>
-              )}
-
-              {isStopped && (
-                <div style={{ background: "rgba(239, 68, 68, 0.12)", border: "1px solid #ef4444", color: "#f87171", padding: "0.875rem 1.125rem", borderRadius: 8, fontSize: "0.8125rem" }}>
-                  <strong style={{ fontSize: "0.875rem" }}>STOPPED — POLICY SHIELD TRIGGERED</strong>
-                  <div style={{ color: "var(--text-secondary)", marginTop: 2 }}>
-                    Recovery stopped to preserve protected capital ({liveDetail?.stopped_reason || liveTrace?.safety_decision?.reason || "Fraud / hard decline policy block"}). Verified recovery: ₹0.
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         );
       })()}
 
-      {/* MONEY STORY FLOW */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      {/* ── TWO-COLUMN DASHBOARD GRID ───────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.25rem" }} className="grid-responsive-2-col">
+        <style jsx>{`
+          @media (min-width: 992px) {
+            .grid-responsive-2-col {
+              grid-template-columns: 1.7fr 1fr !important;
+            }
+          }
+        `}</style>
 
-        {/* 1. DECISION — Centerpiece */}
-        <RecoveryDecisionCard
-          trace={liveTrace}
-          detail={liveDetail}
-          itemId={id}
-          amountAtRiskMinor={amountAtRiskMinor}
-          customerId={customerId}
-          customerName={customerName}
-        />
+        {/* ── MAIN / LEFT COLUMN (63% width) ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-        {/* 2. WHY THIS DECISION? */}
-        <RecoveryWhy
-          trace={liveTrace}
-          detail={liveDetail}
-          amountAtRiskMinor={amountAtRiskMinor}
-        />
+          {/* 1. DECISION CENTERPIECE */}
+          <RecoveryDecisionCard
+            trace={liveTrace}
+            detail={liveDetail}
+            itemId={id}
+            amountAtRiskMinor={amountAtRiskMinor}
+            customerId={customerId}
+            customerName={customerName}
+          />
 
-        {/* 3. SELECTED INTERVENTION */}
-        <SelectedIntervention
-          trace={liveTrace}
-          detail={liveDetail}
-        />
+          {/* 2. SELECTED INTERVENTION */}
+          <SelectedIntervention
+            trace={liveTrace}
+            detail={liveDetail}
+          />
 
-        {/* 4. ALTERNATIVES CONSIDERED */}
-        <AlternativesTable
-          trace={liveTrace}
-        />
+          {/* 3. SETTLEMENT RECEIPT (If verified) */}
+          <RecoveryReceipt
+            trace={liveTrace}
+            detail={liveDetail}
+          />
 
-        {/* 5. POLICY CHECK */}
-        <PolicyCard
-          trace={liveTrace}
-          detail={liveDetail}
-        />
+          {/* 4. ALTERNATIVES CONSIDERED TABLE */}
+          <AlternativesTable
+            trace={liveTrace}
+          />
 
-        {/* 6. RECOVERY ECONOMICS */}
-        <RecoveryEconomics
-          trace={liveTrace}
-          detail={liveDetail}
-        />
+          {/* 5. CASE TIMELINE & AUDIT LOG */}
+          <CaseTimeline
+            trace={liveTrace}
+            detailAuditEvents={liveDetail?.audit_events}
+          />
+        </div>
 
-        {/* 7. RECOVERY RECEIPT & SETTLEMENT PROOF */}
-        <RecoveryReceipt
-          trace={liveTrace}
-          detail={liveDetail}
-        />
+        {/* ── SIDEBAR / RIGHT COLUMN (37% width) ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-        {/* 8. RECOVERY TIMELINE */}
-        <CaseTimeline
-          trace={liveTrace}
-          detailAuditEvents={liveDetail?.audit_events}
-        />
+          {/* 1. DECISION INTELLIGENCE ("WHY THIS DECISION?") */}
+          <RecoveryWhy
+            trace={liveTrace}
+            detail={liveDetail}
+            amountAtRiskMinor={amountAtRiskMinor}
+          />
 
-      </div>
+          {/* 2. POLICY GATE & GUARDRAILS */}
+          <PolicyCard
+            trace={liveTrace}
+            detail={liveDetail}
+          />
 
-      {/* SECONDARY CONTEXT — Collapsible */}
-      <div style={{ marginTop: "1.5rem" }}>
-        <div className="card" style={{ padding: "1rem 1.25rem", borderLeft: "4px solid #6366f1" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-              Supporting Context
+          {/* 3. RECOVERY ECONOMICS */}
+          <RecoveryEconomics
+            trace={liveTrace}
+            detail={liveDetail}
+          />
+
+          {/* 4. SUPPORTING CUSTOMER CONTEXT (COLLAPSIBLE) */}
+          <div className="card" style={{ padding: "1rem 1.25rem", borderLeft: "3px solid #6366f1" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+                Customer 360 & System Trust
+              </div>
+              <button onClick={() => setTechOpen(!techOpen)} className="btn-ghost" style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
+                {techOpen ? "Hide ▲" : "Show ▼"}
+              </button>
             </div>
-            <button onClick={() => setTechOpen(!techOpen)} className="btn-ghost" style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem" }}>
-              {techOpen ? "Hide ▲" : "Show ▼"}
-            </button>
+
+            {techOpen && (
+              <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <CustomerContext
+                  profile={customerProfile}
+                  customerId={customerId}
+                  customerName={customerName}
+                />
+                <TrustPanel />
+              </div>
+            )}
           </div>
 
-          {techOpen && (
-            <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <CustomerContext
-                profile={customerProfile}
-                customerId={customerId}
-                customerName={customerName}
-              />
-              <TrustPanel />
-            </div>
-          )}
         </div>
       </div>
 

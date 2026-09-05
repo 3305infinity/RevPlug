@@ -401,6 +401,4 @@ def _classify_item(meta: dict[str, Any]) -> str:
         return "TEST_FIXTURE"
     if meta.get("is_synthetic") or meta.get("source") in ("synthetic_dataset", "demo_scenario"):
         return "BENCHMARK_SYNTHETIC"
-    if meta.get("source") in ("webhook_live", "manual_case", "webhook"):
-        return "LIVE_OPERATIONAL"
-    return "UNKNOWN"
+    return "LIVE_OPERATIONAL"

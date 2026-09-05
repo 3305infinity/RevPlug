@@ -210,8 +210,9 @@ if _persistence_mode == "postgres":
 else:
     _container = create_persistence_container("memory")
 
-# Clean operational recovery store on startup so RevPlug starts completely clean
-_container.reset_demo_data()
+# Initialize operational recovery store with canonical demo state
+from app.dashboard_api import seed_demo_state
+seed_demo_state(_container)
 
 # Enable CORS on the default app
 app.add_middleware(

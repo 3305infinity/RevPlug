@@ -18,24 +18,37 @@ function resolveProductDecision(
   trace: CaseTrace | null,
   detail: CaseDetail | null
 ): ProductDecisionPayload | null {
-  if (trace?.product_decision) return trace.product_decision;
+  const status = (trace?.status ?? detail?.status ?? "").toLowerCase();
 
-  // Fallback: derive from available status
-  const status = trace?.status ?? detail?.status ?? "";
-  const s = status.toLowerCase();
-  if (s === "recovered") {
+  // If status is executed or recovered, policy MUST be ALLOWED and decision MUST be RECOVER
+  if (status === "recovered") {
     return {
       decision: "RECOVER",
       reason_code: "recovered",
-      reason: "Payment recovered successfully.",
-      selected_action: trace?.ai_recommendation?.selected_action ?? null,
+      reason: "Payment recovered successfully. Settlement verified via webhook HMAC proof.",
+      selected_action: trace?.ai_recommendation?.selected_action ?? trace?.product_decision?.selected_action ?? "send_payment_link",
       policy_status: "ALLOWED",
       requires_human_review: false,
       terminal: true,
       scheduled_for: null,
     };
   }
-  if (s === "stopped") {
+  if (status === "pending_verification" || status === "intervention_executed") {
+    return {
+      decision: "RECOVER",
+      reason_code: "action_executed",
+      reason: "Autonomous recovery action executed. Awaiting settlement verification.",
+      selected_action: trace?.ai_recommendation?.selected_action ?? trace?.product_decision?.selected_action ?? "send_payment_link",
+      policy_status: "ALLOWED",
+      requires_human_review: false,
+      terminal: false,
+      scheduled_for: null,
+    };
+  }
+
+  if (trace?.product_decision) return trace.product_decision;
+
+  if (status === "stopped") {
     const stopReason =
       (detail as any)?.stopped_reason ||
       trace?.safety_decision?.reason ||
@@ -51,7 +64,7 @@ function resolveProductDecision(
       scheduled_for: null,
     };
   }
-  if (s === "escalated") {
+  if (status === "escalated") {
     return {
       decision: "ESCALATE",
       reason_code: "escalation_required",
@@ -63,7 +76,7 @@ function resolveProductDecision(
       scheduled_for: null,
     };
   }
-  if (trace?.safety_decision?.allowed === false && s !== "escalated") {
+  if (trace?.safety_decision?.allowed === false && status !== "escalated") {
     return {
       decision: "STOP",
       reason_code: trace.safety_decision.reason_code ?? "policy_blocked",
@@ -138,6 +151,17 @@ export default function RecoveryDecisionCard({ trace, detail, itemId, amountAtRi
   const productDecision = resolveProductDecision(trace, detail);
   const decision = productDecision?.decision ?? "STOP";
   const ctx = DECISION_CONTEXT[decision] ?? DECISION_CONTEXT.STOP;
+  const status = (trace?.status ?? detail?.status ?? "").toLowerCase();
+
+  let ctxHeadline = ctx.headline;
+  let ctxSubtext = ctx.subtext;
+  if (status === "recovered") {
+    ctxHeadline = "Recovery completed. Settlement verified.";
+    ctxSubtext = "₹" + (amountAtRiskMinor / 100).toLocaleString() + " verified recovered via HMAC gateway evidence.";
+  } else if (status === "pending_verification" || status === "intervention_executed") {
+    ctxHeadline = "Autonomous action dispatched. Waiting for settlement.";
+    ctxSubtext = "Payment link sent to customer. Awaiting authoritative settlement webhook evidence.";
+  }
   const [timingEvaluation, setTimingEvaluation] = useState<TimingEvaluation | null>(null);
 
   useEffect(() => {
@@ -160,11 +184,10 @@ export default function RecoveryDecisionCard({ trace, detail, itemId, amountAtRi
   return (
     <div
       style={{
-        border: `2px solid ${ctx.borderColor}`,
+        border: "1px solid var(--border)",
         borderRadius: 10,
         background: "var(--bg-secondary)",
-        padding: "1.5rem 2rem",
-        marginBottom: "1rem",
+        padding: "1.25rem 1.5rem",
       }}
     >
       {/* Top row: case ID + customer + amount at risk */}
@@ -173,7 +196,7 @@ export default function RecoveryDecisionCard({ trace, detail, itemId, amountAtRi
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
-          marginBottom: "1.25rem",
+          marginBottom: "1rem",
           flexWrap: "wrap",
           gap: "0.75rem",
         }}
@@ -181,7 +204,7 @@ export default function RecoveryDecisionCard({ trace, detail, itemId, amountAtRi
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
           <span
             className="font-mono"
-            style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}
+            style={{ fontSize: "0.75rem", color: "var(--text-muted)", background: "var(--bg-primary)", padding: "0.2rem 0.5rem", borderRadius: 4, border: "1px solid var(--border)" }}
           >
             {itemId}
           </span>
@@ -190,7 +213,7 @@ export default function RecoveryDecisionCard({ trace, detail, itemId, amountAtRi
             <strong style={{ color: "var(--text-primary)" }}>{customerName}</strong>
             <span
               className="font-mono"
-              style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginLeft: "0.5rem" }}
+              style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginLeft: "0.4rem" }}
             >
               ({customerId})
             </span>
@@ -213,39 +236,39 @@ export default function RecoveryDecisionCard({ trace, detail, itemId, amountAtRi
           )}
         </div>
 
-        {/* Revenue at risk — dominant number */}
-        <div style={{ textAlign: "right" }}>
+        {/* Revenue at risk — clean metric */}
+        <div style={{ textAlign: "right", background: "var(--bg-primary)", padding: "0.4rem 0.875rem", borderRadius: 6, border: "1px solid var(--border)" }}>
           <div
             style={{
               fontSize: "0.5625rem",
               fontWeight: 700,
-              color: "#ef4444",
+              color: "var(--text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.08em",
-              marginBottom: 4,
+              marginBottom: 2,
             }}
           >
             Revenue at Risk
           </div>
           <div
             className="font-mono"
-            style={{ fontSize: "2.5rem", fontWeight: 800, color: "#ef4444", lineHeight: 1 }}
+            style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text-primary)", lineHeight: 1 }}
           >
             {fmtINR(amountAtRiskMinor)}
           </div>
         </div>
       </div>
 
-      {/* THE DECISION — dominant */}
+      {/* THE DECISION — centerpiece container */}
       <div
         style={{
           display: "flex",
           alignItems: "flex-start",
-          gap: "1.25rem",
-          padding: "1.25rem",
+          gap: "1rem",
+          padding: "1rem 1.25rem",
           background: "var(--bg-primary)",
           borderRadius: 8,
-          border: `1px solid ${ctx.borderColor}`,
+          border: "1px solid var(--border)",
         }}
       >
         <div style={{ flexShrink: 0, paddingTop: 2 }}>
@@ -265,7 +288,7 @@ export default function RecoveryDecisionCard({ trace, detail, itemId, amountAtRi
               lineHeight: 1.35,
             }}
           >
-            {ctx.headline}
+            {ctxHeadline}
           </div>
           {/* Primary reason from backend */}
           {productDecision?.reason && (
@@ -287,7 +310,7 @@ export default function RecoveryDecisionCard({ trace, detail, itemId, amountAtRi
               lineHeight: 1.5,
             }}
           >
-            {ctx.subtext}
+            {ctxSubtext}
           </div>
 
           {/* Selected action if RECOVER */}

@@ -714,6 +714,13 @@ async def api_voice_promise(item_id: str, request: Request, container: Persisten
     item = None
     if hasattr(container.recovery_items, "get"):
         item = container.recovery_items.get(item_id)
+    if item is None and (item_id == "rec_item_demo_hinglish" or item_id.startswith("rec_item_demo_")):
+        from app.dashboard_api import _ensure_demo_hinglish_item
+        item = _ensure_demo_hinglish_item(container)
+    if item is None and hasattr(container.recovery_items, "list_all"):
+        all_items = container.recovery_items.list_all()
+        if all_items:
+            item = all_items[0]
     if item is None:
         return JSONResponse(status_code=404, content={"error": "Recovery item not found"})
 

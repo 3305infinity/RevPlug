@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { CaseTrace, CaseDetail } from "@/lib/api";
 
 interface Props {
@@ -195,15 +196,25 @@ export default function SelectedIntervention({ trace, detail }: Props) {
 
   if (!selectedAction) return null;
 
-  const actionLabel = ACTION_LABELS[selectedAction] ?? selectedAction.replace(/_/g, " ");
-  const policyAllowed = trace?.safety_decision?.allowed ?? trace?.policy_evaluations?.allowed ?? null;
+  const status = (trace?.status ?? detail?.status ?? "").toLowerCase();
+  const isExecutedOrRecovered =
+    status === "recovered" ||
+    status === "pending_verification" ||
+    status === "intervention_executed" ||
+    status === "intervention_pending" ||
+    (trace?.execution as any)?.executed === true ||
+    (trace?.settlement_evidence as any)?.verified === true;
 
-  const execStatusRaw = trace?.execution?.status ?? "NOT_EXECUTED";
+  const policyAllowed = isExecutedOrRecovered ? true : (trace?.safety_decision?.allowed ?? trace?.policy_evaluations?.allowed ?? null);
+
+  const execStatusRaw = isExecutedOrRecovered ? "EXECUTED" : (trace?.execution?.status ?? "NOT_EXECUTED");
   const statusMeta =
     EXECUTION_STATUS_META[execStatusRaw] ?? EXECUTION_STATUS_META.NOT_EXECUTED;
 
   const expectedMinor = trace?.expected_recovery_minor ?? 0;
   const costMinor = trace?.intervention_cost_minor ?? 0;
+
+  const actionLabel = ACTION_LABELS[selectedAction] ?? selectedAction.replace(/_/g, " ");
 
   const confidence = trace?.ai_recommendation?.confidence;
   const userSafeReasoning = trace?.ai_recommendation?.user_safe_reasoning;
@@ -244,13 +255,14 @@ export default function SelectedIntervention({ trace, detail }: Props) {
               marginBottom: 4,
             }}
           >
-            Action
+            Proposed Action
           </div>
           <div
             style={{
               fontSize: "1.0625rem",
-              fontWeight: 700,
-              color: "#3b82f6",
+              fontWeight: 800,
+              color: "var(--accent)",
+              fontFamily: "monospace",
             }}
           >
             {actionLabel}
@@ -266,7 +278,7 @@ export default function SelectedIntervention({ trace, detail }: Props) {
             <div
               style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}
             >
-              Confidence: {Math.round(Number(confidence) * 100)}%
+              AI proposal confidence: {Math.round(Number(confidence) * 100)}%
             </div>
           )}
         </div>
@@ -387,6 +399,28 @@ export default function SelectedIntervention({ trace, detail }: Props) {
             {statusMeta.label}
           </div>
         </div>
+      </div>
+
+      {/* HINGLISH VOICE PTP ASSISTANT SHORTCUT */}
+      <div style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "0.75rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+          🎙️ <strong style={{ color: "var(--text-primary)" }}>Hinglish Voice PTP Assistant:</strong> Extract payment promises from conversational Hinglish voice transcripts.
+        </div>
+        <Link
+          href={`/recovery/${trace?.item_id || "rec_item_demo_hinglish"}/voice-call`}
+          style={{
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            color: "#38bdf8",
+            background: "rgba(56, 189, 248, 0.1)",
+            border: "1px solid rgba(56, 189, 248, 0.3)",
+            padding: "0.35rem 0.75rem",
+            borderRadius: 6,
+            textDecoration: "none",
+          }}
+        >
+          Launch Voice PTP Lab →
+        </Link>
       </div>
     </div>
   );

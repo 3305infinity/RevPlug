@@ -33,9 +33,6 @@ export default function ProductHomePage() {
         {/* WHY REVENUE LEAKS */}
         <WhyRevenueLeaks />
 
-        {/* ONE RECOVERY DECISION (WORKPLACE ARTIFACT) */}
-        <RecoveryCase />
-
         {/* THE CONTROL LOOP (DETECT / DECIDE / CONTROL / VERIFY) */}
         <ControlLoop />
 
@@ -47,6 +44,9 @@ export default function ProductHomePage() {
 
         {/* BENCHMARK / SYNTHETIC EVALUATION PROOF */}
         <BenchmarkProof />
+
+        {/* ONE RECOVERY DECISION (WORKPLACE ARTIFACT / PRODUCT PROOF) */}
+        <RecoveryCase />
 
         {/* RAZORPAY INTEGRATION & SETTLEMENT TRUST */}
         <RazorpayIntegration />

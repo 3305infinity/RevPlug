@@ -15,6 +15,8 @@ class FailureCategory(StrEnum):
     MANDATE_FAILURE = "mandate_failure"
     INVOICE_OVERDUE = "invoice_overdue"
     CHECKOUT_ABANDONMENT = "checkout_abandonment"
+    RECEIVABLE = "receivable"
+    MANDATE = "mandate"
 
 
 @dataclass(frozen=True, slots=True)

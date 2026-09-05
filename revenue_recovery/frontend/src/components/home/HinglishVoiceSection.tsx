@@ -74,7 +74,7 @@ export default function HinglishVoiceSection() {
               gap: "0.35rem",
             }}
           >
-            <span>Try Hinglish Voice PTP interactive demo →</span>
+            <span>Try Hinglish Voice PTP Lab →</span>
           </Link>
         </div>
 
