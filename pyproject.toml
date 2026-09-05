@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68,<74"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "revenue-recovery"
+version = "0.1.0"
+description = "AI-assisted revenue recovery engine foundation"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi==0.115.6",
+  "httpx==0.28.1",
+  "psycopg[binary,pool]>=3.1.18",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==8.3.3",
+  "ruff==0.6.9",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+pythonpath = [".", "app"]
+filterwarnings = [
+    "ignore::DeprecationWarning:pytest",
+    "ignore::DeprecationWarning:datetime",
+]
+markers = [
+    "live_ai: tests requiring a configured live AI provider",
+    "live_razorpay: tests requiring Razorpay test-mode credentials",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]

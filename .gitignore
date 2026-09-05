@@ -1,45 +1,32 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
 .venv/
 .pytest_cache/
 .mypy_cache/
 
-# Environment
+# Environment files
 .env
 .env.*
 !.env.example
 
-# Next.js
+# Next.js / Frontend
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+frontend/*.tsbuildinfo
 
-# Logs
+# Coverage & Logs
+coverage/
+.coverage
 *.log
 
-# OS
+# OS & IDE
 .DS_Store
 Thumbs.db
-frontend/.next/
-frontend/node_modules/
-__pycache__/
-*.pyc
-
-frontend/.next/
-frontend/node_modules/
-__pycache__/
-*.pyc
-.venv/
-.env
-
-frontend/.next/
-frontend/node_modules/
-.venv/
-__pycache__/
-*.pyc
-
-# Next.js
-revenue_recovery/frontend/.next/
-revenue_recovery/frontend/node_modules/
-
+.idea/
+.vscode/
